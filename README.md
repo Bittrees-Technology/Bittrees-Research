@@ -93,6 +93,29 @@ Deploys to Vercel from `main`, served at `research.bittrees.org`. Set the enviro
 variables above in the Vercel project; connect an Upstash KV store for the roles/rooms
 registry and cross-device messenger sync.
 
+### Read-only release gate
+
+Use the release gate before promotion, and again after any rollback. It never writes to
+production; it only captures a baseline snapshot, validates a canary URL, and compares the
+current surface back to the saved baseline.
+
+```bash
+yarn release:gate --mode baseline
+yarn release:gate --mode canary --base-url https://<preview-host> --baseline output/release-gates/<baseline-run>/run.json
+yarn release:gate --mode rollback-check --baseline output/release-gates/<baseline-run>/run.json
+```
+
+What it checks:
+
+- SPA routes stay reachable (`/`, `/research`, `/forum`, `/chat`, `/membership`, `/bnote`,
+  `/bit`, `/contribute`, `/admin`)
+- `/api/community`, `/api/rooms`, `/api/usersync`, and the malformed-input `/api/gate`
+  contract stay healthy
+- Rollback verification compares status and structural response signatures to the saved
+  baseline instead of trying to mutate live state
+
+Each run writes `run.json` and `report.md` under `output/release-gates/`.
+
 ---
 
 *Informational only — not investment, legal, or tax advice, and not an offer to sell any
