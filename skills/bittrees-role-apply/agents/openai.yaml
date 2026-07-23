@@ -1,0 +1,4 @@
+interface:
+  display_name: "Bittrees Role Apply"
+  short_description: "Prepare local Bittrees role applications"
+  default_prompt: "Use $bittrees-role-apply to plan a guarded local role application fixture."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Bittrees Contributor Admin"
+  short_description: "Review local Bittrees contributor fixtures"
+  default_prompt: "Use $bittrees-contributor-admin to validate a local contributor-admin fixture."
