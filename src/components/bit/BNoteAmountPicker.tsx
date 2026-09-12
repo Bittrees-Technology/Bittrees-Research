@@ -80,7 +80,7 @@ export function BNoteAmountPicker({
                                         className="w-24 px-3 py-2 border border-gray-300 rounded-md text-right"
                                         placeholder="0"
                                     />
-                                    <button
+                                    <button data-insights="max"
                                         onClick={() => setMaxAmount(denomination)}
                                         className="px-3 py-2 bg-secondary text-white rounded-md hover:bg-secondary/90 text-sm"
                                         disabled={maxAmount === BigInt(0)}

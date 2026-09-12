@@ -139,7 +139,7 @@ function RolesTab() {
               <option key={r.label} value={r.label}>{r.label}</option>
             ))}
           </select>
-          <button
+          <button data-insights="assign"
             className="btn-primary"
             disabled={busy || !isAddress(target.trim()) || !role}
             onClick={() => run(() => assignRole({ walletClient: walletClient!, account: address as `0x${string}`, target: target.trim(), label: role, color: roleDefs.find((r) => r.label === role)?.color }))}
@@ -204,7 +204,7 @@ function RolesTab() {
               <span className="badge" style={{ color: r.color, borderColor: r.color }}>{r.label}</span>
               <span style={{ fontSize: "0.8rem", color: "var(--color-ink-muted)", flex: 1 }}>{r.description}{r.locked ? " · built-in" : ""}</span>
               {!r.locked && (
-                <button onClick={() => run(() => deleteRole({ walletClient: walletClient!, account: address as `0x${string}`, label: r.label }))} disabled={busy} style={{ background: "none", border: "none", cursor: "pointer", color: "#9a2a2a", fontSize: "0.85rem" }}>delete</button>
+                <button data-insights="delete" onClick={() => run(() => deleteRole({ walletClient: walletClient!, account: address as `0x${string}`, label: r.label }))} disabled={busy} style={{ background: "none", border: "none", cursor: "pointer", color: "#9a2a2a", fontSize: "0.85rem" }}>delete</button>
               )}
             </div>
           ))}
@@ -213,7 +213,7 @@ function RolesTab() {
           <input value={newLabel} onChange={(e) => setNewLabel(e.target.value)} placeholder="New role label" style={{ ...input, width: "180px" }} />
           <input type="color" value={newColor} onChange={(e) => setNewColor(e.target.value)} style={{ width: "40px", height: "34px", border: "1px solid var(--color-border)", borderRadius: "2px", background: "#fff" }} />
           <input value={newDesc} onChange={(e) => setNewDesc(e.target.value)} placeholder="Description (optional)" style={{ ...input, flex: 1, minWidth: "180px" }} />
-          <button
+          <button data-insights="create-role"
             className="btn-ghost"
             disabled={busy || !newLabel.trim()}
             onClick={() => {
@@ -360,8 +360,8 @@ function ModerationTab() {
               <p style={{ fontSize: "0.875rem", color: "var(--color-ink)", margin: "0.3rem 0 0" }}>{f.preview || id}</p>
             </div>
             <div style={{ display: "flex", gap: "0.5rem" }}>
-              <button className="btn-ghost" disabled={busy} onClick={() => act(id, "approve")}>Keep</button>
-              <button className="btn-ghost" disabled={busy} onClick={() => act(id, "remove")} style={{ color: "#9a2a2a", borderColor: "#e6b3b3" }}>Remove</button>
+              <button data-insights="keep" className="btn-ghost" disabled={busy} onClick={() => act(id, "approve")}>Keep</button>
+              <button data-insights="remove" className="btn-ghost" disabled={busy} onClick={() => act(id, "remove")} style={{ color: "#9a2a2a", borderColor: "#e6b3b3" }}>Remove</button>
             </div>
           </div>
         </div>

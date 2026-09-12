@@ -141,7 +141,7 @@ export function PeoplePanel({ onMessage, onBroadcast }: {
               <textarea value={bcastText} onChange={(e) => setBcastText(e.target.value)} placeholder={`One message to all ${shown.length} shown…`} rows={2} style={{ ...inputStyle, resize: "vertical", lineHeight: 1.5 }} />
               <div style={{ display: "flex", gap: "0.4rem", alignItems: "center", flexWrap: "wrap" }}>
                 <button className="btn-primary" onClick={sendAll} disabled={bcasting || !bcastText.trim()} style={{ opacity: bcasting || !bcastText.trim() ? 0.55 : 1, padding: "0.4rem 0.8rem", fontSize: "0.82rem" }}>{bcasting ? "Sending…" : `Send to ${shown.length}`}</button>
-                <button onClick={() => { setBcastOpen(false); setBcastText(""); }} style={miniBtn}>Cancel</button>
+                <button data-insights="cancel" onClick={() => { setBcastOpen(false); setBcastText(""); }} style={miniBtn}>Cancel</button>
               </div>
             </>
           )}
@@ -201,11 +201,11 @@ function ContactRow({ owner, address, label, hasEns, onMessage }: { owner?: stri
       {editing ? (
         <span style={{ display: "inline-flex", gap: "0.3rem", alignItems: "center", flexShrink: 0 }}>
           <input autoFocus value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => e.key === "Enter" && save()} placeholder="Private label" style={{ ...inputStyle, width: "120px", fontSize: "0.78rem", padding: "0.3rem 0.45rem" }} />
-          <button onClick={save} style={miniBtn}>Save</button>
+          <button data-insights="save" onClick={save} style={miniBtn}>Save</button>
         </span>
       ) : (
         <span style={{ display: "inline-flex", gap: "0.3rem", flexShrink: 0 }}>
-          <button onClick={onMessage} style={miniBtn}>Message</button>
+          <button data-insights="message" onClick={onMessage} style={miniBtn}>Message</button>
           {/* Private labels only for raw 0x contacts — an ENS name already names them. */}
           {!hasEns && <button onClick={() => { setDraft(label ?? ""); setEditing(true); }} title="Edit private label" style={miniBtn}>✎</button>}
           <button onClick={() => removeContact(owner, address)} title="Remove contact" style={{ ...miniBtn, color: "#9a2a2a" }}>×</button>
@@ -223,7 +223,7 @@ function PersonRow({ address, label, onMessage, saved, onToggleContact, onBlock 
         <UserBadges address={address} />
       </span>
       <span style={{ display: "inline-flex", gap: "0.4rem", flexShrink: 0 }}>
-        <button onClick={() => onMessage(address)} style={miniBtn}>Message</button>
+        <button data-insights="message" onClick={() => onMessage(address)} style={miniBtn}>Message</button>
         <button onClick={onToggleContact} title={saved ? "Remove contact" : "Save contact"} style={{ ...miniBtn, color: saved ? "#9a2a2a" : "var(--color-ink-muted)" }}>{saved ? "★" : "☆"}</button>
         <button onClick={onBlock} title="Block — hide and stop DMs" style={{ ...miniBtn, color: "#9a2a2a" }}>⊘</button>
       </span>

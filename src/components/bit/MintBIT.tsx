@@ -191,7 +191,7 @@ export function MintBIT() {
                             </a>
                         </p>
                     )}
-                    <button
+                    <button data-insights="make-another-transaction"
                         onClick={() => {
                             setTransactionComplete(false);
                             setTransactionHash(undefined);
@@ -212,7 +212,7 @@ export function MintBIT() {
             <div className="mb-8">
                 <div className="flex justify-center">
                     <div className="bg-gray-100 rounded-lg p-1">
-                        <button
+                        <button data-insights="mint-bit"
                             onClick={() => setMode("mint")}
                             className={`px-6 py-2 rounded-md font-semibold transition-colors ${
                                 mode === "mint"
@@ -222,7 +222,7 @@ export function MintBIT() {
                         >
                             Mint BIT
                         </button>
-                        <button
+                        <button data-insights="redeem-bit"
                             onClick={() => setMode("redeem")}
                             className={`px-6 py-2 rounded-md font-semibold transition-colors ${
                                 mode === "redeem"

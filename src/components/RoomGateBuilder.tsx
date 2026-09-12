@@ -71,12 +71,12 @@ export function RoomGateBuilder({ gate, roleOptions }: { gate: ReturnType<typeof
             </>
           )}
           {rules.length > 1 && (
-            <button onClick={() => setRules((cur) => cur.filter((_, j) => j !== i))} aria-label="Remove rule" style={{ background: "none", border: "none", cursor: "pointer", color: "#9a2a2a", fontSize: "1rem", lineHeight: 1, padding: 0 }}>×</button>
+            <button data-insights="remove-rule" onClick={() => setRules((cur) => cur.filter((_, j) => j !== i))} aria-label="Remove rule" style={{ background: "none", border: "none", cursor: "pointer", color: "#9a2a2a", fontSize: "1rem", lineHeight: 1, padding: 0 }}>×</button>
           )}
         </div>
       ))}
 
-      <button type="button" onClick={() => setRules((cur) => [...cur, emptyRule()])} style={{ ...createBtn, alignSelf: "flex-start" }}>+ Add rule</button>
+      <button data-insights="add-rule" type="button" onClick={() => setRules((cur) => [...cur, emptyRule()])} style={{ ...createBtn, alignSelf: "flex-start" }}>+ Add rule</button>
     </>
   );
 }

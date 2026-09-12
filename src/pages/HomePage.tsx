@@ -22,7 +22,7 @@ function HomePage() {
             </Link>
             <footer className="flex flex-col gap-6 mx-auto mt-4">
             <span>
-              <a className="hover:text-green-700" href="https://bittrees.org">
+              <a data-insights="navigate-bittreesorg/" className="hover:text-green-700" href="https://bittrees.org">
                 <BackArrow />
                 <span className="inline-block align-middle underline font-bold font-newtimesroman">
                   Bittrees Home

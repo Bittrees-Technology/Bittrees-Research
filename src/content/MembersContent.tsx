@@ -8,7 +8,7 @@ export function MembersContent() {
                     <ul className="max-w-md space-y-1 text-gray-400 list-disc list-outside ms-4 dark:text-gray-400 ">
                         {/*<li className="p-2">Gift Membership</li>*/}
                         <li className="p-2">
-                            <a
+                            <a data-insights="navigate-etherscanio/token/0xc8121e650bd797d8b9dad00227a9a77ef603a84ac"
                                 className="text-black no-underline hover:underline hover:text-green-700"
                                 target="_blank"
                                 rel="noreferrer"
@@ -36,7 +36,7 @@ export function MembersContent() {
                             </Link>
                         </li>
                         <li className="p-2">
-                            <a
+                            <a data-insights="navigate-etherscanio/address/0xf1aaffc982b5f553a730a9ec134715a547f1fe8"
                                 className="block text-black no-underline hover:underline hover:text-green-700"
                                 target="_blank"
                                 rel="noreferrer"
@@ -44,7 +44,7 @@ export function MembersContent() {
                             >
                                 BNOTE Contract on Ethereum
                             </a>
-                            <a
+                            <a data-insights="navigate-basescanorg/address/0xf1aaffc982b5f553a730a9ec134715a547f1fe8"
                                 className="block text-black no-underline hover:underline hover:text-green-700"
                                 target="_blank"
                                 rel="noreferrer"
@@ -55,7 +55,7 @@ export function MembersContent() {
                         </li>
 
                         <li className="p-2">
-                            <a
+                            <a data-insights="navigate-metaforoio/g/bittreesresearch"
                                 className="text-black no-underline hover:underline hover:text-green-700"
                                 target="_blank"
                                 rel="noreferrer"
@@ -66,7 +66,7 @@ export function MembersContent() {
                         </li>
 
                         <li className="p-2">
-                            <a
+                            <a data-insights="navigate-snapshotbox//sresearchbittreeseth"
                                 className="text-black no-underline hover:underline hover:text-green-700"
                                 target="_blank"
                                 rel="noreferrer"
@@ -96,7 +96,7 @@ export function MembersContent() {
                             </Link>
                         </li>
                         <li className="p-2">
-                            <a
+                            <a data-insights="navigate-docsgooglecom/document/d/1ncy1zhryfzpah9hrsqcmo6z3dftxtfwv1rx"
                                 className="text-black no-underline hover:underline hover:text-green-700"
                                 target="_blank"
                                 rel="noreferrer"
@@ -106,7 +106,7 @@ export function MembersContent() {
                             </a>
                         </li>
                         <li className="p-2">
-                            <a
+                            <a data-insights="navigate-docsgooglecom/drawings/d/1ayqj8boh7o8dcrhsbsutlvrs0fptoueioxq"
                                 className="text-black no-underline hover:underline hover:text-green-700"
                                 target="_blank"
                                 rel="noreferrer"
@@ -116,7 +116,7 @@ export function MembersContent() {
                             </a>
                         </li>
                         <li className="p-2">
-                            <a
+                            <a data-insights="navigate-guildxyz/bittrees-research"
                                 className="text-black no-underline hover:underline hover:text-green-700"
                                 target="_blank"
                                 rel="noreferrer"
@@ -126,7 +126,7 @@ export function MembersContent() {
                             </a>
                         </li>
                         <li className="p-2">
-                            <a
+                            <a data-insights="navigate-twittercom/bresearch"
                                 className="text-black no-underline hover:underline hover:text-green-700"
                                 target="_blank"
                                 rel="noreferrer"
@@ -136,7 +136,7 @@ export function MembersContent() {
                             </a>
                         </li>
                         <li className="p-2">
-                            <a
+                            <a data-insights="navigate-paragraphxyz/bresearch"
                                 className="text-black no-underline hover:underline hover:text-green-700"
                                 target="_blank"
                                 rel="noreferrer"

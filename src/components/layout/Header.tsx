@@ -129,7 +129,7 @@ export default function Header() {
             <MemberChip />
           </span>
           <ConnectButton label="Connect" chainStatus="icon" showBalance={false} accountStatus="avatar" />
-          <button
+          <button data-insights="toggle-navigation"
             className="nav-mobile-toggle"
             onClick={() => setMobileOpen((v) => !v)}
             aria-label="Toggle navigation"

@@ -148,7 +148,7 @@ function MessengerHome({ xmtp }: { xmtp: ReturnType<typeof useXmtp> }) {
   if (roomsOpen) {
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-        <button onClick={backToChats} style={{ ...linkBtn, alignSelf: "flex-start", fontSize: "0.85rem", color: "var(--color-primary-hover)", display: "inline-flex", alignItems: "center", gap: "0.3rem" }}>
+        <button data-insights="all-chats" onClick={backToChats} style={{ ...linkBtn, alignSelf: "flex-start", fontSize: "0.85rem", color: "var(--color-primary-hover)", display: "inline-flex", alignItems: "center", gap: "0.3rem" }}>
           <IconBack /> All chats
         </button>
         <CommunityGroups />
@@ -442,8 +442,8 @@ function SearchView({ xmtp }: { xmtp: ReturnType<typeof useXmtp> }) {
       />
       {looksLikeTarget && (
         <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
-          <button className="btn-primary" onClick={start} style={{ padding: "0.4rem 0.8rem", fontSize: "0.82rem" }}>Start chat</button>
-          <button onClick={save} style={{ padding: "0.4rem 0.7rem", fontSize: "0.82rem", fontWeight: 600, color: "var(--color-ink)", background: "#fff", border: "1px solid var(--color-border)", borderRadius: "2px", cursor: "pointer" }}>☆ Save contact</button>
+          <button data-insights="start-chat" className="btn-primary" onClick={start} style={{ padding: "0.4rem 0.8rem", fontSize: "0.82rem" }}>Start chat</button>
+          <button data-insights="save-contact" onClick={save} style={{ padding: "0.4rem 0.7rem", fontSize: "0.82rem", fontWeight: 600, color: "var(--color-ink)", background: "#fff", border: "1px solid var(--color-border)", borderRadius: "2px", cursor: "pointer" }}>☆ Save contact</button>
         </div>
       )}
       {msg && <p style={{ ...dim, margin: 0 }}>{msg}</p>}
@@ -496,7 +496,7 @@ function SettingsView({ xmtp }: { xmtp: ReturnType<typeof useXmtp> }) {
             {blocked.map((addr) => (
               <div key={addr} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem", padding: "0.3rem 0" }}>
                 <span style={{ minWidth: 0, overflow: "hidden" }}><AddressName address={addr} /></span>
-                <button onClick={() => { unblockAddr(addr); void xmtp.setPeerConsent(addr, true); }} style={{ ...linkBtn, fontSize: "0.74rem", color: "var(--color-primary-hover)", flexShrink: 0 }}>Unblock</button>
+                <button data-insights="unblock" onClick={() => { unblockAddr(addr); void xmtp.setPeerConsent(addr, true); }} style={{ ...linkBtn, fontSize: "0.74rem", color: "var(--color-primary-hover)", flexShrink: 0 }}>Unblock</button>
               </div>
             ))}
           </div>
@@ -559,7 +559,7 @@ function SyncSection({ owner }: { owner?: string }) {
         {!owner ? (
           <span style={{ ...dim, fontSize: "0.72rem", flexShrink: 0 }}>Connect</span>
         ) : enabled ? (
-          <button onClick={turnOff} style={{ ...settingsBtn, flexShrink: 0 }}>Turn off</button>
+          <button data-insights="turn-off" onClick={turnOff} style={{ ...settingsBtn, flexShrink: 0 }}>Turn off</button>
         ) : (
           <button className="btn-primary" disabled={busy || !walletClient} onClick={turnOn} style={{ padding: "0.4rem 0.8rem", fontSize: "0.82rem", opacity: busy || !walletClient ? 0.6 : 1, flexShrink: 0 }}>{busy ? "Confirm in wallet…" : canRestore ? "Turn on & restore" : "Turn on"}</button>
         )}
@@ -604,7 +604,7 @@ function ProfileSection({ owner }: { owner?: string }) {
                 {ensAvatar ? "Change picture ↗" : "Upload picture ↗"}
               </a>
             ) : (
-              <button disabled title="Set a primary ENS name first to add a picture" style={{ ...settingsBtn, opacity: 0.5, cursor: "default" }}>Upload picture</button>
+              <button data-insights="upload-picture" disabled title="Set a primary ENS name first to add a picture" style={{ ...settingsBtn, opacity: 0.5, cursor: "default" }}>Upload picture</button>
             )}
           </div>
         </div>
@@ -836,7 +836,7 @@ function EnsRegister({ name, priceEth }: { name: string; priceEth: string }) {
       ) : expired ? (
         <>
           <p style={{ ...dim, fontSize: "0.74rem", margin: "0 0 0.4rem" }}>Your commit expired (older than 24h). Start again.</p>
-          <button onClick={reset} style={settingsBtn}>Restart</button>
+          <button data-insights="restart" onClick={reset} style={settingsBtn}>Restart</button>
         </>
       ) : remaining > 0 ? (
         <p style={{ ...dim, fontSize: "0.78rem", margin: 0 }}>Step 1 confirmed ✓ — waiting {remaining}s before step 2 (required by ENS)…</p>
@@ -845,7 +845,7 @@ function EnsRegister({ name, priceEth }: { name: string; priceEth: string }) {
           <button className="btn-primary" disabled={phase === "registering"} onClick={doRegister} style={{ padding: "0.4rem 0.8rem", fontSize: "0.82rem", opacity: phase === "registering" ? 0.6 : 1 }}>
             {phase === "registering" ? "Confirm step 2 in wallet…" : `Complete registration (~${priceEth} ETH + gas)`}
           </button>
-          <button onClick={reset} style={{ ...settingsBtn, marginLeft: "0.4rem" }}>Cancel</button>
+          <button data-insights="cancel" onClick={reset} style={{ ...settingsBtn, marginLeft: "0.4rem" }}>Cancel</button>
         </>
       )}
       {err && <p role="alert" style={{ ...dim, color: "var(--color-ink)", fontSize: "0.72rem", margin: "0.4rem 0 0" }}>{err}</p>}
@@ -897,8 +897,8 @@ function EnsTool({ xmtp }: { xmtp: ReturnType<typeof useXmtp> }) {
       {r?.kind === "available" && <EnsRegister name={r.name} priceEth={r.priceEth} />}
       {foundAddr && (
         <div style={{ display: "flex", gap: "0.4rem", marginTop: "0.5rem", flexWrap: "wrap" }}>
-          <button className="btn-primary" onClick={() => void xmtp.startDm(foundAddr)} style={{ padding: "0.35rem 0.75rem", fontSize: "0.8rem" }}>Start chat</button>
-          <button onClick={() => { addContact(xmtp.selfAddress, getAddress(foundAddr)); setActMsg("Saved to Contacts."); }} style={settingsBtn}>☆ Save contact</button>
+          <button data-insights="start-chat" className="btn-primary" onClick={() => void xmtp.startDm(foundAddr)} style={{ padding: "0.35rem 0.75rem", fontSize: "0.8rem" }}>Start chat</button>
+          <button data-insights="save-contact" onClick={() => { addContact(xmtp.selfAddress, getAddress(foundAddr)); setActMsg("Saved to Contacts."); }} style={settingsBtn}>☆ Save contact</button>
         </div>
       )}
       {actMsg && <p style={{ ...dim, marginTop: "0.35rem" }}>{actMsg}</p>}
@@ -909,7 +909,7 @@ function EnsTool({ xmtp }: { xmtp: ReturnType<typeof useXmtp> }) {
 
 function BackButton({ onClick }: { onClick: () => void }) {
   return (
-    <button onClick={onClick} aria-label="Back" title="Back to chats" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, border: "none", background: "none", cursor: "pointer", color: "var(--color-ink-muted)", flexShrink: 0, padding: 0 }}>
+    <button data-insights="back" onClick={onClick} aria-label="Back" title="Back to chats" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, border: "none", background: "none", cursor: "pointer", color: "var(--color-ink-muted)", flexShrink: 0, padding: 0 }}>
       <IconBack />
     </button>
   );
@@ -960,7 +960,7 @@ function ConvRow({ c, active, unread, pinned, menuOpen, archived, onOpen, onMenu
             </span>
           )}
         </button>
-        <button onClick={onMenu} aria-label="Conversation options" title="Options" style={{ border: "none", background: "none", cursor: "pointer", padding: "0 0.6rem", color: menuOpen ? "var(--color-ink)" : "var(--color-ink-dim)", fontSize: "1.1rem", lineHeight: 1 }}>⋯</button>
+        <button data-insights="conversation-options" onClick={onMenu} aria-label="Conversation options" title="Options" style={{ border: "none", background: "none", cursor: "pointer", padding: "0 0.6rem", color: menuOpen ? "var(--color-ink)" : "var(--color-ink-dim)", fontSize: "1.1rem", lineHeight: 1 }}>⋯</button>
       </div>
       {menuOpen && (
         <div style={{ display: "flex", flexWrap: "wrap", gap: "0.3rem", padding: "0 0.85rem 0.6rem" }}>
@@ -1168,7 +1168,7 @@ function CommunityGroups() {
     return (
       <div className="card msg-shell" style={{ padding: 0, overflow: "hidden", display: "flex", flexDirection: "column" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "0.55rem", padding: "0.6rem 0.85rem", borderBottom: "1px solid var(--color-border)", minWidth: 0 }}>
-          <button onClick={() => { setOpenRoom(null); setMessages([]); setOlderCursor(undefined); }} aria-label="Back to rooms" title="Back to rooms" style={{ ...linkBtn, display: "inline-flex", alignItems: "center", color: "var(--color-ink-muted)", flexShrink: 0 }}><IconBack /></button>
+          <button data-insights="back-to-rooms" onClick={() => { setOpenRoom(null); setMessages([]); setOlderCursor(undefined); }} aria-label="Back to rooms" title="Back to rooms" style={{ ...linkBtn, display: "inline-flex", alignItems: "center", color: "var(--color-ink-muted)", flexShrink: 0 }}><IconBack /></button>
           <RoomAvatar icon={openRoom.icon} size={30} />
           <span style={{ minWidth: 0, overflow: "hidden" }}>
             <span style={{ display: "block", fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: "0.9rem", color: "var(--color-ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{openRoom.name}</span>
@@ -1309,7 +1309,7 @@ function RoomRow({ room, joined, unread, busy, onOpen, pinned = false, menuOpen 
           <>
             <button className="btn-primary" disabled={busy} onClick={onOpen} style={{ padding: "0.3rem 0.8rem", fontSize: "0.78rem", opacity: busy ? 0.6 : 1, flexShrink: 0 }}>{busy ? "…" : joined ? "Open" : "Join"}</button>
             {joined && (
-              <button onClick={onMenu} aria-label="Room options" title="Options" style={{ border: "none", background: "none", cursor: "pointer", padding: "0 0.3rem", color: menuOpen ? "var(--color-ink)" : "var(--color-ink-dim)", fontSize: "1.1rem", lineHeight: 1, flexShrink: 0 }}>⋯</button>
+              <button data-insights="room-options" onClick={onMenu} aria-label="Room options" title="Options" style={{ border: "none", background: "none", cursor: "pointer", padding: "0 0.3rem", color: menuOpen ? "var(--color-ink)" : "var(--color-ink-dim)", fontSize: "1.1rem", lineHeight: 1, flexShrink: 0 }}>⋯</button>
             )}
           </>
         )}
@@ -1401,7 +1401,7 @@ function ManageMembers({ push, chatId, me, roomKey, icon }: { push: PushClient; 
             <div style={{ display: "flex", gap: "0.4rem", alignItems: "center" }}>
               <RoomAvatar icon={iconDraft || undefined} size={30} />
               <input value={iconDraft} onChange={(e) => setIconDraft(e.target.value)} placeholder="emoji or https://image-url" style={{ ...inputStyle, flex: 1, minWidth: "160px", fontSize: "0.78rem" }} />
-              <button className="btn-primary" disabled={busy || iconDraft.trim() === (icon ?? "")} onClick={saveIcon} style={{ padding: "0.4rem 0.7rem", fontSize: "0.8rem" }}>Save</button>
+              <button data-insights="save" className="btn-primary" disabled={busy || iconDraft.trim() === (icon ?? "")} onClick={saveIcon} style={{ padding: "0.4rem 0.7rem", fontSize: "0.8rem" }}>Save</button>
             </div>
           </div>
           <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", alignItems: "center" }}>
@@ -1410,7 +1410,7 @@ function ManageMembers({ push, chatId, me, roomKey, icon }: { push: PushClient; 
               <option value="MEMBER">Member</option>
               <option value="ADMIN">Admin</option>
             </select>
-            <button className="btn-primary" disabled={busy} onClick={add} style={{ padding: "0.4rem 0.7rem", fontSize: "0.8rem" }}>Add</button>
+            <button data-insights="add" className="btn-primary" disabled={busy} onClick={add} style={{ padding: "0.4rem 0.7rem", fontSize: "0.8rem" }}>Add</button>
           </div>
           {members.length > 0 && (
             <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem", maxHeight: "160px", overflowY: "auto" }}>
@@ -1422,7 +1422,7 @@ function ManageMembers({ push, chatId, me, roomKey, icon }: { push: PushClient; 
                     {m.role === "ADMIN" && <strong style={{ color: "var(--color-primary-hover)" }}>· admin</strong>}
                   </span>
                   {m.wallet !== me.toLowerCase() && (
-                    <button onClick={() => remove(m.wallet)} disabled={busy} style={{ ...linkBtn, fontSize: "0.72rem", color: "#9a2a2a" }}>remove</button>
+                    <button data-insights="remove" onClick={() => remove(m.wallet)} disabled={busy} style={{ ...linkBtn, fontSize: "0.72rem", color: "#9a2a2a" }}>remove</button>
                   )}
                 </div>
               ))}
@@ -1608,7 +1608,7 @@ function DmBubble({ m, onReact, onReply, onRetry, notes, onDelete }: {
         <span>{timeLabel(m.sentAtMs)}</span>
         {!notes && m.mine && m.status === "sending" && <span>· Sending…</span>}
         {!notes && m.mine && m.status === "failed" && (
-          <button onClick={() => onRetry(m.id)} style={{ ...linkBtn, fontSize: "0.62rem", color: "#9a2a2a" }}>· Failed · Retry</button>
+          <button data-insights="failed-retry" onClick={() => onRetry(m.id)} style={{ ...linkBtn, fontSize: "0.62rem", color: "#9a2a2a" }}>· Failed · Retry</button>
         )}
         {!notes && m.mine && m.status === "sent" && (
           <span title={m.readByPeer ? "Read" : "Sent"} style={{ color: m.readByPeer ? "var(--color-primary-hover)" : "var(--color-ink-dim)" }}>{m.readByPeer ? "✓✓" : "✓"}</span>
@@ -1656,8 +1656,8 @@ function RequestRow({ c, onOpen, onAccept, onDecline }: { c: ConvSummary; onOpen
         {c.lastText && <span style={{ display: "block", fontSize: "0.7rem", color: "var(--color-ink-dim)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.lastText}</span>}
       </button>
       <div style={{ display: "flex", gap: "0.3rem" }}>
-        <button onClick={onAccept} className="btn-primary" style={{ padding: "0.2rem 0.55rem", fontSize: "0.72rem" }}>Accept</button>
-        <button onClick={onDecline} style={{ ...linkBtn, fontSize: "0.72rem", color: "#9a2a2a", border: "1px solid var(--color-border)", borderRadius: "2px", padding: "0.2rem 0.55rem" }}>Decline</button>
+        <button data-insights="accept" onClick={onAccept} className="btn-primary" style={{ padding: "0.2rem 0.55rem", fontSize: "0.72rem" }}>Accept</button>
+        <button data-insights="decline" onClick={onDecline} style={{ ...linkBtn, fontSize: "0.72rem", color: "#9a2a2a", border: "1px solid var(--color-border)", borderRadius: "2px", padding: "0.2rem 0.55rem" }}>Decline</button>
       </div>
     </div>
   );
@@ -1691,7 +1691,7 @@ function Composer({ value, setValue, onSend, header }: { value: string; setValue
           rows={1}
           style={{ ...inputStyle, flex: 1, resize: "none", lineHeight: 1.5, maxHeight: "120px" }}
         />
-        <button className="btn-primary" onClick={onSend} disabled={!value.trim()} style={{ opacity: value.trim() ? 1 : 0.5 }}>Send</button>
+        <button data-insights="send" className="btn-primary" onClick={onSend} disabled={!value.trim()} style={{ opacity: value.trim() ? 1 : 0.5 }}>Send</button>
       </div>
     </div>
   );

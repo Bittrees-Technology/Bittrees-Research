@@ -39,7 +39,7 @@ export default function Forum() {
         {showPropose ? (
           <Composer proposal community={PROPOSAL_COMMUNITY} onPosted={() => setShowPropose(false)} />
         ) : (
-          <button className="btn-ghost" onClick={() => setShowPropose(true)}>
+          <button data-insights="propose-a-discussion-or-research-proposal" className="btn-ghost" onClick={() => setShowPropose(true)}>
             Propose a discussion or research proposal
           </button>
         )}
