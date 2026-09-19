@@ -1,3 +1,4 @@
+import { actionMessage } from "../../shared/signed-action.mjs";
 import { useQuery } from "@tanstack/react-query";
 import type { WalletClient } from "viem";
 import type { PushRoom, RoomGate } from "./push";
@@ -51,13 +52,16 @@ async function postSigned(
   message: string,
   payload: Record<string, unknown>
 ): Promise<void> {
-  const timestamp = Date.now();
-  const signature = await walletClient.signMessage({ account, message: `${message}\nat ${timestamp}` });
-  const r = await fetch(ROOMS_URL, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ ...payload, address: account, signature, timestamp }),
-  });
+  const snapshot = await fetch(ROOMS_URL, { cache: "no-store" });
+  if (!snapshot.ok) throw new Error("Registry unavailable. Try again later.");
+  const { revision } = await snapshot.json();
+  const nonce = Array.from(crypto.getRandomValues(new Uint8Array(32)), b => b.toString(16).padStart(2, "0")).join("");
+  // Serialize once to remove optional undefined fields before signing.
+  const envelope = { version: 2, audience: window.location.origin, chainId: 1, endpoint: ROOMS_URL, address: account,
+    timestamp: Date.now(), nonce, expectedRevision: revision, payload: JSON.parse(JSON.stringify(payload)) };
+  void message; // Human-readable legacy summary; the complete envelope is now signed.
+  const signature = await walletClient.signMessage({ account, message: actionMessage(envelope) });
+  const r = await fetch(ROOMS_URL, {method: "POST", headers: {"content-type": "application/json"}, body: JSON.stringify({...envelope, signature})});
   if (!r.ok) {
     const j = await r.json().catch(() => ({}));
     throw new Error(j?.error || `Registry write failed (HTTP ${r.status})`);

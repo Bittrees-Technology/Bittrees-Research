@@ -1,4 +1,5 @@
-import { recoverMessageAddress, getAddress } from "viem";
+import { getAddress } from "viem";
+import { withSignedRegistry, registryCommand, recoverMessageAddress } from "../server/signed-registry.mjs";
 
 /**
  * Community-room registry — built-in room chatIds AND admin-created custom rooms
@@ -36,15 +37,8 @@ function hasProposeRole(rolesMap, addrLower) {
   return list.some((r) => PROPOSE_ROLE_RE.test(String(r?.label || "")));
 }
 
-async function kvCommand(cmd) {
-  const r = await fetch(KV_URL, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${KV_TOKEN}`, "content-type": "application/json" },
-    body: JSON.stringify(cmd),
-  });
-  if (!r.ok) throw new Error(`KV HTTP ${r.status}`);
-  return r.json();
-}
+async function kvCommand(cmd) { return registryCommand(cmd); }
+
 async function readJson(key, fallback) {
   if (!KV_URL || !KV_TOKEN) return fallback;
   try {
@@ -133,7 +127,7 @@ async function verifyProposer(address, signature, message) {
   return { ok: false, code: 403, error: "not authorized to propose" };
 }
 
-export default async function handler(req, res) {
+export async function handler(req, res) {
   res.setHeader("access-control-allow-origin", "*");
   res.setHeader("cache-control", "no-store");
 
@@ -298,3 +292,5 @@ export default async function handler(req, res) {
 
   res.status(405).json({ error: "method not allowed" });
 }
+
+export default withSignedRegistry(handler);

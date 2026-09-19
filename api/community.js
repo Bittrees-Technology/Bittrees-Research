@@ -1,4 +1,5 @@
-import { recoverMessageAddress, getAddress } from "viem";
+import { getAddress } from "viem";
+import { withSignedRegistry, registryCommand, recoverMessageAddress } from "../server/signed-registry.mjs";
 
 /**
  * Community registry — admin-assigned custom roles/tags AND community moderation
@@ -25,15 +26,8 @@ const SNAPSHOT_SPACE = "research.bittrees.eth";
 const REPLAY_WINDOW_MS = 10 * 60 * 1000;
 export const FLAG_HIDE_THRESHOLD = 2;
 
-async function kvCommand(cmd) {
-  const r = await fetch(KV_URL, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${KV_TOKEN}`, "content-type": "application/json" },
-    body: JSON.stringify(cmd),
-  });
-  if (!r.ok) throw new Error(`KV HTTP ${r.status}`);
-  return r.json();
-}
+async function kvCommand(cmd) { return registryCommand(cmd); }
+
 async function readJson(key, fallback) {
   if (!KV_URL || !KV_TOKEN) return fallback;
   try {
@@ -105,7 +99,7 @@ function isFullAdmin(signer, admins, rolesMap) {
   return signer === SUPER_ADMIN || (admins || []).includes(signer) || hasRole(rolesMap, signer, FULL_ROLE_RE);
 }
 
-export default async function handler(req, res) {
+export async function handler(req, res) {
   res.setHeader("access-control-allow-origin", "*");
   res.setHeader("cache-control", "no-store");
 
@@ -282,3 +276,5 @@ export default async function handler(req, res) {
     res.status(500).json({ error: String((e && e.message) || e) });
   }
 }
+
+export default withSignedRegistry(handler);
