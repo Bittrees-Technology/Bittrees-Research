@@ -20,7 +20,7 @@ export interface RoleDef { label: string; color?: string; description?: string; 
 export interface FlagRecord { by: string[]; mod: "approved" | "removed" | null; surface?: string; preview?: string }
 export type FlagsMap = Record<string, FlagRecord>;
 export type EncKeysMap = Record<string, string>; // addrLower -> x25519 pubkey hex
-export interface CommunityData { roles: RolesMap; flags: FlagsMap; enckeys: EncKeysMap; roledefs: RoleDef[]; threshold: number }
+export interface CommunityData { authorizationMode?: "legacy" | "root-policy"; roles: RolesMap; flags: FlagsMap; enckeys: EncKeysMap; roledefs: RoleDef[]; threshold: number }
 
 export async function fetchCommunity(): Promise<CommunityData> {
   try {

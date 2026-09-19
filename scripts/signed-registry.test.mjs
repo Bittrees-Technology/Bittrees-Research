@@ -18,3 +18,15 @@ test('replay cannot reinstate a revoked role',async()=>{const f=fixture(),grant=
 test('concurrent actions cannot overwrite each other',async()=>{const f=fixture(),one=await envelope('/api/community',{assignRole:{target,label:'Moderator'}},0),two=await envelope('/api/community',{assignRole:{target:actor.address,label:'Operations'}},0);const r=await Promise.all([call(community,f,one),call(community,f,two)]);assert.deepEqual(r.map(x=>x.code).sort(),[200,409]);assert.equal(f.revision,1);});
 test('storage failure and corrupt snapshots are unavailable rather than empty',async()=>{const f=fixture();f.fail();assert.equal((await call(community,f,{},'GET')).code,503);const g=fixture();g.db.set('bittrees:research:roles','invalid');assert.equal((await call(community,g,{},'GET')).code,503);});
 test('wrong audience, route, stale timestamp, ambiguous action and legacy signatures fail',async()=>{for(const change of [{audience:'https://gov.bittrees.org'},{endpoint:'/api/rooms'},{timestamp:Date.now()-600000},{payload:{assignRole:{target,label:'Partner'},unassignRole:{target,label:'Partner'}}}]){const f=fixture(),b=await envelope('/api/community',{assignRole:{target,label:'Partner'}},0);Object.assign(b,change);assert.equal((await call(community,f,b)).code,400);assert.equal(f.revision,0)}assert.equal((await call(community,fixture(),{address:actor.address,signature:'0x',timestamp:Date.now()})).code,400)});
+
+test('root-policy mode cannot fall back to legacy role authorization on denial or outage',async()=>{
+ const original=globalThis.fetch;process.env.REGISTRY_AUTHORITY_MODE='root-policy';
+ const {generateKeyPairSync}=await import('node:crypto');process.env.ROLES_FEED_PRIVATE_KEY=generateKeyPairSync('ed25519').privateKey.export({type:'pkcs8',format:'pem'});
+ try{const f=fixture(),body=await envelope('/api/community',{assignRole:{target,label:'Partner'}},0);
+ globalThis.fetch=async(url,options)=>{assert.equal(url,'https://roles.bittrees.org/api/authority/source-decision');const {request}=JSON.parse(options.body);return {ok:true,json:async()=>({allowed:false,reason:'No approved grant',audience:request.source,requestId:request.requestId})}};
+ assert.equal((await call(community,f,body)).code,403);assert.equal(f.revision,0);
+ globalThis.fetch=async()=>{throw Error('outage')};assert.equal((await call(community,f,body)).code,503);assert.equal(f.revision,0);
+ globalThis.fetch=async(url,options)=>{if(url==='https://hub.snapshot.org/graphql')return {ok:true,json:async()=>({data:{space:{admins:[]}}})};const {request}=JSON.parse(options.body);return {ok:true,json:async()=>({allowed:true,expiresAt:new Date(Date.now()+60000).toISOString(),audience:request.source,requestId:request.requestId})}};
+ assert.equal((await call(community,f,body)).code,200);
+ }finally{globalThis.fetch=original;delete process.env.REGISTRY_AUTHORITY_MODE;delete process.env.ROLES_FEED_PRIVATE_KEY;}
+});

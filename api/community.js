@@ -1,5 +1,5 @@
 import { getAddress } from "viem";
-import { withSignedRegistry, registryCommand, recoverMessageAddress } from "../server/signed-registry.mjs";
+import { withSignedRegistry, registryCommand, recoverMessageAddress, registryPolicyDecision } from "../server/signed-registry.mjs";
 
 /**
  * Community registry — admin-assigned custom roles/tags AND community moderation
@@ -96,6 +96,7 @@ function hasRole(rolesMap, addrLower, re) {
 const SUPER_ADMIN = "0xe5350d96fc3161bf5c385843ec5ee24e8b465b2f";
 const FULL_ROLE_RE = /^executive$/i;
 function isFullAdmin(signer, admins, rolesMap) {
+  if (registryPolicyDecision() !== undefined) return registryPolicyDecision();
   return signer === SUPER_ADMIN || (admins || []).includes(signer) || hasRole(rolesMap, signer, FULL_ROLE_RE);
 }
 
@@ -146,7 +147,7 @@ export async function handler(req, res) {
       const [admins, rolesRaw] = await Promise.all([spaceRoles(false), readJson(ROLES_KEY, {})]);
       const roles = rolesRaw || {};
       if (!signer) { res.status(400).json({ error: "bad signature" }); return; }
-      if (admins.length === 0 && signer !== SUPER_ADMIN) { res.status(503).json({ error: "could not verify admins" }); return; }
+      if (registryPolicyDecision() === undefined && admins.length === 0 && signer !== SUPER_ADMIN) { res.status(503).json({ error: "could not verify admins" }); return; }
       if (!isFullAdmin(signer, admins, roles)) { res.status(403).json({ error: "not authorized" }); return; }
       if (body.assignRole) {
         const entry = { label: String(label).slice(0, 32), color: String(color || "").slice(0, 16) };
@@ -169,7 +170,7 @@ export async function handler(req, res) {
       const signer = await recover(address, signature, `Bittrees roledef\n${verb} ${label}\nat ${timestamp}`);
       const [admins, rolesMap] = await Promise.all([spaceRoles(false), readJson(ROLES_KEY, {})]);
       if (!signer) { res.status(400).json({ error: "bad signature" }); return; }
-      if (admins.length === 0 && signer !== SUPER_ADMIN) { res.status(503).json({ error: "could not verify admins" }); return; }
+      if (registryPolicyDecision() === undefined && admins.length === 0 && signer !== SUPER_ADMIN) { res.status(503).json({ error: "could not verify admins" }); return; }
       if (!isFullAdmin(signer, admins, rolesMap || {})) { res.status(403).json({ error: "not authorized" }); return; }
       const defs = (await readJson(ROLEDEFS_KEY, [])) || [];
       const without = defs.filter((d) => String(d.label || "").toLowerCase() !== label.toLowerCase());
@@ -257,7 +258,7 @@ export async function handler(req, res) {
       if (!signer) { res.status(400).json({ error: "bad signature" }); return; }
       const [mods, rolesRaw] = await Promise.all([spaceRoles(true), readJson(ROLES_KEY, {})]);
       const roles = rolesRaw || {};
-      if (mods.length === 0 && signer !== SUPER_ADMIN) { res.status(503).json({ error: "could not verify moderators" }); return; }
+      if (registryPolicyDecision() === undefined && mods.length === 0 && signer !== SUPER_ADMIN) { res.status(503).json({ error: "could not verify moderators" }); return; }
       // Full admins (super-admin / space admin / Executive) OR the Assistant role may moderate.
       if (!isFullAdmin(signer, mods, roles) && !hasRole(roles, signer, /^assistant$/i)) { res.status(403).json({ error: "not authorized to moderate" }); return; }
       const flags = (await readJson(FLAGS_KEY, {})) || {};

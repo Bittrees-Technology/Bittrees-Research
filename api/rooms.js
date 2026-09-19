@@ -1,5 +1,5 @@
 import { getAddress } from "viem";
-import { withSignedRegistry, registryCommand, recoverMessageAddress } from "../server/signed-registry.mjs";
+import { withSignedRegistry, registryCommand, recoverMessageAddress, registryPolicyDecision } from "../server/signed-registry.mjs";
 
 /**
  * Community-room registry — built-in room chatIds AND admin-created custom rooms
@@ -25,6 +25,7 @@ const REPLAY_WINDOW_MS = 10 * 60 * 1000;
 const SUPER_ADMIN = "0xe5350d96fc3161bf5c385843ec5ee24e8b465b2f";
 const FULL_ROLE_RE = /^executive$/i;
 function hasFullRole(rolesMap, addrLower) {
+  if (registryPolicyDecision() !== undefined) return registryPolicyDecision();
   const list = (rolesMap && rolesMap[addrLower]) || [];
   return list.some((r) => FULL_ROLE_RE.test(String(r?.label || "")));
 }
@@ -33,6 +34,7 @@ function hasFullRole(rolesMap, addrLower) {
 const PROPOSALS_KEY = "bittrees:research:roomproposals"; // [{ id, name, blurb, gate, by, at }]
 const PROPOSE_ROLE_RE = /^(executive|researcher|steward)$/i;
 function hasProposeRole(rolesMap, addrLower) {
+  if (registryPolicyDecision() !== undefined) return registryPolicyDecision();
   const list = (rolesMap && rolesMap[addrLower]) || [];
   return list.some((r) => PROPOSE_ROLE_RE.test(String(r?.label || "")));
 }

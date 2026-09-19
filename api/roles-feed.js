@@ -84,6 +84,8 @@ export async function readFeed({
       claims.push(claim("community.moderation.manage"));
     if (claims.length) permissions[wallet] = claims;
   }
+  // Legacy label-based permission estimates are invalid after authority cutover.
+  if (env.REGISTRY_AUTHORITY_MODE === "root-policy") for (const wallet of Object.keys(permissions)) delete permissions[wallet];
   const content = {
     roles: records,
     roledefs,

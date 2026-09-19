@@ -1,3 +1,4 @@
+import {authorityDecision} from "./authority-client.mjs";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { createHash } from "node:crypto";
 import { createPublicClient, http } from "viem";
@@ -49,6 +50,7 @@ export async function registryCommand(cmd) {
   }
   throw fail("Unsupported registry operation");
 }
+export function registryPolicyDecision(){return context.getStore()?.policyDecision;}
 export async function recoverMessageAddress() {
   const c = context.getStore();
   if (!c?.signed) throw fail("Verified action required", 401);
@@ -183,6 +185,11 @@ export function withSignedRegistry(
           }))
         )
           throw fail("Signature rejected", 401);
+        if(process.env.REGISTRY_AUTHORITY_MODE === 'root-policy') {
+          const op=actions[0];
+          const action=['assignRole','unassignRole','createRole','deleteRole'].includes(op)?'community.roles.manage':op==='moderate'?'community.moderation.manage':e.endpoint==='/api/rooms'?(op==='proposal'?'rooms.propose':'rooms.manage'):null;
+          if(action){const decision=await authorityDecision(e.address,action);if(!decision.allowed)throw fail(decision.reason||'Not authorized by root policy',403);c.policyDecision=true;c.policyExpiresAt=Date.parse(decision.expiresAt);if(!Number.isFinite(c.policyExpiresAt)||c.policyExpiresAt<=Date.now())throw fail("Authority decision expired",403);}
+        }
         c.signed = true;
         c.signer = e.address.toLowerCase();
         c.envelope = e;
@@ -212,10 +219,11 @@ export function withSignedRegistry(
       await context.run(c, () => handler(req, output));
       if (status >= 200 && status < 300 && c.signed) {
         const e = c.envelope;
+        if(c.policyDecision && c.policyExpiresAt<=Date.now())throw fail("Authority decision expired before commit",403);
         const audit = JSON.stringify({
           actor: c.signer,
           endpoint: e.endpoint,
-          action: Object.keys(e.payload)[0],
+          action: Object.keys(e.payload).find(k=>k!=="chatId"),
           at: new Date().toISOString(),
           previousRevision: revision,
           payloadHash: createHash("sha256")
@@ -240,7 +248,7 @@ export function withSignedRegistry(
           throw fail("Registry changed. Reload and sign again.", 409);
         if (result !== revision + 1) throw fail("Commit not confirmed", 503);
         body = { ...body, revision: result };
-      } else if (status >= 200 && status < 300) body = { ...body, revision };
+      } else if (status >= 200 && status < 300) body = { ...body, revision, authorizationMode: process.env.REGISTRY_AUTHORITY_MODE === "root-policy" ? "root-policy" : "legacy" };
       return res.status(status).json(body);
     } catch (e) {
       return res
