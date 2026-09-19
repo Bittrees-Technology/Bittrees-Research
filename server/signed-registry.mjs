@@ -188,7 +188,7 @@ export function withSignedRegistry(
         if(['root-policy','root-policy-auto'].includes(process.env.REGISTRY_AUTHORITY_MODE)) {
           const op=actions[0];
           const action=['assignRole','unassignRole','createRole','deleteRole'].includes(op)?'community.roles.manage':op==='moderate'?'community.moderation.manage':e.endpoint==='/api/rooms'?(op==='proposal'?'rooms.propose':'rooms.manage'):null;
-          if(action){const decision=await authorityDecision(e.address,action);if(process.env.REGISTRY_AUTHORITY_MODE==='root-policy-auto'&&decision.configured===false){c.policyPending=true;}else{if(!decision.allowed)throw fail(decision.reason||'Not authorized by root policy',403);c.policyDecision=true;c.policyExpiresAt=Date.parse(decision.expiresAt);if(!Number.isFinite(c.policyExpiresAt)||c.policyExpiresAt<=Date.now())throw fail("Authority decision expired",403);}}
+          if(action){const decision=await authorityDecision(e.address,action);if(process.env.REGISTRY_AUTHORITY_MODE==='root-policy-auto'&&decision.configured===false){c.policyPending=true;}else{if(!decision.allowed)throw fail(decision.reason||'Not authorized by root policy',403);c.policyDecision=true;c.policyAction=action;c.policyExpiresAt=Date.parse(decision.expiresAt);if(!Number.isFinite(c.policyExpiresAt)||c.policyExpiresAt<=Date.now())throw fail("Authority decision expired",403);}}
         }
         c.signed = true;
         c.signer = e.address.toLowerCase();
@@ -219,7 +219,7 @@ export function withSignedRegistry(
       await context.run(c, () => handler(req, output));
       if (status >= 200 && status < 300 && c.signed) {
         const e = c.envelope;
-        if(c.policyDecision && c.policyExpiresAt<=Date.now())throw fail("Authority decision expired before commit",403);
+        if(c.policyDecision){const fresh=await authorityDecision(c.signer,c.policyAction);if(!fresh.allowed||Date.parse(fresh.expiresAt)<=Date.now())throw fail("Controller authorization changed before commit",403);}
         const audit = JSON.stringify({
           actor: c.signer,
           endpoint: e.endpoint,
