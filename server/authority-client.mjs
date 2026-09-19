@@ -7,6 +7,6 @@ export async function authorityDecision(actor,action){
  const signature=sign(null,Buffer.from(JSON.stringify(request)),key).toString('base64');
  const r=await fetch(endpoint,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({request,signature}),redirect:'error',signal:AbortSignal.timeout(8000)});
  if(!r.ok)throw Error('Authority unavailable');const decision=await r.json();
- if(decision.audience!==request.source||decision.requestId!==request.requestId||typeof decision.allowed!=='boolean')throw Error('Invalid authority response');
+ if(decision.audience!==request.source||decision.requestId!==request.requestId||typeof decision.allowed!=='boolean'||typeof decision.configured!=='boolean')throw Error('Invalid authority response');
  return decision;
 }

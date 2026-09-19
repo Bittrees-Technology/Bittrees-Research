@@ -1,0 +1,2 @@
+import {useQuery} from '@tanstack/react-query';
+export function useAuthorityAccess(address?:string){return useQuery({queryKey:['controller-authority',address?.toLowerCase()],enabled:!!address,staleTime:15000,refetchInterval:30000,retry:false,queryFn:async()=>{const r=await fetch('/api/authority-access?address='+address);if(!r.ok)throw Error('Controller authority unavailable');return r.json() as Promise<{configured:boolean;permissions:string[]}>;}});}

@@ -23,10 +23,10 @@ test('root-policy mode cannot fall back to legacy role authorization on denial o
  const original=globalThis.fetch;process.env.REGISTRY_AUTHORITY_MODE='root-policy';
  const {generateKeyPairSync}=await import('node:crypto');process.env.ROLES_FEED_PRIVATE_KEY=generateKeyPairSync('ed25519').privateKey.export({type:'pkcs8',format:'pem'});
  try{const f=fixture(),body=await envelope('/api/community',{assignRole:{target,label:'Partner'}},0);
- globalThis.fetch=async(url,options)=>{assert.equal(url,'https://roles.bittrees.org/api/authority/source-decision');const {request}=JSON.parse(options.body);return {ok:true,json:async()=>({allowed:false,reason:'No approved grant',audience:request.source,requestId:request.requestId})}};
+ globalThis.fetch=async(url,options)=>{assert.equal(url,'https://roles.bittrees.org/api/authority/source-decision');const {request}=JSON.parse(options.body);return {ok:true,json:async()=>({allowed:false,configured:true,reason:'No approved grant',audience:request.source,requestId:request.requestId})}};
  assert.equal((await call(community,f,body)).code,403);assert.equal(f.revision,0);
  globalThis.fetch=async()=>{throw Error('outage')};assert.equal((await call(community,f,body)).code,503);assert.equal(f.revision,0);
- globalThis.fetch=async(url,options)=>{if(url==='https://hub.snapshot.org/graphql')return {ok:true,json:async()=>({data:{space:{admins:[]}}})};const {request}=JSON.parse(options.body);return {ok:true,json:async()=>({allowed:true,expiresAt:new Date(Date.now()+60000).toISOString(),audience:request.source,requestId:request.requestId})}};
+ globalThis.fetch=async(url,options)=>{if(url==='https://hub.snapshot.org/graphql')return {ok:true,json:async()=>({data:{space:{admins:[]}}})};const {request}=JSON.parse(options.body);return {ok:true,json:async()=>({allowed:true,configured:true,expiresAt:new Date(Date.now()+60000).toISOString(),audience:request.source,requestId:request.requestId})}};
  assert.equal((await call(community,f,body)).code,200);
  }finally{globalThis.fetch=original;delete process.env.REGISTRY_AUTHORITY_MODE;delete process.env.ROLES_FEED_PRIVATE_KEY;}
 });
