@@ -29,11 +29,14 @@ export function reviewChatExport(storage: Reader, wallet: string, sharedPreferen
     const prefs = record(read('bittrees.dm.prefs', {}));
     if (Object.keys(prefs).length > 1000) fail();
     for (const [id, entry] of Object.entries(prefs)) {
-      if (!/^[a-zA-Z0-9_-]{1,256}$/.test(id) || ['__proto__', 'constructor', 'prototype'].includes(id)) fail();
+      // Push room pins/read positions share this store with XMTP preferences.
+      // Validate them, but never reinterpret a Push room key as an XMTP conversation.
+      const room = /^room:[^\u0000-\u001f\u007f]{1,256}$/.test(id);
+      if (!room && (!/^[a-zA-Z0-9_-]{1,256}$/.test(id) || ['__proto__', 'constructor', 'prototype'].includes(id))) fail();
       const item = record(entry, ['pinned', 'archived', 'order', 'lastReadAt', 'readReceipts']);
       for (const key of ['pinned', 'archived', 'readReceipts']) if (item[key] !== undefined && typeof item[key] !== 'boolean') fail();
       for (const key of ['order', 'lastReadAt']) if (item[key] !== undefined && (!Number.isSafeInteger(item[key]) || (item[key] as number) < 0)) fail();
-      if (typeof item.readReceipts === 'boolean') preferences.readReceiptOverrides[`xmtp:production:${id}`] = item.readReceipts;
+      if (!room && typeof item.readReceipts === 'boolean') preferences.readReceiptOverrides[`xmtp:production:${id}`] = item.readReceipts;
     }
   }
   const data = validateRecoveryData({ version: 1, source, wallet: owner, createdAt: now,

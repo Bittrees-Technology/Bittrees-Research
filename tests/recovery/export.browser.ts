@@ -10,6 +10,7 @@ async function prepare(page: Page) {
     localStorage.setItem(`bittrees.contacts.${owner}`, JSON.stringify([{ address: `0x${'2'.repeat(40)}`, label: 'Friend' }]));
     localStorage.setItem(`bittrees.dm.saved.${owner}`, JSON.stringify([{ id: 'saved-1', text: 'Private local note', sentAtMs: 123 }]));
     localStorage.setItem('bittrees.dm.settings', '{"readReceipts":true}');
+    localStorage.setItem('bittrees.dm.prefs', JSON.stringify({ 'room:safe-gov.bittrees.eth': { pinned: true, order: 0, lastReadAt: 123 } }));
     return owner;
   });
   await page.getByRole('button', { name: 'Review export' }).click();
