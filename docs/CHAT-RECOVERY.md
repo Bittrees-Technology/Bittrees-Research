@@ -1,0 +1,11 @@
+# Local messenger export to Chat
+
+Messenger Settings offers a read-only encrypted export for the connected wallet's contacts and local Saved Messages. The user reviews the counts and entries, chooses a passphrase and confirms ownership through a fresh origin/account/chain/purpose/nonce-bound signature. Download rechecks the wallet and exact source values after encryption; a changed session, expired proof, malformed source or modified record cancels it. Nothing is removed or written to the source stores.
+
+Only `bittrees.contacts.<wallet>` and `bittrees.dm.saved.<wallet>` are read by default. The user must explicitly attribute shared-browser settings to this wallet before including `bittrees.dm.settings`, `bittrees.dm.blocked`, and receipt choices in `bittrees.dm.prefs`. The existing messenger uses production XMTP, so per-conversation receipts are scoped as `xmtp:production:<id>`. Pins, archives and read positions are not transferred; they remain here. Chat requires a separate explicit choice before restoring preferences.
+
+The export never reads cached sync signatures, Push PGP keys, cookies, protocol databases or arbitrary localStorage. It does not transfer message history, memberships, mailbox authority or keys. It does not automatically enable Chat sync, receipts or forwarding. Source labels are informational and do not authenticate the file's author. Encryption protects the downloaded archive, not the existing browser records.
+
+`src/lib/chatRecoveryArchive.ts` mirrors the Chat v1 codec at Bittrees-Technology/chirpy commit e7979321d2d9f2ad745a0e3fa5e2d234bba13e67, with an ES2020-compatible own-property check. Preserve AES-256-GCM, authenticated format data, PBKDF2-SHA-256 with 600,000 iterations, random salt/IV, and strict size/schema limits. Any format change requires compatibility tests with Chat. In Chat Settings, choose Restore local data, unlock the file and review the proposed changes; the source app remains the rollback path.
+
+Tests: `yarn test:recovery-unit`, `yarn test:recovery-browser`, and `yarn build`. Browser tests mount the real component and crypto with isolated test-only wallet hooks and a synthetic signer. They do not prove real-device or contract-wallet acceptance. Test-only harness files are not imported into the production app. Live mailbox, messaging and key authority are not required for these tests.
