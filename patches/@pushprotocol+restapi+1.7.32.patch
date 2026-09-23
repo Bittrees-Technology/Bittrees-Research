@@ -1,0 +1,73 @@
+diff --git a/node_modules/@pushprotocol/restapi/src/lib/chat/helpers/crypto.js b/node_modules/@pushprotocol/restapi/src/lib/chat/helpers/crypto.js
+index 7c16a1cf3292870ab28d0240ffb609274300a54a..fe37050f033cd67c6ee4c1c579f5bdd51c17fc5f 100644
+--- a/node_modules/@pushprotocol/restapi/src/lib/chat/helpers/crypto.js
++++ b/node_modules/@pushprotocol/restapi/src/lib/chat/helpers/crypto.js
+@@ -379,27 +379,17 @@ const decryptAndVerifyMessage = (message, pgpPublicKey, pgpPrivateKey, env, pgpH
+     try {
+         let decryptedSecret;
+         if (message.encType === 'pgpv1:group') {
+-            /**
+-             * CACHE [ sessionKey -> decryptedSecret ]
+-             */
+-            const cacheKey = `sessionKey-${message.sessionKey}`;
+-            if (cache_1.cache.has(cacheKey)) {
+-                decryptedSecret = cache_1.cache.get(cacheKey);
+-            }
+-            else {
+-                /**
+-                 * Get encryptedSecret from Backend using sessionKey for this encryption type
+-                 */
+-                const encryptedSecret = yield (0, getEncryptedSecret_1.getEncryptedSecret)({
+-                    sessionKey: message.sessionKey,
+-                    env,
+-                });
+-                decryptedSecret = yield pgpHelper.pgpDecrypt({
+-                    cipherText: encryptedSecret,
+-                    toPrivateKeyArmored: pgpPrivateKey,
+-                });
+-                cache_1.cache.set(cacheKey, decryptedSecret);
+-            }
++            // Do not share decrypted room secrets across wallet clients. Recover the
++            // secret with the current private key on every call, including after a
++            // disconnect/reconnect. Public-key caches remain unchanged.
++            const encryptedSecret = yield (0, getEncryptedSecret_1.getEncryptedSecret)({
++                sessionKey: message.sessionKey,
++                env,
++            });
++            decryptedSecret = yield pgpHelper.pgpDecrypt({
++                cipherText: encryptedSecret,
++                toPrivateKeyArmored: pgpPrivateKey,
++            });
+         }
+         else {
+             decryptedSecret = yield pgpHelper.pgpDecrypt({
+diff --git a/node_modules/@pushprotocol/restapi/src/lib/helpers/crypto.js b/node_modules/@pushprotocol/restapi/src/lib/helpers/crypto.js
+index 1078a3b63aa16053c284acb4486c587f4d67ed18..0a283b55972dcf33b75501194ce9f9d8c458cb1f 100644
+--- a/node_modules/@pushprotocol/restapi/src/lib/helpers/crypto.js
++++ b/node_modules/@pushprotocol/restapi/src/lib/helpers/crypto.js
+@@ -37,11 +37,10 @@ const getPublicKey = (options) => tslib_1.__awaiter(void 0, void 0, void 0, func
+     const { account, signer } = options || {};
+     const pushSigner = signer ? new signer_1.Signer(signer) : undefined;
+     const address = account || (yield (pushSigner === null || pushSigner === void 0 ? void 0 : pushSigner.getAddress())) || '';
+-    const metamaskProvider = viem.createWalletClient({
++    const web3Provider = ((_a = signer === null || signer === void 0 ? void 0 : signer.provider) === null || _a === void 0 ? void 0 : _a.provider) || viem.createWalletClient({
+         chain: chains_1.mainnet,
+         transport: viem.custom(window.ethereum),
+     });
+-    const web3Provider = ((_a = signer === null || signer === void 0 ? void 0 : signer.provider) === null || _a === void 0 ? void 0 : _a.provider) || metamaskProvider;
+     const keyB64 = yield web3Provider.request({
+         method: 'eth_getEncryptionPublicKey',
+         params: [address],
+@@ -96,11 +95,10 @@ const decryptPGPKey = (options) => tslib_1.__awaiter(void 0, void 0, void 0, fun
+                     });
+                 }
+                 else {
+-                    const metamaskProvider = viem.createWalletClient({
++                    const web3Provider = ((_d = signer === null || signer === void 0 ? void 0 : signer.provider) === null || _d === void 0 ? void 0 : _d.provider) || viem.createWalletClient({
+                         chain: chains_1.mainnet,
+                         transport: viem.custom(window.ethereum),
+                     });
+-                    const web3Provider = ((_d = signer === null || signer === void 0 ? void 0 : signer.provider) === null || _d === void 0 ? void 0 : _d.provider) || metamaskProvider;
+                     privateKey = yield web3Provider.request({
+                         method: 'eth_decrypt',
+                         params: [encryptedPGPPrivateKey, address],
