@@ -1,4 +1,5 @@
-import type { Address, WalletClient } from "viem";
+import { PushSessionChangedError, type GuardedPushClient } from "./pushSessionCore";
+import type { Address } from "viem";
 
 /**
  * Push Chat — token-gated members community group chats (the Telegram
@@ -21,7 +22,7 @@ const BNOTE_TOKEN = "0xf1AAfFc982B5F553a730a9eC134715a547f1fe80" as Address;
 const BIT_TOKEN = "0x57A447E4d5e18A9423408C365963A73F08B9d18C" as Address;
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-export type PushClient = any;
+export type PushClient = GuardedPushClient;
 
 /** A single access rule. */
 export type RoomRule =
@@ -106,55 +107,6 @@ export function gateUrl(room: PushRoom): string {
   return `${GATE_BASE_URL}/${g.tier}/${USER}/checkAccess`;
 }
 
-async function sdk() {
-  return import("@pushprotocol/restapi");
-}
-
-// Cache the decrypted PGP key (per address) so re-initializing Push doesn't ask
-// for a signature again on reload. It lives in localStorage (origin-scoped) — the
-// standard "sign once per browser" Push convenience.
-const pushKey = (account: string) => `bittrees.push.pgp.${account.toLowerCase()}`;
-export function hasPushKey(account: string): boolean {
-  try { return !!localStorage.getItem(pushKey(account)); } catch { return false; }
-}
-function loadPushKey(account: string): string | null {
-  try { return localStorage.getItem(pushKey(account)); } catch { return null; }
-}
-function savePushKey(account: string, key: string) {
-  try { localStorage.setItem(pushKey(account), key); } catch { /* ignore */ }
-}
-function clearPushKey(account: string) {
-  try { localStorage.removeItem(pushKey(account)); } catch { /* ignore */ }
-}
-
-/**
- * Initialize a Push client from the connected wallet. Signs once, then caches the
- * decrypted key so later inits (reloads) reuse it with no signature; a stale
- * cached key falls back to a fresh signed init.
- */
-export async function initPush(walletClient: WalletClient, account: string): Promise<PushClient> {
-  const { PushAPI, CONSTANTS } = await sdk();
-  const cached = loadPushKey(account);
-  try {
-    const user = await PushAPI.initialize(walletClient as any, {
-      env: CONSTANTS.ENV.PROD,
-      ...(cached ? { decryptedPGPPrivateKey: cached } : {}),
-    });
-    const key = (user as any)?.decryptedPgpPvtKey;
-    if (key) savePushKey(account, key);
-    return user;
-  } catch (e) {
-    if (cached) {
-      clearPushKey(account); // stale/invalid → retry with a fresh signature
-      const user = await PushAPI.initialize(walletClient as any, { env: CONSTANTS.ENV.PROD });
-      const key = (user as any)?.decryptedPgpPvtKey;
-      if (key) savePushKey(account, key);
-      return user;
-    }
-    throw e;
-  }
-}
-
 export interface PushMessage { id: string; from: string; text: string; mine: boolean; ts?: number }
 
 function normalize(raw: any[], myAddr: string): PushMessage[] {
@@ -180,7 +132,8 @@ export async function roomLatestTs(push: PushClient, chatId: string): Promise<nu
   try {
     const raw = await push.chat.history(chatId, { limit: 1 });
     return Number((raw as any[])?.[0]?.timestamp) || 0;
-  } catch {
+  } catch (error) {
+    if (error instanceof PushSessionChangedError) throw error;
     return 0;
   }
 }
@@ -200,7 +153,8 @@ export async function joinedChats(push: PushClient): Promise<Record<string, numb
       }
       if (arr.length < 30) break; // last page reached
     }
-  } catch {
+  } catch (error) {
+    if (error instanceof PushSessionChangedError) throw error;
     // keep whatever pages succeeded
   }
   return out;
@@ -291,7 +245,8 @@ export async function roomMembers(push: PushClient, chatId: string): Promise<Roo
       const wallet = String(m?.wallet || m?.address || "").split(":").pop()?.toLowerCase() || "";
       return { wallet, role: (m?.isAdmin || m?.role === "ADMIN" ? "ADMIN" : "MEMBER") as RoomRole };
     }).filter((m) => m.wallet);
-  } catch {
+  } catch (error) {
+    if (error instanceof PushSessionChangedError) throw error;
     return [];
   }
 }

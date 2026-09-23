@@ -1,3 +1,4 @@
+import { assertPushWalletCurrent } from "./pushSessionWallet";
 import { actionMessage } from "../../shared/signed-action.mjs";
 import { useQuery } from "@tanstack/react-query";
 import type { WalletClient } from "viem";
@@ -52,6 +53,7 @@ async function postSigned(
   message: string,
   payload: Record<string, unknown>
 ): Promise<void> {
+  assertPushWalletCurrent(walletClient);
   const snapshot = await fetch(ROOMS_URL, { cache: "no-store" });
   if (!snapshot.ok) throw new Error("Registry unavailable. Try again later.");
   const { revision } = await snapshot.json();
@@ -61,6 +63,7 @@ async function postSigned(
     timestamp: Date.now(), nonce, expectedRevision: revision, payload: JSON.parse(JSON.stringify(payload)) };
   void message; // Human-readable legacy summary; the complete envelope is now signed.
   const signature = await walletClient.signMessage({ account, message: actionMessage(envelope) });
+  assertPushWalletCurrent(walletClient);
   const r = await fetch(ROOMS_URL, {method: "POST", headers: {"content-type": "application/json"}, body: JSON.stringify({...envelope, signature})});
   if (!r.ok) {
     const j = await r.json().catch(() => ({}));

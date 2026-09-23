@@ -1,74 +1,27 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useAccount, useWalletClient } from "wagmi";
-import { initPush, hasPushKey, type PushClient } from "./push";
+import { useCallback, useMemo, useSyncExternalStore } from 'react';
+import { useAccount, useWalletClient } from 'wagmi';
+import { initPush, pushSessions, pushWalletScope } from './pushRuntime';
+import { guardPushWallet } from './pushSessionWallet';
 
-/**
- * Push client lifecycle, kept in module scope so it survives tab switches and
- * route changes within a session (no re-signing). Reloads restore from the cached
- * decrypted key (see initPush) — also signature-free. Mirrors useXmtp.
- */
-
-let sharedPush: { address: string; client: PushClient } | null = null;
-
-function humanError(e: unknown): string {
-  const a = e as { shortMessage?: string; message?: string };
-  return a?.shortMessage || a?.message || "Something went wrong";
+export function usePushSessionKey() {
+  useAccount();
+  const state = useSyncExternalStore(pushSessions.subscribe, pushSessions.getSnapshot);
+  return `${pushWalletScope() ?? 'disconnected'}:${state.revision}`;
 }
-
-export type PushStatus = "idle" | "enabling" | "ready" | "error";
-
 export function usePush() {
   const { address } = useAccount();
   const { data: walletClient } = useWalletClient();
-  const clientRef = useRef<PushClient | null>(sharedPush && sharedPush.address === address ? sharedPush.client : null);
-  const [status, setStatus] = useState<PushStatus>(sharedPush && sharedPush.address === address ? "ready" : "idle");
-  const [error, setError] = useState<string>();
-
-  // Reuse the in-session client, or (after a reload) silently restore from the
-  // cached key — both without a signature. Only for a wallet that previously
-  // enabled rooms, so Push stays lazy otherwise.
-  const restoredRef = useRef<string>("");
-  useEffect(() => {
-    if (!address) return;
-    if (sharedPush && sharedPush.address === address) {
-      clientRef.current = sharedPush.client;
-      setStatus("ready");
-      return;
-    }
-    if (!walletClient || restoredRef.current === address || !hasPushKey(address)) return;
-    restoredRef.current = address;
-    let alive = true;
-    setStatus("enabling");
-    initPush(walletClient, address)
-      .then((client) => {
-        if (!alive) return;
-        sharedPush = { address, client };
-        clientRef.current = client;
-        setStatus("ready");
-      })
-      .catch(() => { if (alive) setStatus("idle"); }); // couldn't restore → manual enable
-    return () => { alive = false; };
-  }, [address, walletClient]);
-
+  const snapshot = useSyncExternalStore(pushSessions.subscribe, pushSessions.getSnapshot);
+  const current = snapshot.scope === pushWalletScope();
+  const client = current ? snapshot.client : null;
+  const wallet = useMemo(() => {
+    if (!client || !walletClient || !address) return undefined;
+    try { return guardPushWallet(walletClient, address, client.assertCurrent); } catch { return undefined; }
+  }, [client, walletClient, address]);
   const enable = useCallback(async () => {
     if (!walletClient || !address) return;
-    if (sharedPush && sharedPush.address === address) {
-      clientRef.current = sharedPush.client;
-      setStatus("ready");
-      return;
-    }
-    setStatus("enabling");
-    setError(undefined);
-    try {
-      const client = await initPush(walletClient, address);
-      sharedPush = { address, client };
-      clientRef.current = client;
-      setStatus("ready");
-    } catch (e) {
-      setStatus("error");
-      setError(humanError(e));
-    }
+    try { await initPush(walletClient, address); } catch { /* Current-session error is published by the manager. */ }
   }, [walletClient, address]);
-
-  return { status, error, enable, client: clientRef.current };
+  return { status: current ? snapshot.status : 'idle', error: current ? snapshot.error : undefined, enable, client, wallet,
+    sessionKey: `${snapshot.scope}:${snapshot.revision}` };
 }

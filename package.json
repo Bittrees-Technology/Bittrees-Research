@@ -8,7 +8,7 @@
     "@noble/ciphers": "^2.2.0",
     "@noble/curves": "^2.2.0",
     "@noble/hashes": "^2.2.0",
-    "@pushprotocol/restapi": "^1.7.32",
+    "@pushprotocol/restapi": "1.7.32",
     "@rainbow-me/rainbowkit": "^2.2.3",
     "@tailwindcss/vite": "^4.1.3",
     "@tanstack/react-query": "^5.75.5",
@@ -42,7 +42,8 @@
     "typescript-eslint": "^8.24.1",
     "vite": "^6.2.0",
     "vite-plugin-node-polyfills": "^0.28.0",
-    "vitest": "^3.1.1"
+    "vitest": "^3.1.1",
+    "patch-package": "8.0.1"
   },
   "scripts": {
     "dev": "vite",
@@ -53,7 +54,13 @@
     "preview": "vite preview",
     "test:recovery-unit": "node --test tests/unit/chatRecoveryExport.node.ts",
     "test:recovery-browser": "playwright test -c playwright.recovery.config.ts",
-    "test:app-recovery": "playwright test -c playwright.app-recovery.config.ts"
+    "test:app-recovery": "playwright test -c playwright.app-recovery.config.ts",
+    "postinstall": "patch-package --error-on-fail",
+    "prebuild": "patch-package --error-on-fail",
+    "pretest:push-sdk-browser": "patch-package --error-on-fail",
+    "test:push-unit": "node --test src/lib/pushSessionCore.test.ts src/lib/pushSessionWallet.test.ts",
+    "test:push-browser": "playwright test -c playwright.push.config.ts",
+    "test:push-sdk-browser": "playwright test -c playwright.push-sdk.config.ts"
   },
   "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
 }

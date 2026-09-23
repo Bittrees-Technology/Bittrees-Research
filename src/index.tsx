@@ -1,3 +1,5 @@
+import { useEffect } from "react";
+import { watchPushSession } from "./lib/pushRuntime";
 import { RainbowKitProvider } from "@rainbow-me/rainbowkit";
 import "@rainbow-me/rainbowkit/styles.css";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -80,8 +82,14 @@ const queryClient = new QueryClient({
   },
 });
 
+function PushSessionObserver() {
+  useEffect(watchPushSession, []);
+  return null;
+}
+
 root.render(
   <WagmiProvider config={wagmiConfig}>
+    <PushSessionObserver />
     <QueryClientProvider client={queryClient}>
       <RainbowKitProvider>
         <LayoutProvider>
