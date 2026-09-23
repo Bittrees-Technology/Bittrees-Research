@@ -21,6 +21,10 @@ test('built app preserves a confirmed synthetic mint through delayed discovery, 
   await expect(app.page.getByRole('button',{name:'Review export'})).toBeEnabled();
   await app.page.getByRole('link',{name:'Return to Research messenger'}).click();
   await expect(app.page.getByRole('heading',{name:'Transaction confirmed',exact:true})).toBeVisible();
+  // Remounting after recovery can start a fresh query. Keep the failure fixture
+  // until that query settles before offering valid evidence for an explicit retry.
+  await expect(app.page.getByRole('alert')).toContainText('Your confirmed transaction is still recorded here');
+  await expect(app.page.getByRole('button',{name:'Check membership again'})).toBeEnabled();
   app.setMode('valid');await app.page.getByRole('button',{name:'Check membership again'}).click();
   await expect(app.page.getByRole('heading',{name:'Members Chat',exact:true})).toBeVisible();
   expect(await app.page.evaluate(()=>(window as any).__mintTransactions)).toBe(1);
