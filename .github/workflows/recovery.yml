@@ -16,6 +16,7 @@ jobs:
           node-version: '24'
           cache: yarn
       - run: yarn install --frozen-lockfile --ignore-scripts
+      - run: yarn test:dependency-audit
       - run: yarn test:push-unit
       - run: yarn test:recovery-unit
       - run: node --test scripts/roles-feed.test.mjs
