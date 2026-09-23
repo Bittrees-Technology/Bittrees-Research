@@ -1,3 +1,4 @@
+import { actionMessage } from "../../shared/signed-action.mjs";
 import { useQuery } from "@tanstack/react-query";
 import type { WalletClient } from "viem";
 
@@ -19,7 +20,7 @@ export interface RoleDef { label: string; color?: string; description?: string; 
 export interface FlagRecord { by: string[]; mod: "approved" | "removed" | null; surface?: string; preview?: string }
 export type FlagsMap = Record<string, FlagRecord>;
 export type EncKeysMap = Record<string, string>; // addrLower -> x25519 pubkey hex
-export interface CommunityData { roles: RolesMap; flags: FlagsMap; enckeys: EncKeysMap; roledefs: RoleDef[]; threshold: number }
+export interface CommunityData { authorizationMode?: "legacy" | "root-policy" | "controller-policy-on-activation"; roles: RolesMap; flags: FlagsMap; enckeys: EncKeysMap; roledefs: RoleDef[]; threshold: number }
 
 export async function fetchCommunity(): Promise<CommunityData> {
   try {
@@ -102,13 +103,16 @@ async function postSigned(
   message: string,
   payload: Record<string, unknown>
 ): Promise<void> {
-  const timestamp = Date.now();
-  const signature = await walletClient.signMessage({ account, message: `${message}\nat ${timestamp}` });
-  const r = await fetch(URL, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ ...payload, address: account, signature, timestamp }),
-  });
+  const snapshot = await fetch(URL, { cache: "no-store" });
+  if (!snapshot.ok) throw new Error("Registry unavailable. Try again later.");
+  const { revision } = await snapshot.json();
+  const nonce = Array.from(crypto.getRandomValues(new Uint8Array(32)), b => b.toString(16).padStart(2, "0")).join("");
+  // Serialize once to remove optional undefined fields before signing.
+  const envelope = { version: 2, audience: window.location.origin, chainId: 1, endpoint: URL, address: account,
+    timestamp: Date.now(), nonce, expectedRevision: revision, payload: JSON.parse(JSON.stringify(payload)) };
+  void message; // Human-readable legacy summary; the complete envelope is now signed.
+  const signature = await walletClient.signMessage({ account, message: actionMessage(envelope) });
+  const r = await fetch(URL, {method: "POST", headers: {"content-type": "application/json"}, body: JSON.stringify({...envelope, signature})});
   if (!r.ok) {
     const j = await r.json().catch(() => ({}));
     throw new Error(j?.error || `Request failed (HTTP ${r.status})`);

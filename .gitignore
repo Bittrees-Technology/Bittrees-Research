@@ -27,3 +27,4 @@ yarn-error.log*
 # Browser test output
 test-results/
 playwright-report/
+.vercel
