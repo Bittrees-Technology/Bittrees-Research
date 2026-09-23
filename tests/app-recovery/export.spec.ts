@@ -67,7 +67,7 @@ test('connected wallets export local data without enabling messaging',async({bro
   await page.setViewportSize({width:390,height:844});await panel.scrollIntoViewIfNeeded();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await page.screenshot({path:info.outputPath('export-before-messaging-mobile.png'),fullPage:true});
   await page.getByRole('link',{name:'Return to Research messenger'}).click();
-  await expect(page.getByText('Verifying membership…',{exact:true})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Membership verification unavailable',exact:true})).toBeVisible({timeout:20000});
   await expect(page.getByRole('heading',{name:'Members Chat'})).toHaveCount(0);
   await expect(page.getByRole('button',{name:'Enable direct messages',exact:true})).toHaveCount(0);
   await page.getByRole('link',{name:'Recover local data for Chat'}).click();

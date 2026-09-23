@@ -1,3 +1,4 @@
+import { watchMembershipSession } from "./lib/membershipSession";
 import { useEffect } from "react";
 import { watchPushSession } from "./lib/pushRuntime";
 import { RainbowKitProvider } from "@rainbow-me/rainbowkit";
@@ -84,6 +85,7 @@ const queryClient = new QueryClient({
 
 function PushSessionObserver() {
   useEffect(watchPushSession, []);
+  useEffect(watchMembershipSession, []);
   return null;
 }
 
