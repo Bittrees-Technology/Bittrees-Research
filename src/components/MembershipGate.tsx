@@ -2,6 +2,7 @@ import { Link } from "react-router";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useAccount } from "wagmi";
 import { BittreesMark } from "@/components/Brand";
+import { MembershipVerificationWait } from "@/components/membership/MembershipVerificationWait";
 import { MembershipMint } from "@/components/membership/MembershipMint";
 import { MembershipCard } from "@/components/membership/MembershipCard";
 import { useMembershipStatus } from "@/hooks/membership/useMembershipStatus";
@@ -15,7 +16,7 @@ import { FAMILY_LINKS } from "@/lib/links";
  */
 export function MembershipGate() {
   const { isConnected } = useAccount();
-  const { isLoading, tokens, error, refetch, sessionRevision } = useMembershipStatus();
+  const { isLoading, tokens, error, refetch, sessionRevision, pendingMint, isChecking } = useMembershipStatus();
 
   const hasExpired = tokens.length > 0; // reaching the gate while holding tokens ⇒ all expired
   const mode: "join" | "renew" = hasExpired ? "renew" : "join";
@@ -98,6 +99,8 @@ export function MembershipGate() {
               </p>
               <ConnectButton chainStatus="icon" showBalance={false} />
             </div>
+          ) : pendingMint ? (
+            <MembershipVerificationWait receipt={pendingMint} checking={isChecking} error={error} onRetry={refetch} />
           ) : isLoading ? (
             <p style={{ textAlign: "center", fontSize: "0.9rem", color: "var(--color-ink-muted)", margin: 0 }}>
               Checking your membership&hellip;

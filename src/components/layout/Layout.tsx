@@ -8,7 +8,7 @@ import { useMembershipStatus } from "@/hooks/membership/useMembershipStatus";
 
 export default function Layout() {
   const { isConnected, isConnecting } = useAccount();
-  const { hasValidMembership, isLoading } = useMembershipStatus();
+  const { hasValidMembership, isLoading, pendingMint } = useMembershipStatus();
 
   // DEV-only preview bypass for screenshotting the members area without a
   // member wallet. `import.meta.env.DEV` is false in production builds, so this
@@ -21,7 +21,7 @@ export default function Layout() {
   const member = (isConnected && hasValidMembership) || devPreview;
 
   // Still resolving wallet / membership for a connected user.
-  if (isConnecting || (isConnected && isLoading)) {
+  if (isConnecting || (isConnected && isLoading && !pendingMint)) {
     return <FullScreenLoading />;
   }
 

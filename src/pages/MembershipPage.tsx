@@ -1,4 +1,5 @@
 import { PageHeader } from "@/components/PageHeader";
+import { MembershipVerificationWait } from "@/components/membership/MembershipVerificationWait";
 import { MembershipMint } from "@/components/membership/MembershipMint";
 import { MembershipCard } from "@/components/membership/MembershipCard";
 import { useMembershipStatus } from "@/hooks/membership/useMembershipStatus";
@@ -14,7 +15,7 @@ function fmtDate(unixSec: number): string {
 }
 
 export default function MembershipPage() {
-  const { tokens, daysLeft, expiringSoon, activeExpiresAt, refetch, isLoading, sessionRevision } =
+  const { tokens, daysLeft, expiringSoon, activeExpiresAt, refetch, isLoading, sessionRevision, pendingMint, isChecking, error } =
     useMembershipStatus();
 
   return (
@@ -101,7 +102,8 @@ export default function MembershipPage() {
             Mint a fresh 360-day term at any time. Terms stack — renewing early extends your
             furthest-out expiry.
           </p>
-          <MembershipMint key={sessionRevision} mode="renew" onMinted={refetch} />
+          {pendingMint ? <MembershipVerificationWait receipt={pendingMint} checking={isChecking} error={error} onRetry={refetch} />
+            : <MembershipMint key={sessionRevision} mode="renew" onMinted={refetch} />}
         </div>
       </div>
     </div>
