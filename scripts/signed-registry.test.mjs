@@ -30,3 +30,12 @@ test('root-policy mode cannot fall back to legacy role authorization on denial o
  assert.equal((await call(community,f,body)).code,200);
  }finally{globalThis.fetch=original;delete process.env.REGISTRY_AUTHORITY_MODE;delete process.env.ROLES_FEED_PRIVATE_KEY;}
 });
+
+test('automatic enrollment preserves legacy only before first policy and never falls back after activation',async()=>{
+ const original=globalThis.fetch;process.env.REGISTRY_AUTHORITY_MODE='root-policy-auto';const {generateKeyPairSync}=await import('node:crypto');process.env.ROLES_FEED_PRIVATE_KEY=generateKeyPairSync('ed25519').privateKey.export({type:'pkcs8',format:'pem'});
+ try{let configured=false;globalThis.fetch=async(url,options)=>{if(url==='https://hub.snapshot.org/graphql')return {ok:true,json:async()=>({data:{space:{admins:['0x'+'33'.repeat(20)],moderators:[]}}})};const {request}=JSON.parse(options.body);return {ok:true,json:async()=>({allowed:false,configured,audience:request.source,requestId:request.requestId})}};
+ const f=fixture();const initial=await call(community,f,await envelope('/api/community',{assignRole:{target,label:'Partner'}},0));assert.equal(initial.code,200,JSON.stringify(initial.body));
+ configured=true;assert.equal((await call(community,f,await envelope('/api/community',{assignRole:{target,label:'Partner'}},1))).code,403);assert.equal(f.revision,1);
+ globalThis.fetch=async()=>{throw Error('outage')};assert.equal((await call(community,f,await envelope('/api/community',{assignRole:{target,label:'Partner'}},1))).code,503);
+ }finally{globalThis.fetch=original;delete process.env.REGISTRY_AUTHORITY_MODE;delete process.env.ROLES_FEED_PRIVATE_KEY;}
+});
