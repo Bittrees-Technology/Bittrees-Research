@@ -1,0 +1,41 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { privateKeyToAccount } from 'viem/accounts';
+import { verifyMessage } from 'viem';
+import { withSignedRegistry } from '../server/signed-registry.mjs';
+import { actionMessage } from '../shared/signed-action.mjs';
+process.env.KV_REST_API_URL='https://fixture.invalid';process.env.KV_REST_API_TOKEN='fixture';
+const {handler:community}=await import('../api/community.js');
+const {handler:rooms}=await import('../api/rooms.js');
+const actor=privateKeyToAccount('0x'+'11'.repeat(32));
+const target='0x'+'22'.repeat(20);
+function fixture(){let revision=0;const db=new Map([['bittrees:research:roles',JSON.stringify({[actor.address.toLowerCase()]:[{label:'Executive'}]})]]),nonces=new Set();let failed=false;const command=async c=>{if(failed)throw Error('outage');if(c[0]==='MGET')return {result:[String(revision),...c.slice(2).map(k=>db.get(k)??null)]};assert.equal(c[0],'EVAL');if(nonces.has(c[4]))return {result:-2};if(Number(c[6])!==revision)return {result:-1};for(const [k,v] of JSON.parse(c[7]))db.set(k,v);nonces.add(c[4]);return {result:++revision};};return {command,db,get revision(){return revision},fail(){failed=true}};}
+async function envelope(endpoint,payload,revision){const e={version:2,audience:'https://research.bittrees.org',chainId:1,endpoint,address:actor.address,nonce:crypto.randomUUID().replaceAll('-','').repeat(2),timestamp:Date.now(),expectedRevision:revision,payload};return {...e,signature:await actor.signMessage({message:actionMessage(e)})};}
+async function call(handler,f,body,method='POST'){const r={setHeader(){},status(code){this.code=code;return this},json(body){this.body=body;return this}};await withSignedRegistry(handler,{command:f.command,verify:verifyMessage})({url:handler===rooms?'/api/rooms':'/api/community',method,body},r);return r;}
+globalThis.fetch=async url=>{assert.equal(url,'https://hub.snapshot.org/graphql');return {ok:true,json:async()=>({data:{space:{admins:['0x'+'33'.repeat(20)],moderators:[]}}})}};
+test('full room payload is bound; altered gate and destination never commit',async()=>{const f=fixture();const b=await envelope('/api/rooms',{custom:{key:'committee',name:'Committee',chatId:'original',gate:{kind:'role',role:'Partner'}}},0);const changed=structuredClone(b);changed.payload.custom.chatId='replacement';changed.payload.custom.gate={kind:'bgov',tier:0};assert.equal((await call(rooms,f,changed)).code,401);assert.equal(f.revision,0);assert.equal((await call(rooms,f,b)).code,200);assert.equal(JSON.parse(f.db.get('bittrees:research:customrooms'))[0].chatId,'original');});
+test('replay cannot reinstate a revoked role',async()=>{const f=fixture(),grant=await envelope('/api/community',{assignRole:{target,label:'Partner'}},0);assert.equal((await call(community,f,grant)).code,200);assert.equal((await call(community,f,await envelope('/api/community',{unassignRole:{target,label:'Partner'}},1))).code,200);assert.equal((await call(community,f,grant)).code,409);assert.equal(JSON.parse(f.db.get('bittrees:research:roles'))[target],undefined);});
+test('concurrent actions cannot overwrite each other',async()=>{const f=fixture(),one=await envelope('/api/community',{assignRole:{target,label:'Moderator'}},0),two=await envelope('/api/community',{assignRole:{target:actor.address,label:'Operations'}},0);const r=await Promise.all([call(community,f,one),call(community,f,two)]);assert.deepEqual(r.map(x=>x.code).sort(),[200,409]);assert.equal(f.revision,1);});
+test('storage failure and corrupt snapshots are unavailable rather than empty',async()=>{const f=fixture();f.fail();assert.equal((await call(community,f,{},'GET')).code,503);const g=fixture();g.db.set('bittrees:research:roles','invalid');assert.equal((await call(community,g,{},'GET')).code,503);});
+test('wrong audience, route, stale timestamp, ambiguous action and legacy signatures fail',async()=>{for(const change of [{audience:'https://gov.bittrees.org'},{endpoint:'/api/rooms'},{timestamp:Date.now()-600000},{payload:{assignRole:{target,label:'Partner'},unassignRole:{target,label:'Partner'}}}]){const f=fixture(),b=await envelope('/api/community',{assignRole:{target,label:'Partner'}},0);Object.assign(b,change);assert.equal((await call(community,f,b)).code,400);assert.equal(f.revision,0)}assert.equal((await call(community,fixture(),{address:actor.address,signature:'0x',timestamp:Date.now()})).code,400)});
+
+test('root-policy mode cannot fall back to legacy role authorization on denial or outage',async()=>{
+ const original=globalThis.fetch;process.env.REGISTRY_AUTHORITY_MODE='root-policy';
+ const {generateKeyPairSync}=await import('node:crypto');process.env.ROLES_FEED_PRIVATE_KEY=generateKeyPairSync('ed25519').privateKey.export({type:'pkcs8',format:'pem'});
+ try{const f=fixture(),body=await envelope('/api/community',{assignRole:{target,label:'Partner'}},0);
+ globalThis.fetch=async(url,options)=>{assert.equal(url,'https://roles.bittrees.org/api/authority/source-decision');const {request}=JSON.parse(options.body);return {ok:true,json:async()=>({allowed:false,configured:true,reason:'No approved grant',audience:request.source,requestId:request.requestId})}};
+ assert.equal((await call(community,f,body)).code,403);assert.equal(f.revision,0);
+ globalThis.fetch=async()=>{throw Error('outage')};assert.equal((await call(community,f,body)).code,503);assert.equal(f.revision,0);
+ globalThis.fetch=async(url,options)=>{if(url==='https://hub.snapshot.org/graphql')return {ok:true,json:async()=>({data:{space:{admins:[]}}})};const {request}=JSON.parse(options.body);return {ok:true,json:async()=>({allowed:true,configured:true,expiresAt:new Date(Date.now()+60000).toISOString(),audience:request.source,requestId:request.requestId})}};
+ assert.equal((await call(community,f,body)).code,200);
+ }finally{globalThis.fetch=original;delete process.env.REGISTRY_AUTHORITY_MODE;delete process.env.ROLES_FEED_PRIVATE_KEY;}
+});
+
+test('automatic enrollment preserves legacy only before first policy and never falls back after activation',async()=>{
+ const original=globalThis.fetch;process.env.REGISTRY_AUTHORITY_MODE='root-policy-auto';const {generateKeyPairSync}=await import('node:crypto');process.env.ROLES_FEED_PRIVATE_KEY=generateKeyPairSync('ed25519').privateKey.export({type:'pkcs8',format:'pem'});
+ try{let configured=false;globalThis.fetch=async(url,options)=>{if(url==='https://hub.snapshot.org/graphql')return {ok:true,json:async()=>({data:{space:{admins:['0x'+'33'.repeat(20)],moderators:[]}}})};const {request}=JSON.parse(options.body);return {ok:true,json:async()=>({allowed:false,configured,audience:request.source,requestId:request.requestId})}};
+ const f=fixture();const initial=await call(community,f,await envelope('/api/community',{assignRole:{target,label:'Partner'}},0));assert.equal(initial.code,200,JSON.stringify(initial.body));
+ configured=true;assert.equal((await call(community,f,await envelope('/api/community',{assignRole:{target,label:'Partner'}},1))).code,403);assert.equal(f.revision,1);
+ globalThis.fetch=async()=>{throw Error('outage')};assert.equal((await call(community,f,await envelope('/api/community',{assignRole:{target,label:'Partner'}},1))).code,503);
+ }finally{globalThis.fetch=original;delete process.env.REGISTRY_AUTHORITY_MODE;delete process.env.ROLES_FEED_PRIVATE_KEY;}
+});

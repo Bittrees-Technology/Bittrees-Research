@@ -45,8 +45,8 @@
   },
   "scripts": {
     "dev": "vite",
-    "test": "vitest run",
-    "test:watch": "vitest",
+    "test": "node --test scripts/*.test.mjs",
+    "test:watch": "node --test --watch scripts/*.test.mjs",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
