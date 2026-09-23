@@ -1,3 +1,4 @@
+import { Link } from "react-router";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useAccount } from "wagmi";
 import { BittreesMark } from "@/components/Brand";
@@ -115,6 +116,7 @@ export function MembershipGate({ onJoined }: { onJoined: () => void }) {
             </>
           )}
         </div>
+        <p style={{ marginTop: "1.5rem" }}><Link to="/chat-recovery">Recover local data for Chat</Link></p>
       </main>
 
       <footer style={{ borderTop: "1px solid var(--color-border)", background: "#fff" }}>

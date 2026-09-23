@@ -1,3 +1,4 @@
+import { Link } from "react-router";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAccount, usePublicClient, useEnsName, useEnsAvatar, useWalletClient, useSwitchChain } from "wagmi";
@@ -84,6 +85,7 @@ export default function Messenger() {
       <header style={{ borderBottom: "1px solid var(--color-border)", paddingBottom: "1.5rem" }}>
         <p className="text-label">Community</p>
         <h1 className="text-display">Members Chat</h1>
+        <Link to="/chat-recovery">Recover local data for Chat</Link>
       </header>
 
       {!isConnected ? (
@@ -487,6 +489,7 @@ function SettingsView({ xmtp }: { xmtp: ReturnType<typeof useXmtp> }) {
         onToggle={() => setReadReceipts(!settings.readReceipts)}
       />
       <SyncSection owner={xmtp.selfAddress} />
+      <Link to="/chat-recovery">Recover local data for Chat</Link>
       <div>
         <p className="text-label" style={{ marginBottom: "0.4rem" }}>Blocked ({blocked.length})</p>
         {blocked.length === 0 ? (

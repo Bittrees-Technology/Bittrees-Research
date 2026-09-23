@@ -18,6 +18,7 @@ import PostPage from "./pages/PostPage";
 import Forum from "./pages/Forum";
 import ForumThread from "./pages/ForumThread";
 import Messenger from "./pages/Messenger";
+import ChatRecovery from "./pages/ChatRecovery";
 import StructurePage from "./pages/StructurePage";
 import MembershipPage from "./pages/MembershipPage";
 import Admin from "./pages/Admin";
@@ -27,6 +28,8 @@ import VisionStatementPage from "./pages/VisionStatementPage.tsx";
 import CodeOfEthicsPage from "./pages/CodeOfEthicsPage.tsx";
 
 const router = createBrowserRouter([
+  // Local wallet-owned recovery grants no access to member pages or messaging.
+  { path: "/chat-recovery", element: <ChatRecovery /> },
   {
     path: "/",
     element: <Layout />,

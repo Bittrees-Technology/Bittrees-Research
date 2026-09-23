@@ -1,0 +1,7 @@
+.chat-recovery-export { padding-top: 1rem; border-top: 1px solid var(--color-border); font-family: var(--font-sans); font-size: .85rem; line-height: 1.5; }
+.chat-recovery-export h3 { font-weight: 600; font-size: 1rem; }
+.chat-recovery-export button { padding: .5rem .7rem; color: var(--color-ink); background: #fff; border: 1px solid var(--color-border); border-radius: 2px; font-weight: 600; cursor: pointer; }
+.chat-recovery-export button:disabled { opacity: .55; cursor: default; }
+.chat-recovery-export input[type=password] { padding: .5rem; border: 1px solid var(--color-border); border-radius: 2px; background: #fff; }
+.chat-recovery-export summary { cursor: pointer; font-weight: 600; }
+.chat-recovery-export [role=alert] { color: #9b1c1c; }
