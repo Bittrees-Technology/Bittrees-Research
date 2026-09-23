@@ -21,3 +21,4 @@ jobs:
       - run: yarn build
       - run: yarn playwright install --with-deps chromium
       - run: yarn test:recovery-browser
+      - run: yarn test:app-recovery
