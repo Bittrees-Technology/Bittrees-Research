@@ -1,124 +1,53 @@
-import { useQuery } from "@tanstack/react-query";
-import { useAccount } from "wagmi";
-import { mainnet } from "wagmi/chains";
-import { createPublicClient, http, type Abi } from "viem";
-import { getContractAddress } from "@/lib/constants/contracts";
-import { useAlchemyNFTs } from "@/hooks/alchemy/useAlchemyNFTs";
-import membershipAbi from "@/lib/constants/membership.abi.json";
-
-export interface MembershipToken {
-  tokenId: string;
-  expiresAt: number; // unix seconds
-  isExpired: boolean;
-}
+import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { useAccount } from 'wagmi';
+import { mainnet } from 'wagmi/chains';
+import { getContractAddress } from '@/lib/constants/contracts';
+import { membershipScope, membershipSession } from '@/lib/membershipSession';
+import { readMembership } from '@/lib/membershipReader';
+import { MEMBERSHIP_FRESHNESS, MEMBERSHIP_REFRESH, MEMBERSHIP_UNAVAILABLE, type MembershipToken } from '@/lib/membershipVerification';
+export type { MembershipToken } from '@/lib/membershipVerification';
 
 export interface MembershipStatus {
-  isConnected: boolean;
-  address?: string;
-  isLoading: boolean;
-  tokens: MembershipToken[];
-  hasValidMembership: boolean;
-  /** Furthest-out active expiry — the member's effective access end. */
-  activeExpiresAt?: number;
-  /** Whole days until access ends (0 if expired/none). */
-  daysLeft?: number;
-  /** True once a valid membership is within the renewal window. */
-  expiringSoon: boolean;
-  error: Error | null;
-  refetch: () => void;
+  isConnected: boolean; address?: string; isLoading: boolean; tokens: MembershipToken[];
+  hasValidMembership: boolean; activeExpiresAt?: number; daysLeft?: number;
+  expiringSoon: boolean; error: Error | null; refetch: () => void; sessionRevision: number;
 }
-
-/** Renew prompt fires inside this many days of expiry. */
 export const RENEWAL_WINDOW_DAYS = 30;
 
-/**
- * Full membership picture for the connected wallet. Always reads mainnet
- * (where the membership ERC-1155 lives) regardless of the connected chain.
- * Discovery via Alchemy; expiry + status via on-chain multicall (source of truth).
- */
+/** Fresh network evidence only. Neither browser display caches nor a mint receipt grant access. */
 export function useMembershipStatus(): MembershipStatus {
   const { address, isConnected } = useAccount();
-  const membershipAddress = getContractAddress("membership", mainnet.id);
-
-  const {
-    data: ownedNfts = [],
-    isLoading: nftsLoading,
-    error: nftsError,
-    refetch: refetchNfts,
-  } = useAlchemyNFTs(address, [membershipAddress], mainnet.id);
-
-  const tokenIds = ownedNfts.map((nft) => nft.tokenId);
-  const statusCacheKey = address ? `br_membership_${address.toLowerCase()}` : undefined;
-
-  const statusQuery = useQuery({
-    queryKey: ["membership", "status", address, tokenIds],
-    queryFn: async (): Promise<MembershipToken[]> => {
-      if (!tokenIds.length) return [];
-      const client = createPublicClient({ chain: mainnet, transport: http() });
-      const [expiredResults, stampResults] = await Promise.all([
-        client.multicall({
-          contracts: tokenIds.map((tokenId) => ({
-            address: membershipAddress,
-            abi: membershipAbi as Abi,
-            functionName: "isExpired",
-            args: [tokenId],
-          })),
-        }),
-        client.multicall({
-          contracts: tokenIds.map((tokenId) => ({
-            address: membershipAddress,
-            abi: membershipAbi as Abi,
-            functionName: "expirationTimestamps",
-            args: [tokenId],
-          })),
-        }),
-      ]);
-      const result = tokenIds.map((tokenId, i) => ({
-        tokenId,
-        isExpired: expiredResults[i]?.result === true,
-        expiresAt: Number(stampResults[i]?.result ?? 0n),
-      }));
-      try { if (statusCacheKey) localStorage.setItem(statusCacheKey, JSON.stringify(result)); } catch { /* quota */ }
-      return result;
+  const session = useSyncExternalStore(membershipSession.subscribe, membershipSession.getSnapshot);
+  const current = isConnected && !!address && session.scope !== null && session.scope === membershipScope()
+    && session.scope.startsWith(`${address.toLowerCase()}:`);
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => { const timer = setInterval(() => setNow(Date.now()), 1_000); return () => clearInterval(timer); }, []);
+  const query = useQuery({
+    queryKey: ['membership', 'verified', session.scope, session.revision],
+    queryFn: async ({ signal }) => {
+      const checkSession = () => {
+        if (!current || membershipSession.getSnapshot() !== session || membershipScope() !== session.scope) throw new Error(MEMBERSHIP_UNAVAILABLE);
+      };
+      checkSession();
+      const tokens = await readMembership(address!, getContractAddress('membership', mainnet.id), signal, checkSession);
+      checkSession(); return { tokens, verifiedAt: Date.now() };
     },
-    enabled: Boolean(address && tokenIds.length > 0),
-    staleTime: 5 * 60_000,
-    // Paint from the last cached status instantly on reload; revalidate in bg.
-    initialData: statusCacheKey
-      ? (): MembershipToken[] | undefined => {
-          try { const c = JSON.parse(localStorage.getItem(statusCacheKey) || "null"); return Array.isArray(c) ? c : undefined; }
-          catch { return undefined; }
-        }
-      : undefined,
-    initialDataUpdatedAt: 0,
+    enabled: current, networkMode: 'always', retry: false, retryOnMount: false, staleTime: MEMBERSHIP_REFRESH, gcTime: 0,
+    refetchInterval: query => query.state.status === 'error' ? false : MEMBERSHIP_REFRESH,
+    refetchOnMount: query => query.state.status !== 'error',
+    refetchOnWindowFocus: query => query.state.status !== 'error',
   });
-
-  const tokens = statusQuery.data ?? [];
-  const active = tokens.filter((t) => !t.isExpired);
-  const hasValidMembership = active.length > 0;
-  const activeExpiresAt = active.length
-    ? Math.max(...active.map((t) => t.expiresAt))
-    : undefined;
-  const nowSec = Math.floor(Date.now() / 1000);
-  const daysLeft = activeExpiresAt
-    ? Math.max(0, Math.ceil((activeExpiresAt - nowSec) / 86400))
-    : undefined;
-  const expiringSoon =
-    hasValidMembership && daysLeft !== undefined && daysLeft <= RENEWAL_WINDOW_DAYS;
-
-  return {
-    isConnected,
-    address,
-    isLoading: (nftsLoading || statusQuery.isLoading) && isConnected,
-    tokens,
-    hasValidMembership,
-    activeExpiresAt,
-    daysLeft,
-    expiringSoon,
-    error: (nftsError || statusQuery.error) as Error | null,
-    refetch: () => {
-      refetchNfts();
-      statusQuery.refetch();
-    },
-  };
+  const fresh = !!query.data && now - query.data.verifiedAt < MEMBERSHIP_FRESHNESS;
+  const usable = current && query.isSuccess && fresh;
+  const tokens = usable ? query.data!.tokens.map(t => ({ ...t, isExpired: t.isExpired || t.expiresAt <= Math.floor(now / 1000) })) : [];
+  const active = tokens.filter(t => !t.isExpired);
+  const activeExpiresAt = active.length ? Math.max(...active.map(t => t.expiresAt)) : undefined;
+  const daysLeft = activeExpiresAt ? Math.max(0, Math.ceil((activeExpiresAt - now / 1000) / 86400)) : undefined;
+  const refetch = useCallback(() => { void query.refetch(); }, [query.refetch]);
+  return { isConnected, address, tokens, hasValidMembership: active.length > 0, activeExpiresAt, daysLeft,
+    expiringSoon: active.length > 0 && daysLeft !== undefined && daysLeft <= RENEWAL_WINDOW_DAYS,
+    isLoading: current && query.isFetching && !usable,
+    error: current && (query.isError || (query.data && !fresh && !query.isFetching)) ? new Error(MEMBERSHIP_UNAVAILABLE) : null,
+    refetch, sessionRevision: session.revision };
 }

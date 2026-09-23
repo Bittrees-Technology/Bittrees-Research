@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Link, Outlet } from "react-router";
 import { useAccount } from "wagmi";
 import Header from "@/components/layout/Header";
@@ -9,8 +8,7 @@ import { useMembershipStatus } from "@/hooks/membership/useMembershipStatus";
 
 export default function Layout() {
   const { isConnected, isConnecting } = useAccount();
-  const { hasValidMembership, isLoading, refetch } = useMembershipStatus();
-  const [justJoined, setJustJoined] = useState(false);
+  const { hasValidMembership, isLoading } = useMembershipStatus();
 
   // DEV-only preview bypass for screenshotting the members area without a
   // member wallet. `import.meta.env.DEV` is false in production builds, so this
@@ -20,22 +18,17 @@ export default function Layout() {
     typeof localStorage !== "undefined" &&
     localStorage.getItem("br_preview") === "1";
 
-  const member = hasValidMembership || justJoined || devPreview;
+  const member = (isConnected && hasValidMembership) || devPreview;
 
   // Still resolving wallet / membership for a connected user.
-  if (isConnecting || (isConnected && isLoading && !justJoined)) {
+  if (isConnecting || (isConnected && isLoading)) {
     return <FullScreenLoading />;
   }
 
   // Non-member (or disconnected): the gate.
   if (!member) {
     return (
-      <MembershipGate
-        onJoined={() => {
-          setJustJoined(true);
-          refetch();
-        }}
-      />
+      <MembershipGate />
     );
   }
 

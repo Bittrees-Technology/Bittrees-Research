@@ -11,11 +11,11 @@ import { FAMILY_LINKS } from "@/lib/links";
  * Full-screen membership gate. Everything on Bittrees Research is members-only.
  * On connect we check the wallet and route to the right action — enter (valid,
  * handled by Layout), mint a new membership (none), or extend an expired one.
- * A successful mint flips the app into the members area via onJoined().
+ * A successful mint requests fresh verification; its receipt alone never grants access.
  */
-export function MembershipGate({ onJoined }: { onJoined: () => void }) {
+export function MembershipGate() {
   const { isConnected } = useAccount();
-  const { isLoading, tokens } = useMembershipStatus();
+  const { isLoading, tokens, error, refetch, sessionRevision } = useMembershipStatus();
 
   const hasExpired = tokens.length > 0; // reaching the gate while holding tokens ⇒ all expired
   const mode: "join" | "renew" = hasExpired ? "renew" : "join";
@@ -102,6 +102,12 @@ export function MembershipGate({ onJoined }: { onJoined: () => void }) {
             <p style={{ textAlign: "center", fontSize: "0.9rem", color: "var(--color-ink-muted)", margin: 0 }}>
               Checking your membership&hellip;
             </p>
+          ) : error ? (
+            <div role="alert">
+              <h2 className="text-title">Membership verification unavailable</h2>
+              <p>{error.message}</p>
+              <button className="btn-primary" onClick={refetch}>Retry membership check</button>
+            </div>
           ) : (
             <>
               <h2 className="text-title" style={{ marginBottom: "0.35rem" }}>
@@ -112,7 +118,7 @@ export function MembershipGate({ onJoined }: { onJoined: () => void }) {
                   ? "Extend your membership to return to the members area."
                   : "Membership is an on-chain pass (an ERC-1155 token on Ethereum) valid for 360 days."}
               </p>
-              <MembershipMint mode={mode} onMinted={onJoined} />
+              <MembershipMint key={sessionRevision} mode={mode} onMinted={refetch} />
             </>
           )}
         </div>

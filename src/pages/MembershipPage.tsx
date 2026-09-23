@@ -14,7 +14,7 @@ function fmtDate(unixSec: number): string {
 }
 
 export default function MembershipPage() {
-  const { tokens, daysLeft, expiringSoon, activeExpiresAt, refetch, isLoading } =
+  const { tokens, daysLeft, expiringSoon, activeExpiresAt, refetch, isLoading, sessionRevision } =
     useMembershipStatus();
 
   return (
@@ -101,7 +101,7 @@ export default function MembershipPage() {
             Mint a fresh 360-day term at any time. Terms stack — renewing early extends your
             furthest-out expiry.
           </p>
-          <MembershipMint mode="renew" onMinted={refetch} />
+          <MembershipMint key={sessionRevision} mode="renew" onMinted={refetch} />
         </div>
       </div>
     </div>

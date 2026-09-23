@@ -17,12 +17,14 @@ jobs:
           cache: yarn
       - run: yarn install --frozen-lockfile --ignore-scripts
       - run: yarn test:dependency-audit
+      - run: yarn test:membership-unit
       - run: yarn test:push-unit
       - run: yarn test:recovery-unit
       - run: node --test scripts/roles-feed.test.mjs
       - run: yarn build
       - run: yarn playwright install --with-deps chromium
       - run: yarn test:recovery-browser
+      - run: yarn test:membership-browser
       - run: yarn test:app-recovery
       - run: yarn test:push-browser
       - run: yarn test:push-sdk-browser

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { formatEther, parseEther, type Abi } from "viem";
 import { mainnet } from "wagmi/chains";
 import {
@@ -69,11 +69,12 @@ export function MembershipMint({ mode = "join", onMinted }: Props) {
   });
 
   const { writeContract, data: hash, isPending: writing } = useWriteContract();
-  const { isLoading: confirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const { isLoading: confirming, isSuccess } = useWaitForTransactionReceipt({ hash, chainId: mainnet.id });
 
+  const notifiedHash = useRef<string | undefined>(undefined);
   useEffect(() => {
-    if (isSuccess) onMinted?.();
-  }, [isSuccess, onMinted]);
+    if (isSuccess && hash && notifiedHash.current !== hash) { notifiedHash.current = hash; onMinted?.(); }
+  }, [isSuccess, hash, onMinted]);
 
   const verb = mode === "renew" ? "Renew" : "Join";
 
@@ -84,7 +85,7 @@ export function MembershipMint({ mode = "join", onMinted }: Props) {
           {mode === "renew" ? "Membership renewed" : "Welcome to Bittrees Research"}
         </p>
         <p style={{ fontSize: "0.875rem", color: "var(--color-ink-muted)" }}>
-          Your membership is active for another {termDays} days. Loading the members area&hellip;
+          Your transaction is confirmed. Checking current ownership and expiry before opening the members area.
         </p>
       </div>
     );
