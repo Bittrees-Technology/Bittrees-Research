@@ -2,6 +2,11 @@ import { test, expect, type Browser, type Page } from '@playwright/test';
 import { decodeFunctionData, encodeFunctionResult, multicall3Abi, parseAbi } from 'viem';
 const owner = `0x${'1'.repeat(40)}`, other = `0x${'2'.repeat(40)}`;
 const contract = '0xc8121e650bd797d8b9dad00227a9a77ef603a84a';
+// Production may use a dedicated RPC. Intercept its observed origin explicitly;
+// do not print keys/paths or allow any wallet/network write through this fixture.
+const rpcOrigin = process.env.RESEARCH_MEMBERSHIP_RPC_ORIGIN || 'https://eth.merkle.io';
+const rpcUrl = new URL(rpcOrigin);
+if (rpcUrl.protocol !== 'https:' || rpcUrl.origin !== rpcOrigin) throw Error('Membership test RPC must be an explicit HTTPS origin without credentials or a path.');
 const abi = parseAbi(['function balanceOf(address,uint256) view returns (uint256)', 'function isExpired(uint256) view returns (bool)', 'function expirationTimestamps(uint256) view returns (uint256)']);
 type Mode = 'valid' | 'failed' | 'missing' | 'expired' | 'zero' | 'transferred' | 'empty' | 'loop' | 'hang' | 'expiring';
 async function setup(browser: Browser, baseURL: string, initial: Mode, cached = false, clock = false) {
@@ -19,7 +24,7 @@ async function setup(browser: Browser, baseURL: string, initial: Mode, cached = 
       if (mode === 'hang') await held;
       return route.fulfill({ json: { ownedNfts: mode === 'empty' || requestedOwner === other ? [] : [{ contract: { address: contract }, id: { tokenId: '0x01', tokenMetadata: { tokenType: 'ERC1155' } }, title: 'Synthetic membership', media: [], balance: '1' }], totalCount: 1, ...(mode === 'loop' ? { pageKey: 'repeated' } : {}) } });
     }
-    if (url.hostname === 'eth.merkle.io' && request.method() === 'POST') {
+    if (url.origin === rpcOrigin && request.method() === 'POST') {
       const input = request.postDataJSON();
       const respond = (rpc: any) => {
         if (rpc.method === 'eth_blockNumber') return { jsonrpc: '2.0', id: rpc.id, result: '0x1000000' };
