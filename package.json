@@ -60,7 +60,7 @@
     "test:push-browser": "playwright test -c playwright.push.config.ts",
     "test:push-sdk-browser": "playwright test -c playwright.push-sdk.config.ts",
     "test:dependency-audit": "node scripts/dependency-audit.mjs",
-    "test:membership-unit": "node --test src/lib/membershipVerification.test.ts",
+    "test:membership-unit": "node --test src/lib/membershipVerification.test.ts src/lib/membershipMintReceipt.test.ts",
     "test:membership-browser": "playwright test -c playwright.membership.config.ts"
   },
   "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e",

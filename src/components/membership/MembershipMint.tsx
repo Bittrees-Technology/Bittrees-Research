@@ -1,3 +1,4 @@
+import { useMembershipStatus } from "@/hooks/membership/useMembershipStatus";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { formatEther, parseEther, type Abi } from "viem";
 import { mainnet } from "wagmi/chains";
@@ -28,11 +29,17 @@ interface Props {
  */
 export function MembershipMint({ mode = "join", onMinted }: Props) {
   const { address } = useAccount();
+  const { confirmMint } = useMembershipStatus();
+  const replacementHash = useRef<string | null>(null);
+  const replacementAllowed = useRef(true);
+  const [replacementNotice, setReplacementNotice] = useState(false);
+  const submission = useRef<((hash: string) => boolean) | null>(null);
   const chainId = useChainId();
   const onMainnet = chainId === mainnet.id;
   const { switchChain, isPending: switching } = useSwitchChain();
 
   const [donation, setDonation] = useState("");
+  const [confirmedHash, setConfirmedHash] = useState<string | null>(null);
 
   const { data: priceWei } = useReadContract({
     address: MEMBERSHIP,
@@ -68,24 +75,45 @@ export function MembershipMint({ mode = "join", onMinted }: Props) {
     query: { enabled: Boolean(address) && onMainnet },
   });
 
-  const { writeContract, data: hash, isPending: writing } = useWriteContract();
-  const { isLoading: confirming, isSuccess } = useWaitForTransactionReceipt({ hash, chainId: mainnet.id });
+  const { writeContract, reset, data: hash, isPending: writing } = useWriteContract();
+  const { data: receipt, isLoading: confirming, isSuccess } = useWaitForTransactionReceipt({ hash, chainId: mainnet.id,
+    onReplaced: ({ reason, transactionReceipt }) => {
+      if (reason === 'repriced') replacementHash.current = transactionReceipt.transactionHash;
+      else { replacementAllowed.current = false; setReplacementNotice(true); }
+    },
+  });
 
   const notifiedHash = useRef<string | undefined>(undefined);
   useEffect(() => {
-    if (isSuccess && hash && notifiedHash.current !== hash) { notifiedHash.current = hash; onMinted?.(); }
-  }, [isSuccess, hash, onMinted]);
+    if (isSuccess && receipt?.status === 'success' && hash && notifiedHash.current !== hash && submission.current) {
+      const confirmedTransaction = receipt.transactionHash;
+      if (typeof confirmedTransaction !== 'string' || !/^0x[0-9a-fA-F]{64}$/.test(confirmedTransaction) || !replacementAllowed.current
+        || (confirmedTransaction.toLowerCase() !== hash.toLowerCase() && confirmedTransaction.toLowerCase() !== replacementHash.current?.toLowerCase())) {
+        setReplacementNotice(true); return;
+      }
+      notifiedHash.current = hash;
+      if (submission.current?.(receipt.transactionHash)) { setConfirmedHash(receipt.transactionHash); onMinted?.(); }
+    }
+  }, [isSuccess, receipt, hash, onMinted]);
 
   const verb = mode === "renew" ? "Renew" : "Join";
 
-  if (isSuccess) {
+  if (replacementNotice) {
+    return <section role="alert">
+      <h2 className="text-title">Transaction changed</h2>
+      <p>The original membership transaction was cancelled or replaced. Review your wallet’s transaction history before trying again.</p>
+      <button className="btn-primary" onClick={() => { reset(); submission.current = null; replacementHash.current = null; replacementAllowed.current = true; notifiedHash.current = undefined; setReplacementNotice(false); }}>Return to membership options</button>
+    </section>;
+  }
+
+  if (confirmedHash) {
     return (
       <div className="card-subtle" style={{ padding: "1.25rem", textAlign: "center" }}>
         <p className="text-title" style={{ marginBottom: "0.35rem" }}>
-          {mode === "renew" ? "Membership renewed" : "Welcome to Bittrees Research"}
+          Transaction confirmed
         </p>
         <p style={{ fontSize: "0.875rem", color: "var(--color-ink-muted)" }}>
-          Your transaction is confirmed. Checking current ownership and expiry before opening the members area.
+          Your transaction is confirmed. Checking membership details against current ownership and expiry.
         </p>
       </div>
     );
@@ -156,7 +184,7 @@ export function MembershipMint({ mode = "join", onMinted }: Props) {
 
       {simError && <p style={{ fontSize: "0.8rem", color: "#b42318" }}>{simError.message.split("\n")[0]}</p>}
 
-      <button className="btn-primary" disabled={!sim?.request || busy} onClick={() => sim?.request && writeContract(sim.request)}>
+      <button className="btn-primary" disabled={!sim?.request || busy} onClick={() => { if (sim?.request && !busy) { submission.current = confirmMint; replacementHash.current = null; replacementAllowed.current = true; writeContract(sim.request); } }}>
         {busy ? (confirming ? "Confirming…" : "Check wallet…") : `${verb} — ${formatEther(total)} ETH`}
       </button>
     </div>
