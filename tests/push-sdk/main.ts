@@ -3,6 +3,13 @@ import { decryptAndVerifyMessage } from '@pushprotocol/restapi/src/lib/chat/help
 import { aesEncrypt } from '@pushprotocol/restapi/src/lib/chat/helpers/aes';
 import { decryptPGPKey, getPublicKey } from '@pushprotocol/restapi/src/lib/helpers/crypto';
 import { guardPushWallet } from '../../src/lib/pushSessionWallet';
+import { getUUID } from '@pushprotocol/restapi/src/lib/payloads/helpers';
+import { PushStream } from '@pushprotocol/restapi/src/lib/pushstream/PushStream';
+(window as any).checkPushUuid = () => {
+  // Construct only: no socket initialization, signing, room creation or send.
+  const stream = new (PushStream as any)(`0x${'a'.repeat(40)}`, [], { env: 'prod', raw: false }, '', undefined, undefined);
+  return { payloads: Array.from({ length: 32 }, () => getUUID()), stream: stream.uid };
+};
 (window as any).checkPushIsolation = async () => {
   const keys = await PGPHelper.generateKeyPair(); const otherKeys = await PGPHelper.generateKeyPair();
   const secret = 'synthetic-room-secret';

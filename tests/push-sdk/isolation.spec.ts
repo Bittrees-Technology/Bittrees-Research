@@ -1,4 +1,17 @@
 import { test, expect } from '@playwright/test';
+test('patched UUID browser resolution preserves real Push payload and stream identifiers without network access', async ({ page, baseURL }) => {
+  const external: string[] = [];
+  await page.route('**/*', route => {
+    if (new URL(route.request().url()).origin === new URL(baseURL!).origin) return route.continue();
+    external.push(route.request().url()); return route.abort();
+  });
+  await page.goto('/'); await expect(page.locator('body')).toHaveText('Ready');
+  const ids = await page.evaluate(() => (window as any).checkPushUuid());
+  const all = [...ids.payloads, ids.stream];
+  expect(new Set(all).size).toBe(33);
+  for (const id of all) expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+  expect(external).toEqual([]);
+});
 test('encrypted group secrets do not cross wallet keys and recovery stays with the bound provider', async ({ page, baseURL }) => {
   let secretRequests = 0; const external: string[] = [];
   await page.route('**/*', async route => {
