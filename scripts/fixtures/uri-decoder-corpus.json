@@ -1,0 +1,54 @@
+{
+  "query": [
+    {
+      "input": "plain=hello+world",
+      "output": {
+        "plain": "hello world"
+      }
+    },
+    {
+      "input": "plus=%2B&encoded=%252B",
+      "output": {
+        "encoded": "%2B",
+        "plus": "+"
+      }
+    },
+    {
+      "input": "word=%C3%A5%F0%9F%98%80",
+      "output": {
+        "word": "å😀"
+      }
+    },
+    {
+      "input": "a=1&a=2&empty=&bare",
+      "output": {
+        "a": [
+          "1",
+          "2"
+        ],
+        "bare": null,
+        "empty": ""
+      }
+    },
+    {
+      "input": "bad=%FF%41%C3%A5%C2",
+      "output": {
+        "bad": "%FFAå�"
+      }
+    },
+    {
+      "input": "%5F%5Fproto%5F%5F=value&constructor=test",
+      "output": {
+        "__proto__": "value",
+        "constructor": "test"
+      }
+    }
+  ],
+  "fragment": {
+    "url": "https://example.invalid/",
+    "query": {
+      "x": "1"
+    },
+    "fragmentIdentifier": "hello world"
+  }
+}

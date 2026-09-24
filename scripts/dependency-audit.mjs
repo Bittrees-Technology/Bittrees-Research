@@ -31,14 +31,14 @@ export function inspectAudit(result) {
   if (result.status !== mask || levels.some(level => reported.has(level) !== (summary[level] > 0))) {
     throw new Error('Incomplete or inconsistent dependency audit report.');
   }
-  if (summary.high || summary.critical) throw new Error('High or critical dependency findings must be resolved.');
+  if (summary.moderate || summary.high || summary.critical) throw new Error('Moderate, high or critical dependency findings must be resolved.');
   return summary;
 }
 
 if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {
   try {
     const result = spawnSync('yarn', ['audit', '--json'], { encoding: 'utf8', timeout: 120_000, maxBuffer: 16 * 1024 * 1024 });
-    console.log('Dependency audit passed high/critical gate:', JSON.stringify(inspectAudit(result)));
+    console.log('Dependency audit passed moderate/high/critical gate:', JSON.stringify(inspectAudit(result)));
   } catch (error) {
     console.error(error instanceof Error ? error.message : 'Dependency audit failed.');
     process.exitCode = 1;
