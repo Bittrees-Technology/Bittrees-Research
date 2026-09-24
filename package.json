@@ -74,6 +74,10 @@
     "**/engine.io-client/ws": "8.21.0",
     "**/ethers/ws": "8.21.0",
     "**/viem/ws": "8.21.0",
-    "**/cbw-sdk/preact": "10.27.3"
+    "**/cbw-sdk/preact": "10.27.3",
+    "**/@pushprotocol/restapi/uuid": "11.1.1",
+    "**/@metamask/sdk/uuid": "11.1.1",
+    "**/@metamask/sdk-communication-layer/uuid": "11.1.1",
+    "**/@metamask/utils/uuid": "11.1.1"
   }
 }
