@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+const corpus = JSON.parse(readFileSync(new URL('../../scripts/fixtures/uri-decoder-corpus.json', import.meta.url), 'utf8'));
 import { test, expect } from '@playwright/test';
 test('patched UUID browser resolution preserves real Push payload and stream identifiers without network access', async ({ page, baseURL }) => {
   const external: string[] = [];
@@ -26,4 +28,20 @@ test('encrypted group secrets do not cross wallet keys and recovery stays with t
   await page.goto('/'); await expect(page.locator('body')).toHaveText('Ready');
   expect(await page.evaluate(() => (window as any).checkPushIsolation())).toEqual({ firstRead: 'Private room content', secondRead: 'Unable to Decrypt Message', absentRecovery: true, absentPublicKey: true, boundRecovery: true, wrongProviderCalls: 0, staleRejected: true });
   expect(secretRequests).toBe(2); expect(external).toEqual([]);
+});
+
+test('built decoder preserves query and pairing semantics and bounds malformed input', async ({ page, baseURL }) => {
+  const external: string[] = [];
+  await page.route('**/*', route => {
+    if (new URL(route.request().url()).origin === new URL(baseURL!).origin) return route.continue();
+    external.push(route.request().url()); return route.abort();
+  });
+  await page.goto('/'); await expect(page.locator('body')).toHaveText('Ready');
+  // Preserve special own keys across Playwright serialization.
+  const result = JSON.parse(await page.evaluate(() => (window as any).checkUriCompatibility()));
+  expect(result).toEqual({
+    query: corpus.query.map(({ output }: { output: unknown }) => output), fragment: corpus.fragment, malformedPreserved: true,
+    pairing: { protocol: '', topic: 'a'.repeat(64), version: 2, symKey: 'b'.repeat(64), relay: { protocol: 'irn' }, methods: ['eth_sendTransaction', 'personal_sign'], expiryTimestamp: 2000000000 },
+  });
+  expect(external).toEqual([]);
 });

@@ -10,10 +10,10 @@ function report(counts = {}, status = 0) {
 }
 test('gate accepts complete clean or lower-severity reports without suppressing their counts', () => {
   assert.deepEqual(inspectAudit(report()), empty);
-  assert.deepEqual(inspectAudit(report({ low: 3, moderate: 4 }, 6)), { ...empty, low: 3, moderate: 4 });
+  assert.deepEqual(inspectAudit(report({ low: 3 }, 2)), { ...empty, low: 3 });
 });
-test('high and critical findings fail regardless of a supplied successful exit', () => {
-  for (const [level, bit] of [['high', 8], ['critical', 16]]) {
+test('moderate, high and critical findings fail regardless of a supplied successful exit', () => {
+  for (const [level, bit] of [['moderate', 4], ['high', 8], ['critical', 16]]) {
     assert.throws(() => inspectAudit(report({ [level]: 1 }, bit)));
     assert.throws(() => inspectAudit(report({ [level]: 1 }, 0)));
   }

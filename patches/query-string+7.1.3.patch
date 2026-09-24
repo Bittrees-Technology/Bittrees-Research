@@ -1,0 +1,14 @@
+diff --git a/node_modules/query-string/index.js b/node_modules/query-string/index.js
+index d45e67d..e9b70b0 100644
+--- a/node_modules/query-string/index.js
++++ b/node_modules/query-string/index.js
+@@ -1,6 +1,8 @@
+ 'use strict';
+ const strictUriEncode = require('strict-uri-encode');
+-const decodeComponent = require('decode-uri-component');
++const decodeUriComponent = require('decode-uri-component').default;
++// Preserve v0.2's plus-as-space behavior, including fragment identifiers.
++const decodeComponent = value => decodeUriComponent(typeof value === 'string' ? value.replace(/\+/g, ' ') : value);
+ const splitOnFirst = require('split-on-first');
+ const filterObject = require('filter-obj');
+ 
