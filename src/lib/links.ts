@@ -5,6 +5,7 @@
 export const FAMILY_LINKS = [
   { label: "Governance", href: "https://gov.bittrees.org", desc: "Bittrees, Inc." },
   { label: "Capital", href: "https://capital.bittrees.org", desc: "Holdings & treasury" },
+  { label: "Index", href: "https://index.bittrees.org", desc: "Sites & partners" },
   { label: "Home", href: "https://bittrees.org", desc: "bittrees.org" },
 ] as const;
 
