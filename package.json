@@ -60,7 +60,7 @@
     "test:push-browser": "playwright test -c playwright.push.config.ts",
     "test:push-sdk-browser": "playwright test -c playwright.push-sdk.config.ts",
     "test:dependency-audit": "node scripts/dependency-audit.mjs",
-    "test:membership-unit": "node --test src/lib/membershipVerification.test.ts src/lib/membershipMintReceipt.test.ts",
+    "test:membership-unit": "node --test src/lib/membershipVerification.test.ts src/lib/membershipMintReceipt.test.ts src/lib/membershipDiscovery.test.ts",
     "test:membership-browser": "playwright test -c playwright.membership.config.ts",
     "pretest": "patch-package --error-on-fail"
   },

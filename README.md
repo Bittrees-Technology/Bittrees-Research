@@ -73,8 +73,16 @@ Copy `.env.example` and set the same values in the Vercel project. Summary:
 | `MAINNET_RPC_URL` | server | RPC for `/api/gate` reads — use a node with **no** domain restriction |
 | `KV_REST_API_URL` / `KV_REST_API_TOKEN` | server | Upstash KV for roles/rooms/moderation + cross-device sync |
 
-The app runs without KV (built-in rooms via env, no custom rooms); membership gating and
-the on-chain flows only need an RPC + a connected wallet.
+The app runs without KV (built-in rooms via env, no custom rooms). Membership verification
+requires Alchemy NFT discovery and Ethereum RPC reads for the connected wallet.
+
+Membership discovery requests token IDs without metadata using the existing
+[Alchemy v2 endpoint](https://alchemy-api-docs.readme.io/reference/getnfts).
+Temporary network, timeout, rate-limit, and server failures retry once; persistent errors
+retain the manual retry button. Ownership and expiry still require fresh on-chain evidence.
+An API-access error requires checking the corresponding production browser key/endpoint
+and its allowed origin (`https://research.bittrees.org`). Vite environment changes require
+a rebuild and deployment. Never paste keys or full provider request URLs into reports.
 
 ## Project layout
 

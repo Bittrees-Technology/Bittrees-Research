@@ -1,8 +1,8 @@
 import { test, expect } from '@playwright/test';
 
-// Exercise the real bundled Alchemy SDK/Axios request path with an empty,
+// Exercise the real cancellable NFT request path with an empty,
 // synthetic response. No membership cache is seeded and no chain write is allowed.
-test('patched NFT client accepts an empty membership response without granting member access', async ({ browser, baseURL }) => {
+test('membership NFT client accepts an empty membership response without granting member access', async ({ browser, baseURL }) => {
   const owner = `0x${'1'.repeat(40)}`;
   const context = await browser.newContext();
   let reads = 0;

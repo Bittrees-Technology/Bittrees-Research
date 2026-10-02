@@ -8,7 +8,7 @@ const rpcOrigin = process.env.RESEARCH_MEMBERSHIP_RPC_ORIGIN || 'https://eth.mer
 const rpcUrl = new URL(rpcOrigin);
 if (rpcUrl.protocol !== 'https:' || rpcUrl.origin !== rpcOrigin) throw Error('Membership test RPC must be an explicit HTTPS origin without credentials or a path.');
 const abi = parseAbi(['function balanceOf(address,uint256) view returns (uint256)', 'function isExpired(uint256) view returns (bool)', 'function expirationTimestamps(uint256) view returns (uint256)', 'function mintPrice() view returns (uint256)', 'function expirationTimeframe() view returns (uint256)', 'function mintMembership(address) payable returns (uint256)']);
-type Mode = 'valid' | 'failed' | 'missing' | 'expired' | 'zero' | 'transferred' | 'empty' | 'loop' | 'hang' | 'expiring' | 'renewed';
+type Mode = 'valid' | 'failed' | 'missing' | 'expired' | 'zero' | 'transferred' | 'empty' | 'loop' | 'hang' | 'expiring' | 'renewed' | 'transient' | 'unavailable' | 'denied' | 'rpc-transient' | 'call-transient';
 export async function setup(browser: Browser, baseURL: string, initial: Mode, cached = false, clock = false, mint = false) {
   const context = await browser.newContext();
   const mintHash=`0x${'3'.repeat(64)}`;
@@ -16,13 +16,16 @@ export async function setup(browser: Browser, baseURL: string, initial: Mode, ca
   const expiry=Math.floor(Date.now()/1000)+3600;
   let receiptReady=false, receiptReads=0;
   const block=()=>receiptReady?'0x1000001':'0x1000000';
-  let mode = initial, nftReads = 0, calls = 0, release = () => {};
+  let mode = initial, nftReads = 0, calls = 0, rpcFailures = 0, release = () => {};
   const writes: string[] = [], balances: string[] = [];
   const held = new Promise<void>(resolve => { release = resolve; });
   await context.route('**/*', async route => {
     const request = route.request(), url = new URL(request.url());
     if (url.hostname === 'eth-mainnet.g.alchemy.com' && url.pathname.endsWith('/getNFTs')) {
       nftReads++; expect(request.method()).toBe('GET');
+      expect(url.searchParams.get('withMetadata')).toBe('false');
+      if (mode === 'unavailable' || (mode === 'transient' && nftReads === 1)) return route.fulfill({ status: 503, body: 'Temporary outage' });
+      if (mode === 'denied') return route.fulfill({ status: 403, body: 'secret provider details must not be displayed' });
       const requestedOwner = url.searchParams.get('owner')?.toLowerCase();
       expect([owner, other]).toContain(requestedOwner);
       expect(url.searchParams.getAll('contractAddresses[]')).toEqual([contract]);
@@ -31,6 +34,19 @@ export async function setup(browser: Browser, baseURL: string, initial: Mode, ca
     }
     if (url.origin === rpcOrigin && request.method() === 'POST') {
       const input = request.postDataJSON();
+      const requests = Array.isArray(input) ? input : [input];
+      const failBlock = mode === 'rpc-transient' && requests.some(rpc => rpc.method === 'eth_blockNumber');
+      const failCall = mode === 'call-transient' && requests.some(rpc => {
+        try {
+          const decoded = decodeFunctionData({ abi: multicall3Abi, data: rpc.params[0].data });
+          return rpc.method === 'eth_call' && decoded.functionName === 'aggregate3'
+            && decoded.args[0].every(item => item.target.toLowerCase() === contract);
+        } catch { return false; }
+      });
+      if (!rpcFailures && (failBlock || failCall)) {
+        rpcFailures++;
+        return route.fulfill({ status: 503, body: 'Temporary outage' });
+      }
       const respond = (rpc: any) => {
         if (rpc.method === 'eth_blockNumber') return { jsonrpc: '2.0', id: rpc.id, result: block() };
         const success=(result:any)=>({jsonrpc:'2.0',id:rpc.id,result});
@@ -117,5 +133,5 @@ export async function setup(browser: Browser, baseURL: string, initial: Mode, ca
   const connect = async () => { await page.getByRole('button', { name: 'Connect Wallet', exact: true }).first().click(); await page.getByRole('button', { name: /^MetaMask(?:\s|$)/ }).click(); };
   await page.goto('/chat'); await connect();
   return { page, context, connect, mintHash, confirmTransaction:()=>{receiptReady=true;}, setMode: (value: Mode) => { mode = value; }, release,
-    stats: () => ({ nftReads, calls, writes, balances, receiptReads }), close: async () => { release(); expect(writes).toEqual([]); await context.close(); } };
+    stats: () => ({ nftReads, calls, writes, balances, receiptReads, rpcFailures }), close: async () => { release(); expect(writes).toEqual([]); await context.close(); } };
 }
