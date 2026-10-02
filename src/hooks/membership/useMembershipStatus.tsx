@@ -5,7 +5,7 @@ import { mainnet } from 'wagmi/chains';
 import { getContractAddress } from '@/lib/constants/contracts';
 import { membershipScope, membershipSession, membershipMintReceipts } from '@/lib/membershipSession';
 import { readMembership } from '@/lib/membershipReader';
-import { MEMBERSHIP_FRESHNESS, MEMBERSHIP_REFRESH, MEMBERSHIP_UNAVAILABLE, type MembershipToken } from '@/lib/membershipVerification';
+import { MEMBERSHIP_FRESHNESS, MEMBERSHIP_REFRESH, MEMBERSHIP_UNAVAILABLE, MembershipReadError, retryMembershipRead, type MembershipToken } from '@/lib/membershipVerification';
 import type { PendingMembershipMint } from '@/lib/membershipMintReceipt';
 export type { MembershipToken } from '@/lib/membershipVerification';
 
@@ -37,7 +37,8 @@ export function useMembershipStatus(): MembershipStatus {
       const tokens = await readMembership(address!, getContractAddress('membership', mainnet.id), signal, checkSession);
       checkSession(); return { tokens, verifiedAt: Date.now() };
     },
-    enabled: current, networkMode: 'always', retry: false, retryOnMount: false, staleTime: MEMBERSHIP_REFRESH, gcTime: 0,
+    enabled: current, networkMode: 'always', retry: retryMembershipRead, retryDelay: () => 1_000 + Math.random() * 500,
+    retryOnMount: false, staleTime: MEMBERSHIP_REFRESH, gcTime: 0,
     refetchInterval: query => query.state.status === 'error' ? false : MEMBERSHIP_REFRESH,
     refetchOnMount: query => query.state.status !== 'error',
     refetchOnWindowFocus: query => query.state.status !== 'error',
@@ -56,6 +57,7 @@ export function useMembershipStatus(): MembershipStatus {
   return { isConnected, address, tokens, hasValidMembership: active.length > 0, activeExpiresAt, daysLeft,
     expiringSoon: active.length > 0 && daysLeft !== undefined && daysLeft <= RENEWAL_WINDOW_DAYS,
     isLoading: current && query.isFetching && !usable,
-    error: current && (query.isError || (query.data && !fresh && !query.isFetching)) ? new Error(MEMBERSHIP_UNAVAILABLE) : null,
+    error: current && (query.isError || (query.data && !fresh && !query.isFetching))
+      ? query.error instanceof MembershipReadError ? query.error : new Error(MEMBERSHIP_UNAVAILABLE) : null,
     refetch, sessionRevision: session.revision, pendingMint, confirmMint, isChecking: current && query.isFetching };
 }

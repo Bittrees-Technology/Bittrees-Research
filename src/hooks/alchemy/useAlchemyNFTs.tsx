@@ -3,18 +3,7 @@ import {Alchemy, OwnedNft} from 'alchemy-sdk';
 import type { ChainId } from '@/lib/constants/contracts';
 import {CHAIN_TO_ALCHEMY_NETWORK} from "@/lib/constants/chains.ts";
 
-// Public, browser-exposed Alchemy key — domain-restrict it on the Alchemy
-// dashboard. Override per-deployment with VITE_ALCHEMY_API_KEY.
-const ALCHEMY_API_KEY =
-  (import.meta.env.VITE_ALCHEMY_API_KEY as string) || "g6X4-HRGshx5XNp7gpDxLPeX-WSpw9pN";
-
-/** A fresh reader for bounded verification; display caches are never authority. */
-export function createAlchemyClient(chainId: ChainId, bounded = false) {
-    const network = CHAIN_TO_ALCHEMY_NETWORK[chainId];
-    if (!network) throw new Error(`Alchemy not supported for chain ${chainId}`);
-    return new Alchemy({ apiKey: ALCHEMY_API_KEY, network,
-        ...(bounded ? { maxRetries: 0, requestTimeout: 8_000 } : {}) });
-}
+import { ALCHEMY_API_KEY } from '@/lib/alchemyConfig';
 
 /**
  * Generic hook to get NFTs for specific contracts on any supported chain

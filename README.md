@@ -61,6 +61,11 @@ To show Sepolia / Base Sepolia in the wallet picker: `VITE_ENABLE_TESTNETS=true 
 
 ## Environment
 
+The capital holder-sync maintenance POST is disabled unless the server-only
+`CAPITAL_SYNC_TOKEN` is configured, and requires `Authorization: Bearer <token>`.
+Never expose this token through a `VITE_` variable. The integrated legacy branch
+does not enable or schedule production synchronization automatically.
+
 Copy `.env.example` and set the same values in the Vercel project. Summary:
 
 | Variable | Side | Purpose |
@@ -73,8 +78,16 @@ Copy `.env.example` and set the same values in the Vercel project. Summary:
 | `MAINNET_RPC_URL` | server | RPC for `/api/gate` reads — use a node with **no** domain restriction |
 | `KV_REST_API_URL` / `KV_REST_API_TOKEN` | server | Upstash KV for roles/rooms/moderation + cross-device sync |
 
-The app runs without KV (built-in rooms via env, no custom rooms); membership gating and
-the on-chain flows only need an RPC + a connected wallet.
+The app runs without KV (built-in rooms via env, no custom rooms). Membership verification
+requires Alchemy NFT discovery and Ethereum RPC reads for the connected wallet.
+
+Membership discovery requests token IDs without metadata using the existing
+[Alchemy v2 endpoint](https://alchemy-api-docs.readme.io/reference/getnfts).
+Temporary network, timeout, rate-limit, and server failures retry once; persistent errors
+retain the manual retry button. Ownership and expiry still require fresh on-chain evidence.
+An API-access error requires checking the corresponding production browser key/endpoint
+and its allowed origin (`https://research.bittrees.org`). Vite environment changes require
+a rebuild and deployment. Never paste keys or full provider request URLs into reports.
 
 ## Project layout
 
@@ -92,6 +105,29 @@ src/
 Deploys to Vercel from `main`, served at `research.bittrees.org`. Set the environment
 variables above in the Vercel project; connect an Upstash KV store for the roles/rooms
 registry and cross-device messenger sync.
+
+### Read-only release gate
+
+Use the release gate before promotion, and again after any rollback. It never writes to
+production; it only captures a baseline snapshot, validates a canary URL, and compares the
+current surface back to the saved baseline.
+
+```bash
+yarn release:gate --mode baseline
+yarn release:gate --mode canary --base-url https://<preview-host> --baseline output/release-gates/<baseline-run>/run.json
+yarn release:gate --mode rollback-check --baseline output/release-gates/<baseline-run>/run.json
+```
+
+What it checks:
+
+- SPA routes stay reachable (`/`, `/research`, `/forum`, `/chat`, `/membership`, `/bnote`,
+  `/bit`, `/contribute`, `/admin`)
+- `/api/community`, `/api/rooms`, `/api/usersync`, and the malformed-input `/api/gate`
+  contract stay healthy
+- Rollback verification compares status and structural response signatures to the saved
+  baseline instead of trying to mutate live state
+
+Each run writes `run.json` and `report.md` under `output/release-gates/`.
 
 ---
 

@@ -25,3 +25,7 @@ Upstream references: [node-tar resource-limit advisory](https://github.com/isaac
 UUID reference: [buffer-boundary advisory and patched release lines](https://github.com/uuidjs/uuid/security/advisories/GHSA-w5hq-g745-h8pq).
 
 URI decoder reference: [malformed-input denial-of-service advisory and patched release](https://github.com/advisories/GHSA-vcc3-ghjq-m6fr).
+
+## 2 October 2026 release
+
+Updated the scoped Axios pins to 0.34.0 for Push/Alchemy and 1.20.0 for Coinbase CDP to resolve the newly reported moderate/high findings. The existing audit gate remains enforced. See [Axios advisory](https://github.com/advisories/GHSA-9fr6-4gfg-395g).

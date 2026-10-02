@@ -84,3 +84,38 @@ test('a failed periodic refresh removes access and settles on explicit retry', a
     expect(requests).toBe(2);
   } finally { await app.close(); }
 });
+
+for (const mode of ['transient', 'rpc-transient', 'call-transient'] as const) {
+  test(`membership automatically recovers from a ${mode} outage with fresh evidence`, async ({browser, baseURL}) => {
+    const app = await setup(browser, baseURL!, mode, true);
+    try {
+      await expect(member(app.page)).toHaveCount(0);
+      await expect(member(app.page)).toBeVisible({timeout:10000});
+      expect(app.stats().nftReads).toBe(2);
+      expect(app.stats().balances.length).toBeGreaterThan(0);
+    } finally { await app.close(); }
+  });
+}
+
+test('persistent outage retries only once, then manual retry can recover', async ({browser, baseURL}) => {
+  const app = await setup(browser, baseURL!, 'unavailable', true);
+  try {
+    await expect(app.page.getByRole('heading', {name:'Membership verification unavailable'})).toBeVisible();
+    await expect(member(app.page)).toHaveCount(0);
+    expect(app.stats().nftReads).toBe(2);
+    app.setMode('valid');
+    await app.page.getByRole('button', {name:'Retry membership check'}).click();
+    await expect(member(app.page)).toBeVisible();
+    expect(app.stats().nftReads).toBe(3);
+  } finally { await app.close(); }
+});
+
+test('denied API access shows a configuration error without retrying or exposing provider details', async ({browser, baseURL}) => {
+  const app = await setup(browser, baseURL!, 'denied');
+  try {
+    await expect(app.page.getByRole('alert')).toContainText('site operator needs to check its API configuration');
+    await expect(app.page.getByRole('alert')).not.toContainText('secret provider details');
+    await expect(member(app.page)).toHaveCount(0);
+    expect(app.stats().nftReads).toBe(1);
+  } finally { await app.close(); }
+});

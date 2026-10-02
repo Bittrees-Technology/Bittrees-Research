@@ -4,6 +4,19 @@ export const MEMBERSHIP_FRESHNESS = 60_000;
 export const MEMBERSHIP_REFRESH = 30_000;
 export const MEMBERSHIP_UNAVAILABLE = 'Membership could not be verified. Try again; your existing membership is unchanged.';
 
+/** Safe to display: never include provider URLs, API keys or response bodies. */
+export class MembershipReadError extends Error {
+  readonly retryable: boolean;
+  constructor(message: string, retryable = false) {
+    super(`${message} Your existing membership is unchanged.`);
+    this.name = 'MembershipReadError';
+    this.retryable = retryable;
+  }
+}
+
+export const retryMembershipRead = (failureCount: number, error: unknown) =>
+  failureCount < 1 && error instanceof MembershipReadError && error.retryable;
+
 export function candidateTokenIds(nfts: unknown, contract: string): string[] {
   if (!Array.isArray(nfts) || nfts.length > 1_000) throw new Error(MEMBERSHIP_UNAVAILABLE);
   const ids = new Set<string>();
@@ -33,21 +46,25 @@ export function verifiedMembershipTokens(ids: string[], results: readonly unknow
 }
 
 /** SDKs may ignore cancellation. Settle the caller promptly and reject every late result. */
-export async function boundedMembershipRead<T>(read: (ensureCurrent: () => void) => Promise<T>, signal: AbortSignal, timeout = MEMBERSHIP_CHECK_TIMEOUT): Promise<T> {
+export async function boundedMembershipRead<T>(read: (ensureCurrent: () => void, signal: AbortSignal) => Promise<T>, signal: AbortSignal, timeout = MEMBERSHIP_CHECK_TIMEOUT): Promise<T> {
   let stopped = signal.aborted;
+  const controller = new AbortController();
   let timer: ReturnType<typeof setTimeout>;
   let abort = () => {};
   const ensureCurrent = () => { if (stopped || signal.aborted) throw new Error(MEMBERSHIP_UNAVAILABLE); };
   const stop = new Promise<never>((_, reject) => {
-    abort = () => { stopped = true; reject(new Error(MEMBERSHIP_UNAVAILABLE)); };
+    abort = () => { stopped = true; controller.abort(); reject(new Error(MEMBERSHIP_UNAVAILABLE)); };
     signal.addEventListener('abort', abort, { once: true });
-    timer = setTimeout(abort, timeout);
+    timer = setTimeout(() => {
+      stopped = true; controller.abort();
+      reject(new MembershipReadError('Membership verification timed out. Please try again.', true));
+    }, timeout);
   });
   try {
     return await Promise.race([stop, Promise.resolve().then(async () => {
-      ensureCurrent(); const value = await read(ensureCurrent); ensureCurrent(); return value;
+      ensureCurrent(); const value = await read(ensureCurrent, controller.signal); ensureCurrent(); return value;
     })]);
-  } finally { stopped = true; clearTimeout(timer!); signal.removeEventListener('abort', abort); }
+  } finally { stopped = true; controller.abort(); clearTimeout(timer!); signal.removeEventListener('abort', abort); }
 }
 
 /** A reconnect to the same wallet is a new verification session. */
