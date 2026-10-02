@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, it, mock } from "node:test";
+import assert from "node:assert/strict";
 import {
   __resetStoredSnapshotForTests,
   getStoredSnapshot,
@@ -7,18 +8,23 @@ import {
   useIsAdmin,
   useVotingPowerNow,
   useVotingPowers,
-} from "./snapshot";
+} from "./snapshot.ts";
 
 describe("server-owned snapshot store", () => {
   afterEach(() => {
     __resetStoredSnapshotForTests();
-    vi.unstubAllGlobals();
-    vi.restoreAllMocks();
+    mock.restoreAll();
+  });
+
+  it("a failed refresh can be retried without leaving an unhandled rejection", async () => {
+    await assert.rejects(refreshStoredSnapshot(async () => { throw new Error('offline'); }));
+    const result = await refreshStoredSnapshot(async () => ({ votingPowers: { '0xabc': 1 }, updatedAt: 1 }));
+    assert.equal(result.votingPowers['0xabc'], 1);
   });
 
   it("deduplicates concurrent refresh work and stores the result once", async () => {
     let resolveLoader: ((value: { votingPowers: Record<string, number>; admins: Record<string, boolean>; updatedAt: number }) => void) | undefined;
-    const loader = vi.fn(
+    const loader = mock.fn(
       () =>
         new Promise<{ votingPowers: Record<string, number>; admins: Record<string, boolean>; updatedAt: number }>((resolve) => {
           resolveLoader = resolve;
@@ -28,8 +34,8 @@ describe("server-owned snapshot store", () => {
     const first = refreshStoredSnapshot(loader);
     const second = refreshStoredSnapshot(loader);
 
-    expect(loader).toHaveBeenCalledTimes(1);
-    expect(first).toBe(second);
+    assert.equal(loader.mock.callCount(), 1);
+    assert.equal(first, second);
 
     resolveLoader?.({
       votingPowers: { "0xabc": 7 },
@@ -37,12 +43,12 @@ describe("server-owned snapshot store", () => {
       updatedAt: 123,
     });
 
-    await expect(first).resolves.toEqual({
+    assert.deepEqual(await first, {
       votingPowers: { "0xabc": 7 },
       admins: { "0xabc": true },
       updatedAt: 123,
     });
-    expect(getStoredSnapshot()).toEqual({
+    assert.deepEqual(getStoredSnapshot(), {
       votingPowers: { "0xabc": 7 },
       admins: { "0xabc": true },
       updatedAt: 123,
@@ -50,10 +56,10 @@ describe("server-owned snapshot store", () => {
   });
 
   it("public reads use the stored snapshot without triggering refresh I/O", () => {
-    const fetchSpy = vi.fn(() => {
+    const fetchSpy = mock.fn(() => {
       throw new Error("public snapshot reads must not call fetch");
     });
-    vi.stubGlobal("fetch", fetchSpy);
+    mock.method(globalThis, "fetch", fetchSpy);
 
     setStoredSnapshot({
       votingPowers: { "0x0000000000000000000000000000000000000001": 3 },
@@ -61,20 +67,20 @@ describe("server-owned snapshot store", () => {
       updatedAt: 456,
     });
 
-    expect(getStoredSnapshot()).toEqual({
+    assert.deepEqual(getStoredSnapshot(), {
       votingPowers: { "0x0000000000000000000000000000000000000001": 3 },
       admins: { "0x0000000000000000000000000000000000000001": true },
       updatedAt: 456,
     });
-    expect(useVotingPowerNow("0x0000000000000000000000000000000000000001")).toEqual({
+    assert.deepEqual(useVotingPowerNow("0x0000000000000000000000000000000000000001"), {
       data: 3,
       isLoading: false,
     });
-    expect(useVotingPowers(["0x0000000000000000000000000000000000000001"])).toEqual({
+    assert.deepEqual(useVotingPowers(["0x0000000000000000000000000000000000000001"]), {
       data: { "0x0000000000000000000000000000000000000001": 3 },
       isLoading: false,
     });
-    expect(useIsAdmin("0x0000000000000000000000000000000000000001")).toBe(true);
-    expect(fetchSpy).not.toHaveBeenCalled();
+    assert.equal(useIsAdmin("0x0000000000000000000000000000000000000001"), true);
+    assert.equal(fetchSpy.mock.callCount(), 0);
   });
 });

@@ -1,3 +1,5 @@
+import { timingSafeEqual } from 'node:crypto';
+
 export const HOLDERS_KEY = "bittrees:capital:holders";
 export const HOLDERS_SYNC_KEY = "bittrees:capital:holdersync";
 export const OVERVIEW_SUPPLY_KEY = "bittrees:capital:overview-supply";
@@ -286,6 +288,20 @@ export default async function handler(req, res) {
 
   if (req.method !== "POST") {
     res.status(405).json({ error: "method not allowed" });
+    return;
+  }
+
+  // This maintenance endpoint must never spend provider quota or overwrite
+  // shared holder state on behalf of an unauthenticated public request.
+  const secret = process.env.CAPITAL_SYNC_TOKEN;
+  if (!secret) {
+    res.status(503).json({ error: "holder sync is not enabled" });
+    return;
+  }
+  const supplied = Buffer.from(String(req.headers?.authorization || ""));
+  const expected = Buffer.from(`Bearer ${secret}`);
+  if (supplied.length !== expected.length || !timingSafeEqual(supplied, expected)) {
+    res.status(401).json({ error: "unauthorized" });
     return;
   }
 

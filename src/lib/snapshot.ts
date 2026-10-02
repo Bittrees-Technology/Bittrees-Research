@@ -60,9 +60,10 @@ export function refreshStoredSnapshot(loader: SnapshotLoader): Promise<SnapshotS
     return mergeSnapshot(result);
   })();
 
-  inFlightRefresh.finally(() => {
-    inFlightRefresh = null;
-  });
+  void inFlightRefresh.then(
+    () => { inFlightRefresh = null; },
+    () => { inFlightRefresh = null; },
+  );
 
   return inFlightRefresh;
 }

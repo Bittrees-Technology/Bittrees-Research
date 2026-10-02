@@ -61,6 +61,11 @@ To show Sepolia / Base Sepolia in the wallet picker: `VITE_ENABLE_TESTNETS=true 
 
 ## Environment
 
+The capital holder-sync maintenance POST is disabled unless the server-only
+`CAPITAL_SYNC_TOKEN` is configured, and requires `Authorization: Bearer <token>`.
+Never expose this token through a `VITE_` variable. The integrated legacy branch
+does not enable or schedule production synchronization automatically.
+
 Copy `.env.example` and set the same values in the Vercel project. Summary:
 
 | Variable | Side | Purpose |

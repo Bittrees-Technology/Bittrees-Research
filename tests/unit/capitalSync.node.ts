@@ -1,20 +1,37 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, it, mock } from "node:test";
+import assert from "node:assert/strict";
+import handler from "../../api/capital-sync.js";
 import {
   buildHolderSnapshot,
   hydrateHolderState,
   setOverviewSupply,
   syncHolders,
-} from "./capital-sync.js";
+} from "../../api/capital-sync.js";
 
+const originalEnv = { ...process.env };
 describe("capital holder sync", () => {
   afterEach(() => {
-    vi.unstubAllGlobals();
-    vi.unstubAllEnvs();
-    vi.restoreAllMocks();
+    for (const key of Object.keys(process.env)) if (!(key in originalEnv)) delete process.env[key];
+    Object.assign(process.env, originalEnv);
+    mock.restoreAll();
+  });
+
+  it("rejects disabled and unauthenticated maintenance requests before any I/O", async () => {
+    const fetchSpy = mock.fn(() => { throw new Error('No network allowed'); });
+    mock.method(globalThis, 'fetch', fetchSpy);
+    for (const [secret, authorization, expected] of [[undefined, '', 503], ['test-secret', '', 401], ['test-secret', 'Bearer wrong-secret', 401]] as const) {
+      if (secret) process.env.CAPITAL_SYNC_TOKEN = secret;
+      else delete process.env.CAPITAL_SYNC_TOKEN;
+      let status = 0;
+      const res = { setHeader() {}, status(code: number) { status = code; return this; }, json() {} };
+      await handler({ method: 'POST', headers: { authorization }, body: {} }, res);
+      assert.equal(status, expected);
+    }
+    assert.equal(fetchSpy.mock.callCount(), 0);
   });
 
   it("resumes an unfinished page-key checkpoint before starting a fresh range", async () => {
-    const fetchSpy = vi.fn(async (_url: string, init?: RequestInit) => {
+    const fetchSpy = mock.fn(async (_url: string, init?: RequestInit) => {
       const body = JSON.parse(String(init?.body || "{}"));
       if (body.method === "alchemy_getAssetTransfers") {
         const params = body.params[0];
@@ -67,28 +84,28 @@ describe("capital holder sync", () => {
       throw new Error("unexpected fetch");
     });
 
-    vi.stubGlobal("fetch", fetchSpy);
+    mock.method(globalThis, "fetch", fetchSpy);
     process.env.KV_REST_API_URL = "https://kv.example.test";
     process.env.KV_REST_API_TOKEN = "token";
     process.env.ALCHEMY_API_KEY = "test-key";
 
     const result = await syncHolders({ contractAddress: "0xf1AAfFc982B5F553a730a9eC134715a547f1fe80" });
 
-    expect(result.holderCount).toBe(1);
-    expect(result.fetched).toBe(2);
-    expect(result.holders["0x2222222222222222222222222222222222222222"]).toBe(1);
-    expect(result.checkpoint.pageKey).toBeNull();
-    expect(fetchSpy).toHaveBeenCalled();
+    assert.equal(result.holderCount, 1);
+    assert.equal(result.fetched, 2);
+    assert.equal(result.holders["0x2222222222222222222222222222222222222222"], 1);
+    assert.equal(result.checkpoint.pageKey, null);
+    assert.ok(fetchSpy.mock.callCount() > 0);
   });
 
   it("restarts from the finalized KV snapshot when a checkpoint page key is stale", async () => {
     const kvSets: Array<{ key: string; value: unknown }> = [];
-    const fetchSpy = vi.fn(async (_url: string, init?: RequestInit) => {
+    const fetchSpy = mock.fn(async (_url: string, init?: RequestInit) => {
       const body = JSON.parse(String(init?.body || "{}"));
       if (body.method === "alchemy_getAssetTransfers") {
         const params = body.params[0];
-        expect(params.pageKey).toBeUndefined();
-        expect(params.fromBlock).toBe("0x10");
+        assert.equal(params.pageKey, undefined);
+        assert.equal(params.fromBlock, "0x10");
         return new Response(JSON.stringify({
           jsonrpc: "2.0",
           id: "capital-holder-sync",
@@ -138,17 +155,17 @@ describe("capital holder sync", () => {
       throw new Error("unexpected fetch");
     });
 
-    vi.stubGlobal("fetch", fetchSpy);
-    vi.stubEnv("KV_REST_API_URL", "https://kv.example.test");
-    vi.stubEnv("KV_REST_API_TOKEN", "token");
-    vi.stubEnv("ALCHEMY_API_KEY", "test-key");
+    mock.method(globalThis, "fetch", fetchSpy);
+    process.env.KV_REST_API_URL = "https://kv.example.test";
+    process.env.KV_REST_API_TOKEN = "token";
+    process.env.ALCHEMY_API_KEY = "test-key";
 
     const result = await syncHolders({ contractAddress: "0xf1AAfFc982B5F553a730a9eC134715a547f1fe80" });
 
-    expect(result.holderCount).toBe(1);
-    expect(result.holders["0x2222222222222222222222222222222222222222"]).toBe(1);
-    expect(result.holders["0x3333333333333333333333333333333333333333"]).toBeUndefined();
-    expect(kvSets.filter((entry) => entry.key === "bittrees:capital:holders")).toHaveLength(1);
+    assert.equal(result.holderCount, 1);
+    assert.equal(result.holders["0x2222222222222222222222222222222222222222"], 1);
+    assert.equal(result.holders["0x3333333333333333333333333333333333333333"], undefined);
+    assert.equal((kvSets.filter((entry) => entry.key === "bittrees:capital:holders")).length, 1);
   });
 
   it("keeps overview supply separate from the holder snapshot", async () => {
@@ -158,15 +175,15 @@ describe("capital holder sync", () => {
       updatedAt: 123,
     }));
 
-    expect(holderSnapshot).not.toHaveProperty("supply");
-    expect(holderSnapshot.holderCount).toBe(1);
+    assert.equal("supply" in holderSnapshot, false);
+    assert.equal(holderSnapshot.holderCount, 1);
 
-    const fetchSpy = vi.fn(async () => new Response(JSON.stringify({ result: "OK" }), { status: 200 }));
-    vi.stubGlobal("fetch", fetchSpy);
-    vi.stubEnv("KV_REST_API_URL", "https://kv.example.test");
-    vi.stubEnv("KV_REST_API_TOKEN", "token");
+    const fetchSpy = mock.fn(async () => new Response(JSON.stringify({ result: "OK" }), { status: 200 }));
+    mock.method(globalThis, "fetch", fetchSpy);
+    process.env.KV_REST_API_URL = "https://kv.example.test";
+    process.env.KV_REST_API_TOKEN = "token";
 
     const supply = await setOverviewSupply({ supply: "12345", updatedAt: 999 });
-    expect(supply).toEqual({ supply: "12345", updatedAt: 999 });
+    assert.deepEqual(supply, { supply: "12345", updatedAt: 999 });
   });
 });

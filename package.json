@@ -65,7 +65,7 @@
     "pretest": "patch-package --error-on-fail",
     "release:gate": "node scripts/release-gate.mjs",
     "test:release-gate": "node --test scripts/release-gate.test.mjs",
-    "test:integrated": "node --test api/capital-sync.test.ts src/lib/snapshot.test.ts"
+    "test:integrated": "node --test tests/unit/capitalSync.node.ts src/lib/snapshot.test.ts"
   },
   "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e",
   "resolutions": {
