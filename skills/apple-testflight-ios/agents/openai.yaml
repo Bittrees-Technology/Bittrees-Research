@@ -1,0 +1,4 @@
+interface:
+  display_name: "Apple TestFlight iOS"
+  short_description: "Plan guarded iOS TestFlight readiness"
+  default_prompt: "Use $apple-testflight-ios to plan a local iOS TestFlight readiness workflow."
