@@ -1,3 +1,5 @@
+import {createHash,randomUUID} from 'node:crypto';
+import {chainContext,prepareConsent,acceptConsent,prepareExecution,reconcile,refreshCredential} from './chain.mjs';
 import {createPublicClient,http} from 'viem';
 import {mainnet} from 'viem/chains';
 import {redisCommand} from '../signed-registry.mjs';
@@ -26,14 +28,36 @@ export function createContributorHandler(project,{env=process.env,command=redisC
   if(body.action==='wallet_challenge')return res.status(200).json(await auth.walletChallenge(req,session,body.address));
   if(body.action==='wallet_verify')return res.status(200).json(await auth.walletVerify(req,session,body.signature));
   const actor=await actorFor(session,project),store=contributorStore(command,codec,project),service=contributorService();
-  if(body.action==='list')return res.status(200).json(service.view(await store.read(),actor,project));
+  if(body.action==='list'){
+   const state=await store.read();
+   const visible=state.applications.filter(a=>a.identity===actor.id||actor.review.includes(a.lane));
+   if(visible.some(a=>a.credential)){const ctx=await chainContext(env);await Promise.all(visible.filter(a=>a.credential).map(a=>refreshCredential(a,ctx)));}
+   return res.status(200).json(service.view(state,actor,project));
+  }
+  if(['chain_consent_prepare','chain_consent_save','chain_execute_prepare','chain_reconcile'].includes(body.action)){
+   const ctx=await chainContext(env);let result;
+   const next=await store.mutate(async state=>{
+    const app=state.applications.find(a=>a.id===body.id&&a.project===(project==='gov'?'Bittrees Governance':'Bittrees Research'));
+    if(!app||app.identity!==actor.id&&!actor.review.includes(app.lane))throw Object.assign(Error('Application access denied.'),{status:403});
+    if(app.version!==body.expectedVersion)throw Object.assign(Error('This record changed. Reload it.'),{status:409});
+    if(actor.authorityExpiresAt<=Date.now())throw Object.assign(Error('Authority expired. Retry.'),{status:503});
+    if(body.action==='chain_consent_prepare'){result=await prepareConsent(app,session,project,ctx);return state;}
+    if(body.action==='chain_consent_save')await acceptConsent(app,session,project,ctx,body);
+    if(body.action==='chain_execute_prepare')result=await prepareExecution(app,actor,session,project,ctx,body,{env});
+    if(body.action==='chain_reconcile')await reconcile(app,ctx,body.transactionHash);
+    app.version++;state.revision++;
+    const entry={id:randomUUID(),sequence:state.audit.length+1,at:new Date().toISOString(),actor:actor.id,applicationId:app.id,action:body.action,detail:{memoVersion:app.memos.at(-1)?.version,operationId:app.chainOperation?.id||null,transactionHash:body.transactionHash||null},policy:'contributor-policy-v1',previousHash:state.audit.at(-1)?.hash||null};
+    entry.hash=createHash('sha256').update(JSON.stringify(entry)).digest('hex');state.audit.push(entry);return state;
+   });
+   return res.status(200).json({result,...service.view(next,actor,project)});
+  }
   if(body.action==='apply'){
    if(body.application?.email?.trim().toLowerCase()!==session.email)return res.status(400).json({error:'Use your verified sign-in email.'});
-   const next=await store.mutate(s=>{if(actor.authorityExpiresAt<=Date.now())throw Object.assign(Error('Role verification expired. Try again.'),{status:503});return service.submitInterest(s,actor,project,body.application);});return res.status(200).json(service.view(next,actor,project));
+   const next=await store.mutate(async s=>{if(actor.authorityExpiresAt<=Date.now())throw Object.assign(Error('Role verification expired. Try again.'),{status:503});return service.submitInterest(s,actor,project,body.application);});return res.status(200).json(service.view(next,actor,project));
   }
   if(body.action==='review'){
    if(body.change?.action==='link_wallet'&&(!session.walletVerifiedAt||Date.now()-session.walletVerifiedAt>300000))return res.status(403).json({error:'Verify the wallet again before linking.'});
-   const next=await store.mutate(s=>{if(actor.authorityExpiresAt<=Date.now())throw Object.assign(Error('Role verification expired. Try again.'),{status:503});if(!s.applications.some(a=>a.id===body.id&&a.project===(project==='gov'?'Bittrees Governance':'Bittrees Research')))throw Object.assign(Error('Application not found.'),{status:404});return service.transition(s,actor,body.id,body.change);});return res.status(200).json(service.view(next,actor,project));
+   const next=await store.mutate(async s=>{if(actor.authorityExpiresAt<=Date.now())throw Object.assign(Error('Role verification expired. Try again.'),{status:503});if(!s.applications.some(a=>a.id===body.id&&a.project===(project==='gov'?'Bittrees Governance':'Bittrees Research')))throw Object.assign(Error('Application not found.'),{status:404});if(body.change?.action==='validate_month'){const app=s.applications.find(a=>a.id===body.id);if(app?.credential){await refreshCredential(app,await chainContext(env));if(!app.credential.termActive)throw Object.assign(Error('The credential term is not currently active.'),{status:409});}}if(actor.authorityExpiresAt<=Date.now())throw Object.assign(Error('Role verification expired. Try again.'),{status:503});return service.transition(s,actor,body.id,body.change);});return res.status(200).json(service.view(next,actor,project));
   }
   return res.status(400).json({error:'Unknown contributor action.'});
  }catch(e){return res.status(e.status||503).json({error:e.status?e.message:'Contributor service unavailable. No success has been confirmed; reload records before retrying.'});}

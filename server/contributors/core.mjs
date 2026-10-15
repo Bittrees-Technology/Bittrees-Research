@@ -28,7 +28,8 @@ function transition(original,actor,id,input){
  if(!app||(!actor.review.includes(app.lane)&&!owns(actor,app)))fail('Application access denied.',403);
  if(!Number.isInteger(input.expectedVersion)||input.expectedVersion!==app.version)fail('This record changed. Reload it before trying again.',409);
  const action=input.action;
- if((action==='standing'||action==='review_proposal'&&input.decision==='approve')&&app.credential)fail('On-chain standing and amendment execution is not configured.',503);
+ if(app.chainOperation?.status==='prepared'&&['draft_memo','link_wallet','review_proposal'].includes(action))fail('Reconcile the prepared transaction before changing its terms.',409);
+ if(action==='standing'&&app.credential)fail('On-chain standing and amendment execution is not configured.',503);
  if(['start_review','request_info','resume_review','approve','reject'].includes(action)){
   fields(input,['action','expectedVersion','reason','privateNote']);
   if(!actor.review.includes(app.lane))fail('Reviewer permission is required.',403);
@@ -46,7 +47,7 @@ function transition(original,actor,id,input){
   fields(input,['action','expectedVersion','level','rank','scope','start','end']);
   if(!actor.issue||!actor.decide.includes(app.lane))fail('Memorandum issuer authority is required.',403);
   if(app.state!=='approved')fail('Accept the application before preparing a memo.',409);
-  if(app.credential&&app.credential.standing!=='active')fail('Only an active credential can be amended in this review.',409);
+  if(app.credential&&app.credential.standing==='suspended')fail('Resume the credential before revising its memorandum.',409);
   if(!LEVELS.includes(input.level))fail('Select a recognized contribution level.');
   if(!['Contributor','Senior contributor','Lead contributor'].includes(input.rank))fail('Select a recognized rank.');
   const start=day(input.start),end=input.end===null?null:day(input.end);
@@ -111,7 +112,7 @@ function transition(original,actor,id,input){
   if(input.decision==='approve'){
    if(!c||(c.revision||1)!==p.baseCredentialRevision||['ended','revoked'].includes(c.standing))fail('The credential changed after this proposal. Reject it and request a fresh proposal.',409);
    if(p.kind==='standing'){
-    c.standing=p.change.standing;c.revision=(c.revision||1)+1;c.history.push({action:'approved_proposal',proposalId:p.id,standing:c.standing,reason,at:TODAY});
+    p.execution='awaiting_chain';
    }else{
     if(c.standing!=='active')fail('Only active credentials can receive revised terms.',409);
     const old=app.memos.find(m=>m.version===c.memoVersion);
