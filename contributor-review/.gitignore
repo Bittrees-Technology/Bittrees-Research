@@ -1,0 +1,6 @@
+.state/
+contracts/out/
+contracts/cache/
+artifacts/
+
+node_modules/

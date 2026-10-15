@@ -125,7 +125,8 @@ export function MembershipGate() {
             </>
           )}
         </div>
-        <p style={{ marginTop: "1.5rem" }}><Link to="/chat-recovery">Recover local data for Chat</Link></p>
+        <p style={{ marginTop: "1.5rem" }}><Link to="/contributors/apply">Apply as a contributor with email</Link>
+          <Link to="/chat-recovery">Recover local data for Chat</Link></p>
       </main>
 
       <footer style={{ borderTop: "1px solid var(--color-border)", background: "#fff" }}>
