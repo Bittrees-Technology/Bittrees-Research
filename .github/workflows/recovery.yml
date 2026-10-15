@@ -22,7 +22,9 @@ jobs:
       - run: yarn test:recovery-unit
       - run: node --test scripts/roles-feed.test.mjs
       - run: yarn build
+      - run: node --test scripts/ens-profile.test.mjs
       - run: yarn playwright install --with-deps chromium
+      - run: node scripts/ens-profile-browser.mjs
       - run: yarn test:recovery-browser
       - run: yarn test:membership-browser
       - run: yarn test:app-recovery
