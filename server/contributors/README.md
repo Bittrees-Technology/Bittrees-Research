@@ -24,7 +24,7 @@ The service defaults to disabled. Configure these **server-only** values indepen
 - `CONTRIBUTOR_STORAGE_SECRET`: at least 48 random characters, retained securely for record decryption. Rotating it requires an explicit re-encryption migration.
 - `CONTRIBUTOR_IDENTITY_SECRET`: at least 48 random characters, stable for identity continuity. Use the agreed same secret where cross-project account identifiers are intended; rotation requires an identity migration.
 - Existing `KV_REST_API_URL` / `KV_REST_API_TOKEN` (or their Upstash equivalents). Records are in new `bittrees:contributors:v1:<project>:` namespaces; no registry keys are modified.
-- `RESEND_API_KEY` and a verified `CONTRIBUTOR_EMAIL_FROM` sender. The previously chosen forum sender is not silently reused for contributor agreements.
+- `RESEND_API_KEY` and a verified sending domain. The approved default sender is `Bittrees Contributors <contributors@bittrees.org>`; `CONTRIBUTOR_EMAIL_FROM` can explicitly override it. Domain verification and production configuration remain required.
 - Existing `ROLES_ECOSYSTEM_REQUEST_PRIVATE_KEY` and `ROLES_ECOSYSTEM_DECISION_PUBLIC_KEY`, with Gov and Research enrolled and the agreed organization-wide tier policy reflected in signed Roles decisions. There is no legacy-role or client-label fallback.
 - `ETHEREUM_RPC_URL` for wallet ownership verification, including contract-wallet signatures.
 
@@ -46,5 +46,19 @@ No live environment variables, database records, email deliveries, role grants, 
 ## Checks
 
 `npm run test:contributors` tests encrypted storage, concurrent edits, email/wallet replay protection, role authority, authenticated HTTP access, private-field redaction, and absence of simulated issuance. `npm run test:contributors-browser` exercises the native routes with intercepted API responses, including unavailable-service behavior, email sign-in and ongoing terms. `npm run build` checks the complete site. The fixture package separately exercises the proposed full credential lifecycle and Solidity candidate.
+
+## Approved mainnet authority setup (pending deployment)
+
+Ethereum mainnet is the proposed chain. Before signing, resolve and independently verify the wallet addresses for `bittrees.eth` and `raging.eth`; record chain ID 1, both addresses, deployment transaction and contract address. ENS names are labels, not transaction signers. Later ENS changes do not automatically change contract authority.
+
+Deploy from the verified `bittrees.eth` wallet and pass that same wallet as `administrator`. It remains the immutable root authority: it can administer every operation and grant/revoke Partner and service roles. Its default-admin role cannot be granted, removed or renounced. This preserves override authority but means root-key loss requires a separate recovery/migration design; no automatic root rotation is implemented.
+
+Use `bootstrapPartner` with the verified `raging.eth` wallet, approved Full Time memorandum terms and that wallet's exact EIP-712 consent. This atomically issues credential #1 and appoints the first Partner; only root can call it and only before any other issuance. Full Time is a contribution level, independent of the Partner authority role. Do not infer a recognition rank, term end or financial allocation from that role.
+
+Partners can issue/amend credentials, change standing, recover credentials, and appoint/remove other Partners. Root can override Partner membership and retain operation access even when no Partners remain. Partners cannot change root or grant service roles. Revoking Partner membership removes its implicit operational powers; any independently root-granted service role must be revoked separately. Membership changes emit AccessControl events. Root override does not bypass contributor consent, terminal-standing rules or the audit trail. An override changes current membership; it does not permanently prevent another current Partner from reappointing someone.
+
+Partner membership and credential standing are separate: suspension/expiry of a memo does not silently revoke administrative access. Staff offboarding must explicitly revoke the Partner role. Likewise, changing contribution level never silently changes administrative access.
+
+This is a contract candidate, not a live grant. Native Gov/Research authorization still uses signed Roles decisions. Before enabling operations, implement and test a chain-confirmed Roles adapter for these Partner events, root override handling, reorg/revocation invalidation, and cross-project grants. Do not derive permission from token ownership or cache an unconfirmed appointment. Sign-in email delivery, wallet signing, deployment and role projection still require live configuration.
 
 Research contributor-entry routes intentionally sit outside the membership gate so email-first applications do not require a wallet or membership token. The contributor API independently enforces identity and role access. Existing research-content routes retain their membership gate.

@@ -12,11 +12,11 @@ export function contributorAuth({command,codec,project,origin,env=process.env,se
  async function read(req){const token=cookie(req);if(!/^[a-f0-9]{64}$/.test(token))return null;const raw=(await command(['GET',key(req)])).result;if(!raw)return null;const s=codec.open(raw);return s.expiresAt>now()?s:null;}
  return {read,async start(req,email){
   if(typeof email!=='string'||email.length>160||! /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))throw fail('Enter a valid email.');email=email.trim().toLowerCase();
-  if(!env.RESEND_API_KEY||!env.CONTRIBUTOR_EMAIL_FROM)throw fail('Contributor email sign-in is not configured.',503);
+  if(!env.RESEND_API_KEY)throw fail('Contributor email sign-in is not configured.',503);
   await limit('email-rate:'+digest(email),4,900);await limit('ip-rate:'+digest(String(req.headers['x-forwarded-for']||req.socket?.remoteAddress||'unknown').split(',')[0]),15,900);
   const id=randomBytes(32).toString('hex'),code=String(randomInt(100000,1000000));
   const raw=codec.seal({email,codeHash:digest(id+code),expiresAt:now()+600000});await command(['SET',prefix+'login:'+id,raw,'EX',600]);
-  const r=await send('https://api.resend.com/emails',{method:'POST',headers:{authorization:'Bearer '+env.RESEND_API_KEY,'content-type':'application/json'},body:JSON.stringify({from:env.CONTRIBUTOR_EMAIL_FROM,to:[email],subject:'Your Bittrees contributor sign-in code',text:`Your sign-in code is ${code}. It expires in 10 minutes. If you did not request this, ignore this email.`}),signal:AbortSignal.timeout(10000)});
+  const r=await send('https://api.resend.com/emails',{method:'POST',headers:{authorization:'Bearer '+env.RESEND_API_KEY,'content-type':'application/json'},body:JSON.stringify({from:env.CONTRIBUTOR_EMAIL_FROM||'Bittrees Contributors <contributors@bittrees.org>',to:[email],subject:'Your Bittrees contributor sign-in code',text:`Your sign-in code is ${code}. It expires in 10 minutes. If you did not request this, ignore this email.`}),signal:AbortSignal.timeout(10000)});
   if(!r.ok){await command(['DEL',prefix+'login:'+id]);throw fail('Email could not be sent. Please try again later.',503);}return {challenge:id};
  },async finish(req,res,id,code){
   if(!/^[a-f0-9]{64}$/.test(id||'')||!/^\d{6}$/.test(code||''))throw fail('Check the code.');await limit('attempts:'+id,5,600);

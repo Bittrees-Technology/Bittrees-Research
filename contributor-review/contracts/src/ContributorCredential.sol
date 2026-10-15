@@ -11,6 +11,8 @@ import {Base64} from "@openzeppelin/contracts/utils/Base64.sol";
 /// @notice Review candidate only. No production deployment or issuer is configured.
 /// Terms and authority must be reviewed independently of the local UI simulation.
 contract ContributorCredential is ERC721, AccessControl, EIP712, ReentrancyGuard {
+    address public immutable rootAuthority;
+    bytes32 public constant PARTNER_ROLE=keccak256("PARTNER_ROLE");
     bytes32 public constant ISSUER_ROLE=keccak256("ISSUER_ROLE");
     bytes32 public constant STATUS_ROLE=keccak256("STATUS_ROLE");
     bytes32 public constant RECOVERY_ROLE=keccak256("RECOVERY_ROLE");
@@ -32,7 +34,39 @@ contract ContributorCredential is ERC721, AccessControl, EIP712, ReentrancyGuard
 
     constructor(address administrator) ERC721("Bittrees Contributor Credential","BCC") EIP712("Bittrees Contributor Credential","1") {
         if(administrator==address(0)) revert InvalidTerms();
+        rootAuthority=administrator;
         _grantRole(DEFAULT_ADMIN_ROLE,administrator);
+    }
+    /// @notice Root is pinned to the deployment-approved wallet, not a mutable ENS lookup.
+    /// Partners manage other Partners; only root manages narrowly delegated service roles.
+    modifier onlyOperator(bytes32 role) {
+        if(msg.sender!=rootAuthority&&!hasRole(PARTNER_ROLE,msg.sender)) _checkRole(role);
+        _;
+    }
+    function grantRole(bytes32 role,address account) public override {
+        if(role==DEFAULT_ADMIN_ROLE||account==address(0)) revert InvalidTerms();
+        if(role==PARTNER_ROLE) {
+            if(msg.sender!=rootAuthority) _checkRole(PARTNER_ROLE);
+            _grantRole(role,account);
+        } else { super.grantRole(role,account); }
+    }
+    function revokeRole(bytes32 role,address account) public override {
+        if(role==DEFAULT_ADMIN_ROLE) revert InvalidState();
+        if(role==PARTNER_ROLE) {
+            if(msg.sender!=rootAuthority) _checkRole(PARTNER_ROLE);
+            _revokeRole(role,account);
+        } else { super.revokeRole(role,account); }
+    }
+    function renounceRole(bytes32 role,address callerConfirmation) public override {
+        if(role==DEFAULT_ADMIN_ROLE) revert InvalidState();
+        super.renounceRole(role,callerConfirmation);
+    }
+    /// @notice One atomic first-credential issuance and Partner appointment, with recipient consent.
+    /// Deployment tooling must verify the recipient is the approved raging.eth wallet.
+    function bootstrapPartner(address recipient,Terms calldata t,uint256 deadline,bytes calldata signature) external nonReentrant returns(uint256 id) {
+        if(msg.sender!=rootAuthority||nextId!=1||t.level!=Level.FullTime||t.validFrom>block.timestamp) revert InvalidState();
+        id=_issue(recipient,t,deadline,signature);
+        _grantRole(PARTNER_ROLE,recipient);
     }
     function supportsInterface(bytes4 id) public view override(ERC721,AccessControl) returns(bool) {
         return id==0xb45a3c0e||id==0x49064906||super.supportsInterface(id);
@@ -52,7 +86,7 @@ contract ContributorCredential is ERC721, AccessControl, EIP712, ReentrancyGuard
         if(block.timestamp>deadline||!SignatureChecker.isValidSignatureNow(recipient,consentDigest(recipient,t,nonces[recipient],deadline),signature))revert InvalidConsent();
         nonces[recipient]++;
     }
-    function issue(address recipient,Terms calldata t,uint256 deadline,bytes calldata signature) external onlyRole(ISSUER_ROLE) nonReentrant returns(uint256){
+    function issue(address recipient,Terms calldata t,uint256 deadline,bytes calldata signature) external onlyOperator(ISSUER_ROLE) nonReentrant returns(uint256){
         return _issue(recipient,t,deadline,signature);
     }
     function _issue(address recipient,Terms calldata t,uint256 deadline,bytes calldata signature) internal returns(uint256 id){
@@ -61,13 +95,13 @@ contract ContributorCredential is ERC721, AccessControl, EIP712, ReentrancyGuard
         id=nextId++;records[id]=Record(t,Standing.Active,1);currentCredential[t.subject]=id;
         _safeMint(recipient,id);emit Locked(id);emit MemorandumAccepted(id,1,t.memoHash,t.policyHash);
     }
-    function amend(uint256 id,Terms calldata t,uint256 deadline,bytes calldata signature) external onlyRole(ISSUER_ROLE) nonReentrant {
+    function amend(uint256 id,Terms calldata t,uint256 deadline,bytes calldata signature) external onlyOperator(ISSUER_ROLE) nonReentrant {
         address recipient=_requireOwned(id);Record storage r=records[id];
         if(r.standing!=Standing.Active||currentCredential[r.terms.subject]!=id||r.terms.subject!=t.subject||r.terms.memoHash==t.memoHash||t.validFrom<block.timestamp)revert InvalidState();
         _consent(recipient,t,deadline,signature);r.terms=t;r.version++;
         emit MemorandumAccepted(id,r.version,t.memoHash,t.policyHash);emit MetadataUpdate(id);
     }
-    function setStanding(uint256 id,Standing standing,bytes32 reasonHash) external onlyRole(STATUS_ROLE){
+    function setStanding(uint256 id,Standing standing,bytes32 reasonHash) external onlyOperator(STATUS_ROLE){
         _requireOwned(id);Record storage r=records[id];
         if(reasonHash==bytes32(0)||r.standing==standing||r.standing==Standing.Ended||r.standing==Standing.Revoked)revert InvalidState();
         r.standing=standing;emit StandingChanged(id,standing,reasonHash);emit MetadataUpdate(id);
@@ -79,7 +113,7 @@ contract ContributorCredential is ERC721, AccessControl, EIP712, ReentrancyGuard
     }
     /// @notice Recovery is a privileged reissuance after off-chain identity review.
     /// New-wallet consent is mandatory. Never interprets possession of a new wallet as identity proof.
-    function replace(uint256 oldId,address recipient,Terms calldata t,uint256 deadline,bytes calldata signature) external onlyRole(RECOVERY_ROLE) nonReentrant returns(uint256 newId){
+    function replace(uint256 oldId,address recipient,Terms calldata t,uint256 deadline,bytes calldata signature) external onlyOperator(RECOVERY_ROLE) nonReentrant returns(uint256 newId){
         _requireOwned(oldId);Record storage old=records[oldId];
         if(old.terms.subject!=t.subject||currentCredential[t.subject]!=oldId)revert InvalidState();
         old.standing=Standing.Revoked;delete currentCredential[t.subject];
