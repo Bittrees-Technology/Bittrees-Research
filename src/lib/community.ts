@@ -1,3 +1,4 @@
+import {useAuthorityAccess} from './authorityAccess';
 import { actionMessage } from "../../shared/signed-action.mjs";
 import { useQuery } from "@tanstack/react-query";
 import type { WalletClient } from "viem";
@@ -20,14 +21,14 @@ export interface RoleDef { label: string; color?: string; description?: string; 
 export interface FlagRecord { by: string[]; mod: "approved" | "removed" | null; surface?: string; preview?: string }
 export type FlagsMap = Record<string, FlagRecord>;
 export type EncKeysMap = Record<string, string>; // addrLower -> x25519 pubkey hex
-export interface CommunityData { authorizationMode?: "legacy" | "root-policy" | "controller-policy-on-activation"; roles: RolesMap; flags: FlagsMap; enckeys: EncKeysMap; roledefs: RoleDef[]; threshold: number }
+export interface CommunityData { reviewerAuthority?: {mode:string;ready:boolean;reviewers?:string[];expiresAt?:number}; authorizationMode?: "legacy" | "root-policy" | "controller-policy-on-activation"; roles: RolesMap; flags: FlagsMap; enckeys: EncKeysMap; roledefs: RoleDef[]; threshold: number }
 
 export async function fetchCommunity(): Promise<CommunityData> {
   try {
-    const r = await fetch(URL);
+    const r = await fetch(URL,{cache:"no-store"});
     if (!r.ok) return { roles: {}, flags: {}, enckeys: {}, roledefs: [], threshold: FLAG_HIDE_THRESHOLD };
     const j = await r.json();
-    return { roles: j?.roles ?? {}, flags: j?.flags ?? {}, enckeys: j?.enckeys ?? {}, roledefs: j?.roledefs ?? [], threshold: j?.threshold ?? FLAG_HIDE_THRESHOLD };
+    return { reviewerAuthority:j?.reviewerAuthority,roles: j?.roles ?? {}, flags: j?.flags ?? {}, enckeys: j?.enckeys ?? {}, roledefs: j?.roledefs ?? [], threshold: j?.threshold ?? FLAG_HIDE_THRESHOLD };
   } catch {
     return { roles: {}, flags: {}, enckeys: {}, roledefs: [], threshold: FLAG_HIDE_THRESHOLD };
   }
@@ -52,7 +53,9 @@ export function useRoles(): { data: RolesMap | undefined } {
 
 export function useUserRoles(address?: string): Role[] {
   const { data } = useRoles();
-  if (!address) return [];
+  const shared=useAuthorityAccess(address);
+  if (!address || shared.isError) return [];
+  if(shared.data?.configured)return shared.data.roles||[];
   return data?.[address.toLowerCase()] ?? [];
 }
 
@@ -176,3 +179,8 @@ export const ASSIGNABLE_ROLES: { label: string; color: string; description: stri
   { label: "Researcher", color: "#2F8F5B", description: "Contributor — gates the Research Guild room." },
   { label: "Steward", color: "#B8860B", description: "Community steward — a governance badge." },
 ];
+
+export function currentReviewers(community:CommunityData):string[]{
+ const proof=community.reviewerAuthority;if(!proof||!proof.ready||(proof.mode==="roles"&&(!proof.expiresAt||proof.expiresAt<=Date.now())))throw Error("Current application reviewers are unavailable. Please retry.");
+ return proof.mode==="roles"?(proof.reviewers||[]):opsHolders(community.roles);
+}

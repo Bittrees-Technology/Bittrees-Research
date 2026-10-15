@@ -5,7 +5,7 @@ import { base } from "viem/chains";
 import { getWalletClient } from "@wagmi/core";
 import { wagmiConfig } from "@/lib/wagmi";
 import { publishPost, CONTRIB_COMMUNITY, useSchemaRegistered } from "@/lib/forum";
-import { fetchCommunity, opsHolders } from "@/lib/community";
+import { fetchCommunity, currentReviewers } from "@/lib/community";
 import { deriveEncKeypair, encryptApplication, pubKeyFromHex, type Application } from "@/lib/appcrypto";
 import { ChipMultiSelect, SearchMultiSelect } from "@/components/multiselect";
 import type { Hash } from "viem";
@@ -85,7 +85,7 @@ export function ContributorForm() {
       };
       const { publicKey } = await deriveEncKeypair(wc, address);
       const community = await fetchCommunity();
-      const reviewers = opsHolders(community.roles)
+      const reviewers = currentReviewers(community)
         .map((a) => ({ addr: a, hex: community.enckeys[a] }))
         .filter((r) => /^[0-9a-f]{64}$/.test(r.hex || ""))
         .map((r) => ({ addr: r.addr, pub: pubKeyFromHex(r.hex) }));

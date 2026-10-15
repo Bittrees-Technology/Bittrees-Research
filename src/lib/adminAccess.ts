@@ -1,5 +1,5 @@
 import {useAuthorityAccess} from './authorityAccess';
-import { useCommunity, useUserRoles } from "./community";
+import { useUserRoles } from "./community";
 
 /**
  * Admin access tiers for Bittrees Research.
@@ -19,10 +19,9 @@ export type AdminLevel = "full" | "moderation" | "none";
 
 export function useAdminAccess(address?: string): AdminLevel {
   const roles = useUserRoles(address);
-  const { data: authority } = useCommunity();
   const policy=useAuthorityAccess(address);
   if (!address) return "none";
-  if (authority?.authorizationMode === "root-policy" || authority?.authorizationMode === "controller-policy-on-activation") {
+  {
     if(policy.isError || !policy.data)return "none";
     if(policy.data.configured)return policy.data.permissions.includes('community.roles.manage')||policy.data.permissions.includes('rooms.manage')?'full':policy.data.permissions.includes('community.moderation.manage')?'moderation':'none';
   }
