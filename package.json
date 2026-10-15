@@ -38,10 +38,9 @@
     "eslint-plugin-react-refresh": "^0.4.19",
     "globals": "^15.15.0",
     "typescript": "~5.7.2",
-    "typescript-eslint": "^8.24.1",
+    "typescript-eslint": "^8.71.2",
     "vite": "^6.2.0",
-    "vite-plugin-node-polyfills": "^0.28.0",
-    "patch-package": "8.0.1"
+    "vite-plugin-node-polyfills": "^0.28.0"
   },
   "scripts": {
     "dev": "vite",
@@ -53,16 +52,16 @@
     "test:recovery-unit": "node --test tests/unit/chatRecoveryExport.node.ts",
     "test:recovery-browser": "playwright test -c playwright.recovery.config.ts",
     "test:app-recovery": "playwright test -c playwright.app-recovery.config.ts",
-    "postinstall": "patch-package --error-on-fail",
-    "prebuild": "patch-package --error-on-fail",
-    "pretest:push-sdk-browser": "patch-package --error-on-fail",
+    "postinstall": "node scripts/apply-dependency-patches.mjs",
+    "prebuild": "node scripts/apply-dependency-patches.mjs",
+    "pretest:push-sdk-browser": "node scripts/apply-dependency-patches.mjs",
     "test:push-unit": "node --test src/lib/pushSessionCore.test.ts src/lib/pushSessionWallet.test.ts",
     "test:push-browser": "playwright test -c playwright.push.config.ts",
     "test:push-sdk-browser": "playwright test -c playwright.push-sdk.config.ts",
     "test:dependency-audit": "node scripts/dependency-audit.mjs",
     "test:membership-unit": "node --test src/lib/membershipVerification.test.ts src/lib/membershipMintReceipt.test.ts src/lib/membershipDiscovery.test.ts",
     "test:membership-browser": "playwright test -c playwright.membership.config.ts",
-    "pretest": "patch-package --error-on-fail",
+    "pretest": "node scripts/apply-dependency-patches.mjs",
     "release:gate": "node scripts/release-gate.mjs",
     "test:release-gate": "node --test scripts/release-gate.test.mjs",
     "test:integrated": "node --test tests/unit/capitalSync.node.ts src/lib/snapshot.test.ts"
@@ -83,6 +82,9 @@
     "**/@metamask/sdk/uuid": "11.1.1",
     "**/@metamask/sdk-communication-layer/uuid": "11.1.1",
     "**/@metamask/utils/uuid": "11.1.1",
-    "**/query-string/decode-uri-component": "0.5.0"
+    "**/query-string/decode-uri-component": "0.5.0",
+    "**/joi": "17.13.8",
+    "**/pbkdf2": "3.1.7",
+    "**/source-map-js": "1.2.2"
   }
 }
