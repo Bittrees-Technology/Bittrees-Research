@@ -81,7 +81,7 @@ export default function Admin() {
         ))}
       </div>
 
-      {active === "roles" && (shared.data?.configured?<section className="card"><h2>Shared roles</h2><p>Project staff and partner permissions are managed in Roles.</p><a href="https://roles.bittrees.org">Manage shared roles</a></section>:<RolesTab />)}
+      {active === "roles" && (shared.data?.configured?<section className="card"><h2>Shared roles</h2><p>Project staff and partner permissions are managed in Roles.</p><a href="https://roles.bittrees.org/role-management?project=research">Manage roles</a></section>:<RolesTab />)}
       {active === "applications" && <ApplicationsTab />}
       {active === "moderation" && <ModerationTab />}
     </div>
