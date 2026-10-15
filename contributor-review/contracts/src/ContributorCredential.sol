@@ -48,7 +48,7 @@ contract ContributorCredential is ERC721, AccessControl, EIP712, ReentrancyGuard
         return _hashTypedDataV4(keccak256(abi.encode(CONSENT_TYPEHASH,recipient,t.subject,t.memoHash,t.policyHash,uint8(t.level),t.rank,t.validFrom,t.validUntil,nonce,deadline)));
     }
     function _consent(address recipient,Terms calldata t,uint256 deadline,bytes calldata signature) internal {
-        if(recipient==address(0)||t.subject==bytes32(0)||t.memoHash==bytes32(0)||t.policyHash==bytes32(0)||t.rank>2||t.validUntil<=t.validFrom||t.validUntil<=block.timestamp)revert InvalidTerms();
+        if(recipient==address(0)||t.subject==bytes32(0)||t.memoHash==bytes32(0)||t.policyHash==bytes32(0)||t.rank>2||(t.validUntil!=0&&(t.validUntil<=t.validFrom||t.validUntil<=block.timestamp)))revert InvalidTerms();
         if(block.timestamp>deadline||!SignatureChecker.isValidSignatureNow(recipient,consentDigest(recipient,t,nonces[recipient],deadline),signature))revert InvalidConsent();
         nonces[recipient]++;
     }
@@ -88,7 +88,7 @@ contract ContributorCredential is ERC721, AccessControl, EIP712, ReentrancyGuard
     }
     /// @notice Standing only: deliberately NOT a BTREE payment authorization.
     function isCurrentAndActive(uint256 id) public view returns(bool){
-        Record storage r=records[id];return _ownerOf(id)!=address(0)&&currentCredential[r.terms.subject]==id&&r.standing==Standing.Active&&block.timestamp>=r.terms.validFrom&&block.timestamp<r.terms.validUntil;
+        Record storage r=records[id];return _ownerOf(id)!=address(0)&&currentCredential[r.terms.subject]==id&&r.standing==Standing.Active&&block.timestamp>=r.terms.validFrom&&(r.terms.validUntil==0||block.timestamp<r.terms.validUntil);
     }
     function tokenURI(uint256 id) public view override returns(string memory){
         _requireOwned(id);Record storage r=records[id];

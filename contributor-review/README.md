@@ -141,3 +141,9 @@ Additional decisions confirmed:
 The preview includes an applicant-only simulated wallet-link action using a fixed fixture-session wallet. Linking supersedes previous drafts so the final wallet-bound memo must be prepared and acknowledged again. Production must implement verified email sessions, account linking and wallet ownership proof; typing an email or wallet is not verification.
 
 Before production there are additional implementation and policy gates: final memorandum wording; approved contribution levels and rate formula (including the historical Advisor-rate discrepancy); confirmed issuer/signing account and chain; private record retention and identity recovery; applicant replies, notification delivery and historical-record import reconciliation. These are not activated by this UI review. Live Roles synchronization and payments remain separate integrations.
+
+## Term and monthly confirmation decisions
+
+Partners choose either a fixed end date or an ongoing term (in perpetuity). Ongoing means no automatic expiry, not immunity from suspension, ending or revocation. Both term types require exact-version contributor acknowledgment. The private memo schema uses `end: null` for ongoing terms; the contract candidate uses `validUntil: 0`. Fixed dates retain inclusive UI / exclusive contract conversion. The term choice is part of signed consent and cannot be changed using an old signature.
+
+Partners, Junior Partners and Associates may each confirm completed monthly contributions directly, without another Partner approval. This permission is separate from application acceptance, status changes and memo issuance. Dates, active standing, evidence, duplicate prevention and the allocation-policy block still apply. Confirmation is not authorization to pay. The fixed-end-date form no longer inserts an arbitrary default term.

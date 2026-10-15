@@ -5,8 +5,8 @@ export const LEVELS=['Advisor','Part Time','Half Time','Full Time'];
 const BOTH=['inc-ops-governance','research'];
 export const PERSONAS={
  operations:{id:'fixture:operations',name:'Partner · all projects',review:BOTH,decide:BOTH,issue:true,validate:true,changeStatus:BOTH,proposeStatus:[]},
- junior:{id:'fixture:junior',name:'Junior Partner · proposer',review:BOTH,decide:[],issue:false,validate:false,changeStatus:[],proposeStatus:BOTH},
- associate:{id:'fixture:associate',name:'Associate · proposer',review:BOTH,decide:[],issue:false,validate:false,changeStatus:[],proposeStatus:BOTH},
+ junior:{id:'fixture:junior',name:'Junior Partner · proposer',review:BOTH,decide:[],issue:false,validate:true,changeStatus:[],proposeStatus:BOTH},
+ associate:{id:'fixture:associate',name:'Associate · proposer',review:BOTH,decide:[],issue:false,validate:true,changeStatus:[],proposeStatus:BOTH},
  reviewer:{id:'fixture:reviewer',name:'Operations · review only',review:BOTH,decide:[],issue:false,validate:false,changeStatus:[],proposeStatus:[]},
 
  alex:{id:'fixture:alex',name:'Alex · applicant',application:'app-alex',applicant:true,wallet:'0x1111111111111111111111111111111111111111',review:[],decide:[],issue:false,validate:false},
@@ -43,7 +43,7 @@ export function view(state,actor,site='gov'){
  if(!SITES[site])fail('Unknown project.');
  if(!actor.review.includes(SITES[site].lane)&&!actor.applicant)fail('This account has no application or review access.',403);
  const applications=state.applications.filter(a=>a.lane===SITES[site].lane&&(actor.review.includes(a.lane)||owns(actor,a))).map(a=>{const copy=structuredClone(a);if(!actor.review.includes(a.lane)){delete copy.directory;delete copy.proposals;copy.reviews=copy.reviews.filter(r=>r.state!=='pending_authority').map(({privateNote,...r})=>r);}return copy;});
- return {mode:state.mode,site,siteName:SITES[site].name,today:TODAY,revision:state.revision,persona:{id:actor.id,name:actor.name,isApplicant:!!actor.applicant,canReview:actor.review.includes(SITES[site].lane),canDecide:actor.decide.includes(SITES[site].lane),canIssue:actor.issue&&actor.decide.includes(SITES[site].lane),canValidate:actor.validate&&actor.decide.includes(SITES[site].lane),canChangeStatus:actor.changeStatus?.includes(SITES[site].lane)||false,canProposeStatus:actor.proposeStatus?.includes(SITES[site].lane)||false},applications,audit:state.audit.filter(e=>applications.some(a=>a.id===e.applicationId)&&(actor.review.includes(SITES[site].lane)||!['update_directory','propose_change','review_proposal'].includes(e.action)&&e.detail.state!=='pending_authority')).map(e=>{if(actor.review.includes(SITES[site].lane))return e;const copy=structuredClone(e);delete copy.detail.privateNote;return copy;}),policy:{version:'review-policy-v1',allocationConfigured:false,issuer:'Sample Operations policy',authority:'Fixture only · no live Roles grant',levelMultipliers:{'Full Time':'1','Half Time':'1/2','Part Time':'1/6',Advisor:'1/10 (proposed)'},rate:'1.25% historical calendar reference; not activated',blockers:['Confirm authority delegates and signing policy','Approve allocation formula, snapshot and rounding rules','Connect verified wallet sessions and private document storage','Review contract security before deployment']}};
+ return {mode:state.mode,site,siteName:SITES[site].name,today:TODAY,revision:state.revision,persona:{id:actor.id,name:actor.name,isApplicant:!!actor.applicant,canReview:actor.review.includes(SITES[site].lane),canDecide:actor.decide.includes(SITES[site].lane),canIssue:actor.issue&&actor.decide.includes(SITES[site].lane),canValidate:actor.validate&&actor.review.includes(SITES[site].lane),canChangeStatus:actor.changeStatus?.includes(SITES[site].lane)||false,canProposeStatus:actor.proposeStatus?.includes(SITES[site].lane)||false},applications,audit:state.audit.filter(e=>applications.some(a=>a.id===e.applicationId)&&(actor.review.includes(SITES[site].lane)||!['update_directory','propose_change','review_proposal'].includes(e.action)&&e.detail.state!=='pending_authority')).map(e=>{if(actor.review.includes(SITES[site].lane))return e;const copy=structuredClone(e);delete copy.detail.privateNote;return copy;}),policy:{version:'review-policy-v1',allocationConfigured:false,issuer:'Sample Operations policy',authority:'Fixture only · no live Roles grant',levelMultipliers:{'Full Time':'1','Half Time':'1/2','Part Time':'1/6',Advisor:'1/10 (proposed)'},rate:'1.25% historical calendar reference; not activated',blockers:['Confirm authority delegates and signing policy','Approve allocation formula, snapshot and rounding rules','Connect verified wallet sessions and private document storage','Review contract security before deployment']}};
 }
 export function transition(original,actor,id,input){
  if(!actor)fail('A verified session is required.',401);
@@ -71,8 +71,8 @@ export function transition(original,actor,id,input){
   if(app.credential&&app.credential.standing!=='active')fail('Only an active credential can be amended in this review.',409);
   if(!LEVELS.includes(input.level))fail('Select a recognized contribution level.');
   if(!['Contributor','Senior contributor','Lead contributor'].includes(input.rank))fail('Select a recognized rank.');
-  const start=day(input.start),end=day(input.end);
-  if(end<start||start<TODAY)fail('Use today or a future effective date and an end date after it.');
+  const start=day(input.start),end=input.end===null?null:day(input.end);
+  if((end!==null&&end<start)||start<TODAY)fail('Use today or a future effective date and an end date after it.');
   // Accepted terms are immutable. An unissued draft is superseded, not overwritten.
   for(const memo of app.memos)if(memo.status==='draft')memo.status='superseded';
   const memo={version:app.memos.length+1,level:input.level,rank:input.rank,scope:text(input.scope,'Responsibilities'),start,end,policyVersion:'review-policy-v1',wallet:app.wallet,issuer:actor.id,status:'draft',createdAt:TODAY};
@@ -99,7 +99,7 @@ export function transition(original,actor,id,input){
   const memo=app.memos.at(-1);
   if(app.walletVerification!=='fixture-connected'||!app.wallet||memo?.wallet!==app.wallet)fail('A verified wallet matching the memorandum is required before issuance.',409);
   if(app.state!=='approved'||!memo||memo.status!=='draft'||!memo.acknowledgedAt)fail('An accepted application and acknowledged draft are required.',409);
-  if(memo.start>TODAY||memo.end<TODAY)fail('Issue during the memorandum effective period.',409);
+  if(memo.start>TODAY||(memo.end!==null&&memo.end<TODAY))fail('Issue during the memorandum effective period.',409);
   if(app.credential&&app.credential.standing!=='active')fail('This credential cannot be amended.',409);
   for(const old of app.memos)if(old.status==='issued')old.status='superseded';memo.status='issued';
   const prior=app.credential;
@@ -115,11 +115,11 @@ export function transition(original,actor,id,input){
   const reason=text(input.reason,'Status reason');c.standing=input.standing;c.revision=(c.revision||1)+1;c.history.push({action:'standing',standing:c.standing,reason,at:TODAY});log(state,actor,app,action,{standing:c.standing,reason,privateNote:privateNote(input.privateNote)});
  }else if(action==='validate_month'){
   fields(input,['action','expectedVersion','month','from','through','evidence']);
-  if(!actor.validate||!actor.decide.includes(app.lane))fail('Monthly validation authority is required.',403);
+  if(!actor.validate||!actor.review.includes(app.lane))fail('Monthly validation authority is required.',403);
   const c=app.credential;if(!c||c.standing!=='active')fail('An active credential is required for a new validation.',409);
   if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(input.month||''))fail('Select a valid month.');
   const from=day(input.from),through=day(input.through),memo=app.memos.find(m=>m.version===c.memoVersion);
-  if(!from.startsWith(input.month)||!through.startsWith(input.month)||through<from||from<memo.start||through>memo.end||through>TODAY)fail('Dates must be in this month, within the memo term, and no later than the review date.');
+  if(!from.startsWith(input.month)||!through.startsWith(input.month)||through<from||from<memo.start||(memo.end!==null&&through>memo.end)||through>TODAY)fail('Dates must be in this month, within the memo term, and no later than the review date.');
   if(app.validations.some(v=>v.month===input.month))fail('This month already has a validation. Adjustments require a separate reviewed record.',409);
   const validation={id:randomUUID(),month:input.month,from,through,eligibleDays:Math.round((Date.parse(through)-Date.parse(from))/86400000)+1,level:c.level,memoVersion:c.memoVersion,evidence:text(input.evidence,'Validation evidence'),validatedBy:actor.id,validatedAt:TODAY,status:'validated',allocationStatus:'blocked_policy',amount:null};
   app.validations.push(validation);log(state,actor,app,action,validation);
@@ -147,7 +147,7 @@ export function transition(original,actor,id,input){
    }else{
     if(c.standing!=='active')fail('Only active credentials can receive revised terms.',409);
     const old=app.memos.find(m=>m.version===c.memoVersion);
-    if(old.end<TODAY)fail('Renew the expired term before changing its level.',409);
+    if(old.end!==null&&old.end<TODAY)fail('Renew the expired term before changing its level.',409);
     for(const m of app.memos)if(m.status==='draft')m.status='superseded';
     const memo={version:app.memos.length+1,level:p.change.level,rank:p.change.rank,scope:old.scope,start:TODAY,end:old.end,policyVersion:'review-policy-v1',wallet:app.wallet,issuer:actor.id,status:'draft',createdAt:TODAY};memo.hash=hash({applicationId:app.id,...memo});app.memos.push(memo);p.memoVersion=memo.version;
    }

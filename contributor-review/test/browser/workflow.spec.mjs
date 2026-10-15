@@ -3,7 +3,7 @@ test.beforeEach(async({page})=>{await page.goto('/');await page.getByRole('butto
 test('accept, acknowledge, issue, validate and suspend with no live transactions',async({page})=>{
  await page.getByLabel('Contributor-facing explanation').fill('Relevant experience and scope confirmed.');await page.getByRole('button',{name:'Start review',exact:true}).click();await expect(page.getByRole('status')).toHaveText('Review started.');
  await page.getByLabel('Contributor-facing explanation').fill('Accept for community documentation.');await page.getByRole('button',{name:'Accept application',exact:true}).click();
- await page.getByRole('button',{name:'Review memorandum',exact:true}).click();await page.getByRole('button',{name:'Prepare memorandum',exact:true}).click();await page.getByRole('button',{name:'Prepare memo for acknowledgment'}).click();
+ await page.getByRole('button',{name:'Review memorandum',exact:true}).click();await page.getByRole('button',{name:'Prepare memorandum',exact:true}).click();await page.getByRole('combobox',{name:'Term',exact:true}).selectOption('ongoing');await page.getByRole('button',{name:'Prepare memo for acknowledgment'}).click();
  await expect(page.getByRole('button',{name:'Issue sample credential'})).toHaveCount(0);
  await page.getByRole('button',{name:'View as contributor to acknowledge'}).click();await page.getByRole('button',{name:'Acknowledge this memo · simulation'}).click();
  await page.getByLabel('Review as').selectOption('operations');await page.getByRole('button',{name:'Issue sample credential'}).click();await expect(page.getByRole('heading',{name:'Contributor credential',exact:true})).toBeVisible();
