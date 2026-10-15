@@ -1,3 +1,4 @@
+import {SharedProfileDetails} from './SharedProfileDetails';
 import { useMemo, useState } from "react";
 import { getAddress } from "viem";
 import { useAccount } from "wagmi";
@@ -205,7 +206,7 @@ function ContactRow({ owner, address, label, hasEns, onMessage }: { owner?: stri
         </span>
       ) : (
         <span style={{ display: "inline-flex", gap: "0.3rem", flexShrink: 0 }}>
-          <button data-insights="message" onClick={onMessage} style={miniBtn}>Message</button>
+          <SharedProfileDetails address={address}/><button data-insights="message" onClick={onMessage} style={miniBtn}>Message</button>
           {/* Private labels only for raw 0x contacts — an ENS name already names them. */}
           {!hasEns && <button onClick={() => { setDraft(label ?? ""); setEditing(true); }} title="Edit private label" style={miniBtn}>✎</button>}
           <button onClick={() => removeContact(owner, address)} title="Remove contact" style={{ ...miniBtn, color: "#9a2a2a" }}>×</button>
@@ -220,7 +221,7 @@ function PersonRow({ address, label, onMessage, saved, onToggleContact, onBlock 
     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.6rem", flexWrap: "wrap", padding: "0.4rem 0", borderBottom: "1px solid var(--color-border-light)" }}>
       <span style={{ display: "inline-flex", alignItems: "center", gap: "0.45rem", minWidth: 0, flexWrap: "wrap" }}>
         {label ? <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--color-ink)" }}>{label}</span> : <AddressName address={address} avatar />}
-        <UserBadges address={address} />
+        <UserBadges address={address} /><SharedProfileDetails address={address}/>
       </span>
       <span style={{ display: "inline-flex", gap: "0.4rem", flexShrink: 0 }}>
         <button data-insights="message" onClick={() => onMessage(address)} style={miniBtn}>Message</button>
