@@ -6,6 +6,7 @@ const BOTH=['inc-ops-governance','research'];
 export const PERSONAS={
  operations:{id:'fixture:operations',name:'Partner · all projects',review:BOTH,decide:BOTH,issue:true,validate:true,changeStatus:BOTH,proposeStatus:[]},
  junior:{id:'fixture:junior',name:'Junior Partner · proposer',review:BOTH,decide:[],issue:false,validate:true,changeStatus:[],proposeStatus:BOTH},
+ mayaAssociate:{id:'fixture:maya',name:'Maya · contributor and Associate',applicant:true,wallet:'0x2222222222222222222222222222222222222222',review:BOTH,decide:[],issue:false,validate:true,changeStatus:[],proposeStatus:BOTH},
  associate:{id:'fixture:associate',name:'Associate · proposer',review:BOTH,decide:[],issue:false,validate:true,changeStatus:[],proposeStatus:BOTH},
  reviewer:{id:'fixture:reviewer',name:'Operations · review only',review:BOTH,decide:[],issue:false,validate:false,changeStatus:[],proposeStatus:[]},
 
@@ -121,7 +122,7 @@ export function transition(original,actor,id,input){
   const from=day(input.from),through=day(input.through),memo=app.memos.find(m=>m.version===c.memoVersion);
   if(!from.startsWith(input.month)||!through.startsWith(input.month)||through<from||from<memo.start||(memo.end!==null&&through>memo.end)||through>TODAY)fail('Dates must be in this month, within the memo term, and no later than the review date.');
   if(app.validations.some(v=>v.month===input.month))fail('This month already has a validation. Adjustments require a separate reviewed record.',409);
-  const validation={id:randomUUID(),month:input.month,from,through,eligibleDays:Math.round((Date.parse(through)-Date.parse(from))/86400000)+1,level:c.level,memoVersion:c.memoVersion,evidence:text(input.evidence,'Validation evidence'),validatedBy:actor.id,validatedAt:TODAY,status:'validated',allocationStatus:'blocked_policy',amount:null};
+  const validation={id:randomUUID(),month:input.month,from,through,eligibleDays:Math.round((Date.parse(through)-Date.parse(from))/86400000)+1,level:c.level,memoVersion:c.memoVersion,evidence:text(input.evidence,'Validation evidence'),validatedBy:actor.id,selfConfirmed:actor.id===app.identity,validatedAt:TODAY,status:'validated',allocationStatus:'blocked_policy',amount:null};
   app.validations.push(validation);log(state,actor,app,action,validation);
  }else if(action==='propose_change'){
   fields(input,['action','expectedVersion','kind','standing','level','rank','reason']);
