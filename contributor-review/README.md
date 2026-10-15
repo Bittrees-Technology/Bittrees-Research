@@ -33,7 +33,7 @@ Rejection is final for an application; a later application must be a separate re
 ## What is implemented
 
 - Reviewer/applicant views with bounded record visibility and server-derived fixture actors.
-- Separate reviewer eligibility and final-decision authority, scoped independently to Governance and Research lanes.
+- Separate reviewer eligibility and final-decision authority, with project-filtered records and Partner decision authority across both registered projects.
 - Start review, request information, resume, accept and reject; immutable final decisions; version checks preventing concurrent overwrites.
 - Versioned memo drafts, exact-version acknowledgment and sample issuance. Old accepted terms are preserved when amendments are drafted.
 - Contribution level and recognition rank independent from standing. No capability grants or access provisioning.
@@ -95,11 +95,11 @@ The dedicated contributor workspace is proposed at `/admin/contributors` on each
 
 To run Research separately: `REVIEW_SITE=research REVIEW_PORT=4350 npm start`. Each checkout has its own private fixture store. Neither copy reads or synchronizes live records. A future shared package should provide the common schema and policy implementation to prevent divergent copies.
 
-The server resolves the actor and project scope. A Partner can directly change standing within that scope. Junior Partners and Associates can propose standing, level or recognition changes; a scoped Partner must approve or reject with a reason. Proposals record their target credential revision; stale proposals cannot overwrite newer changes. Final proposal decisions are immutable. A terms approval creates a new memo draft and leaves the current credential unchanged until acknowledgment and issuance. No title, checkbox, requested role, legacy Executive/Assistant label or recognition rank confers Partner authority.
+The server resolves the actor and project scope. A verified Partner can directly change standing across all Bittrees projects. Governance and Research are the two registered projects in this preview. Junior Partners and Associates can propose standing, level or recognition changes; a Partner must approve or reject with a reason. Proposals record their target credential revision; stale proposals cannot overwrite newer changes. Final proposal decisions are immutable. A terms approval creates a new memo draft and leaves the current credential unchanged until acknowledgment and issuance. No title, checkbox, requested role, legacy Executive/Assistant label or recognition rank confers Partner authority.
 
 The dedicated Directory includes accepted applications only. Staff can maintain ENS, sector, groups, group leadership, title, specialties, other positions, private notes and follow-up. Start date derives from the first issued memo; validation, standing and current memo derive from their respective records. Staff-only directory fields and proposals are excluded from applicant responses.
 
-Production must resolve Partner/status authority from the existing server-authorized Roles policy, separately for each project. Only the approved Partner executor may hold the contract STATUS_ROLE; Junior Partners and Associates must never receive it to enable proposals. Off-chain approval must be linked to a confirmed transaction before projecting a live status. The contract candidate itself does not implement the proposal queue.
+Production must resolve Partner/status authority from the existing server-authorized Roles policy, with organization-wide Partner authority and an explicit project registry. Only the approved Partner executor may hold the contract STATUS_ROLE; Junior Partners and Associates must never receive it to enable proposals. Off-chain approval must be linked to a confirmed transaction before projecting a live status. The contract candidate itself does not implement the proposal queue.
 
 ## Historical form and directory mapping
 
@@ -123,3 +123,19 @@ Sources reviewed locally: `BITTREES CONTRIBUTOR APPLICATION  (Responses) - Form 
 | Current/live memorandum | Issued version and credential reference; drafts are separately displayed |
 
 Future imports must stage historical status, rate, validation date and memo references as unverified evidence, reconcile duplicate identities, preserve source IDs/timestamps and obtain a Partner decision before promoting records. Historical spreadsheet status does not activate a token or payment. No import has been performed. Email-to-wallet identity linking, agent delegation, live Roles profile sync, applicant replies and notification delivery remain production integration work.
+
+## Review decisions and UX follow-up
+
+Confirmed by the user in this review:
+- Partners have authority across all Bittrees projects. The fixture policy covers the two currently registered projects; production must resolve this organization-wide grant from the authoritative role service, never from a client title.
+- Junior Partners and Associates recommend acceptance/rejection; Partners finalize decisions.
+- Contributor-facing explanations are separate from optional private staff notes. Applicant responses omit private notes, internal recommendations and proposals. Approved standing changes show their public explanation in the credential profile.
+
+The revised interface adds search, a contextual next step, pending-proposal indicators, role-appropriate decision labels, collapsed contact details/history, and proposal fields limited to the selected type. Mobile layout and keyboard focus are checked. The role selector is still a review control only.
+
+Still awaiting user review:
+- Whether ended credentials remain terminal, with a new credential needed to return.
+- Whether recognition changes, as well as level changes, require fresh acknowledgment.
+- Email-first applications versus wallet-required applications. The current fixture still uses a sample wallet session.
+
+Before production there are additional implementation and policy gates: final memorandum wording; approved contribution levels and rate formula (including the historical Advisor-rate discrepancy); confirmed issuer/signing account and chain; private record retention and identity recovery; applicant replies, notification delivery and historical-record import reconciliation. These are not activated by this UI review. Live Roles synchronization and payments remain separate integrations.

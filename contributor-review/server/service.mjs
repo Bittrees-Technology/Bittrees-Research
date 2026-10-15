@@ -4,17 +4,18 @@ export const TODAY='2026-10-15'; // Explicit fixture date; never production time
 export const LEVELS=['Advisor','Part Time','Half Time','Full Time'];
 const BOTH=['inc-ops-governance','research'];
 export const PERSONAS={
- operations:{id:'fixture:operations',name:'Partner · both projects',review:BOTH,decide:BOTH,issue:true,validate:true,changeStatus:BOTH,proposeStatus:[]},
+ operations:{id:'fixture:operations',name:'Partner · all projects',review:BOTH,decide:BOTH,issue:true,validate:true,changeStatus:BOTH,proposeStatus:[]},
  junior:{id:'fixture:junior',name:'Junior Partner · proposer',review:BOTH,decide:[],issue:false,validate:false,changeStatus:[],proposeStatus:BOTH},
  associate:{id:'fixture:associate',name:'Associate · proposer',review:BOTH,decide:[],issue:false,validate:false,changeStatus:[],proposeStatus:BOTH},
  reviewer:{id:'fixture:reviewer',name:'Operations · review only',review:BOTH,decide:[],issue:false,validate:false,changeStatus:[],proposeStatus:[]},
- govPartner:{id:'fixture:gov-partner',name:'Partner · Governance only',review:['inc-ops-governance'],decide:['inc-ops-governance'],issue:true,validate:true,changeStatus:['inc-ops-governance'],proposeStatus:[]},
+
  alex:{id:'fixture:alex',name:'Alex · applicant',application:'app-alex',applicant:true,wallet:'0x1111111111111111111111111111111111111111',review:[],decide:[],issue:false,validate:false},
  rhea:{id:'fixture:rhea',name:'Rhea · Research applicant',application:'app-rhea',applicant:true,wallet:'0x4444444444444444444444444444444444444444',review:[],decide:[],issue:false,validate:false},
  visitor:{id:'fixture:visitor',name:'New interest form applicant',applicant:true,wallet:'0x5555555555555555555555555555555555555555',review:[],decide:[],issue:false,validate:false},
  outsider:{id:'fixture:outsider',name:'Unassigned account',review:[],decide:[],issue:false,validate:false},
 };
 const owns=(actor,app)=>actor.applicant&&app.identity===actor.id;
+const privateNote=x=>x===undefined?'':typeof x==='string'&&x.length<=2000?x.trim():fail('Private note must be at most 2,000 characters.');
 const canChange=(actor,app)=>actor.changeStatus?.includes(app.lane);
 const canPropose=(actor,app)=>actor.proposeStatus?.includes(app.lane);
 const fail=(message,status=400)=>{throw Object.assign(Error(message),{status})};
@@ -41,8 +42,8 @@ export function view(state,actor,site='gov'){
  if(!actor)fail('Choose a review persona.',401);
  if(!SITES[site])fail('Unknown project.');
  if(!actor.review.includes(SITES[site].lane)&&!actor.applicant)fail('This account has no application or review access.',403);
- const applications=state.applications.filter(a=>a.lane===SITES[site].lane&&(actor.review.includes(a.lane)||owns(actor,a))).map(a=>{const copy=structuredClone(a);if(!actor.review.includes(a.lane)){delete copy.directory;delete copy.proposals;}return copy;});
- return {mode:state.mode,site,siteName:SITES[site].name,today:TODAY,revision:state.revision,persona:{id:actor.id,name:actor.name,isApplicant:!!actor.applicant,canReview:actor.review.includes(SITES[site].lane),canDecide:actor.decide.includes(SITES[site].lane),canIssue:actor.issue&&actor.decide.includes(SITES[site].lane),canValidate:actor.validate&&actor.decide.includes(SITES[site].lane),canChangeStatus:actor.changeStatus?.includes(SITES[site].lane)||false,canProposeStatus:actor.proposeStatus?.includes(SITES[site].lane)||false},applications,audit:state.audit.filter(e=>applications.some(a=>a.id===e.applicationId)&&(actor.review.includes(SITES[site].lane)||!['update_directory','propose_change','review_proposal'].includes(e.action))),policy:{version:'review-policy-v1',allocationConfigured:false,issuer:'Sample Operations policy',authority:'Fixture only · no live Roles grant',levelMultipliers:{'Full Time':'1','Half Time':'1/2','Part Time':'1/6',Advisor:'1/10 (proposed)'},rate:'1.25% historical calendar reference; not activated',blockers:['Confirm authority delegates and signing policy','Approve allocation formula, snapshot and rounding rules','Connect verified wallet sessions and private document storage','Review contract security before deployment']}};
+ const applications=state.applications.filter(a=>a.lane===SITES[site].lane&&(actor.review.includes(a.lane)||owns(actor,a))).map(a=>{const copy=structuredClone(a);if(!actor.review.includes(a.lane)){delete copy.directory;delete copy.proposals;copy.reviews=copy.reviews.filter(r=>r.state!=='pending_authority').map(({privateNote,...r})=>r);}return copy;});
+ return {mode:state.mode,site,siteName:SITES[site].name,today:TODAY,revision:state.revision,persona:{id:actor.id,name:actor.name,isApplicant:!!actor.applicant,canReview:actor.review.includes(SITES[site].lane),canDecide:actor.decide.includes(SITES[site].lane),canIssue:actor.issue&&actor.decide.includes(SITES[site].lane),canValidate:actor.validate&&actor.decide.includes(SITES[site].lane),canChangeStatus:actor.changeStatus?.includes(SITES[site].lane)||false,canProposeStatus:actor.proposeStatus?.includes(SITES[site].lane)||false},applications,audit:state.audit.filter(e=>applications.some(a=>a.id===e.applicationId)&&(actor.review.includes(SITES[site].lane)||!['update_directory','propose_change','review_proposal'].includes(e.action)&&e.detail.state!=='pending_authority')).map(e=>{if(actor.review.includes(SITES[site].lane))return e;const copy=structuredClone(e);delete copy.detail.privateNote;return copy;}),policy:{version:'review-policy-v1',allocationConfigured:false,issuer:'Sample Operations policy',authority:'Fixture only · no live Roles grant',levelMultipliers:{'Full Time':'1','Half Time':'1/2','Part Time':'1/6',Advisor:'1/10 (proposed)'},rate:'1.25% historical calendar reference; not activated',blockers:['Confirm authority delegates and signing policy','Approve allocation formula, snapshot and rounding rules','Connect verified wallet sessions and private document storage','Review contract security before deployment']}};
 }
 export function transition(original,actor,id,input){
  if(!actor)fail('A verified session is required.',401);
@@ -51,7 +52,7 @@ export function transition(original,actor,id,input){
  if(!Number.isInteger(input.expectedVersion)||input.expectedVersion!==app.version)fail('This record changed. Reload it before trying again.',409);
  const action=input.action;
  if(['start_review','request_info','resume_review','approve','reject'].includes(action)){
-  fields(input,['action','expectedVersion','reason']);
+  fields(input,['action','expectedVersion','reason','privateNote']);
   if(!actor.review.includes(app.lane))fail('Reviewer permission is required.',403);
   if(['approved','rejected'].includes(app.state))fail('This application has a final decision. Use a new application or amend its memorandum.',409);
   const reason=text(input.reason,'Decision note');
@@ -62,7 +63,7 @@ export function transition(original,actor,id,input){
    if(!['in_review','pending_authority'].includes(app.state))fail('Start or resume the review before deciding.',409);
    app.state=actor.decide.includes(app.lane)?(action==='approve'?'approved':'rejected'):'pending_authority';
   }
-  app.reviews.push({action,reason,state:app.state,actor:actor.id,at:TODAY});log(state,actor,app,action,{reason,state:app.state});
+  app.reviews.push({action,reason,privateNote:privateNote(input.privateNote),state:app.state,actor:actor.id,at:TODAY});log(state,actor,app,action,{reason,privateNote:privateNote(input.privateNote),state:app.state});
  }else if(action==='draft_memo'){
   fields(input,['action','expectedVersion','level','rank','scope','start','end']);
   if(!actor.issue||!actor.decide.includes(app.lane))fail('Memorandum issuer authority is required.',403);
@@ -97,12 +98,12 @@ export function transition(original,actor,id,input){
   if(!app.directory.startDate)app.directory.startDate=memo.start;
   log(state,actor,app,action,{tokenId:app.credential.tokenId,memoVersion:memo.version,execution:'simulated only'});
  }else if(action==='standing'){
-  fields(input,['action','expectedVersion','standing','reason']);
+  fields(input,['action','expectedVersion','standing','reason','privateNote']);
   if(!canChange(actor,app))fail('Partner status authority is required.',403);
   const c=app.credential;if(!c)fail('No credential has been issued.',409);
   if(['ended','revoked'].includes(c.standing))fail('Ended or revoked credentials cannot be reactivated.',409);
   if(!['active','suspended','ended','revoked'].includes(input.standing)||input.standing===c.standing)fail('Choose a different standing.');
-  const reason=text(input.reason,'Status reason');c.standing=input.standing;c.revision=(c.revision||1)+1;c.history.push({action:'standing',standing:c.standing,reason,at:TODAY});log(state,actor,app,action,{standing:c.standing,reason});
+  const reason=text(input.reason,'Status reason');c.standing=input.standing;c.revision=(c.revision||1)+1;c.history.push({action:'standing',standing:c.standing,reason,at:TODAY});log(state,actor,app,action,{standing:c.standing,reason,privateNote:privateNote(input.privateNote)});
  }else if(action==='validate_month'){
   fields(input,['action','expectedVersion','month','from','through','evidence']);
   if(!actor.validate||!actor.decide.includes(app.lane))fail('Monthly validation authority is required.',403);
@@ -124,7 +125,7 @@ export function transition(original,actor,id,input){
   if(app.proposals.some(p=>p.state==='pending'&&p.kind===proposal.kind&&hash(p.change)===hash(proposal.change)))fail('An equivalent proposal is already pending.',409);
   app.proposals.push(proposal);log(state,actor,app,action,proposal);
  }else if(action==='review_proposal'){
-  fields(input,['action','expectedVersion','proposalId','decision','reason']);
+  fields(input,['action','expectedVersion','proposalId','decision','reason','privateNote']);
   if(!canChange(actor,app))fail('Partner approval is required.',403);
   const p=app.proposals.find(p=>p.id===input.proposalId);if(!p||p.state!=='pending')fail('This proposal is not pending.',409);
   if(p.proposedBy===actor.id)fail('A proposer cannot approve their own proposal.',403);
@@ -142,7 +143,7 @@ export function transition(original,actor,id,input){
     const memo={version:app.memos.length+1,level:p.change.level,rank:p.change.rank,scope:old.scope,start:TODAY,end:old.end,policyVersion:'review-policy-v1',wallet:app.wallet,issuer:actor.id,status:'draft',createdAt:TODAY};memo.hash=hash({applicationId:app.id,...memo});app.memos.push(memo);p.memoVersion=memo.version;
    }
   }
-  p.state=input.decision==='approve'?'approved':'rejected';p.reviewedBy=actor.id;p.reviewedAt=TODAY;p.decisionReason=reason;
+  p.state=input.decision==='approve'?'approved':'rejected';p.reviewedBy=actor.id;p.reviewedAt=TODAY;p.decisionReason=reason;p.privateNote=privateNote(input.privateNote);
   log(state,actor,app,action,{proposalId:p.id,state:p.state,reason,memoVersion:p.memoVersion||null});
  }else if(action==='update_directory'){
   fields(input,['action','expectedVersion','ens','sector','groupLeader','groups','title','specialty1','specialty2','otherPositions','notes','followUp']);
