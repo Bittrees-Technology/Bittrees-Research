@@ -1,0 +1,21 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.24;
+import {ContributorCredential as C} from "../src/ContributorCredential.sol";
+interface Vm {function addr(uint256) external returns(address);function sign(uint256,bytes32) external returns(uint8,bytes32,bytes32);function prank(address) external;function expectRevert() external;function warp(uint256) external;}
+contract ContributorCredentialTest {
+ Vm constant vm=Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
+ C c;address holder;uint256 constant KEY=123;uint256 constant DEADLINE=5000;
+ function setUp() public {vm.warp(1000);holder=vm.addr(KEY);c=new C(address(this));c.grantRole(c.ISSUER_ROLE(),address(this));c.grantRole(c.STATUS_ROLE(),address(this));c.grantRole(c.RECOVERY_ROLE(),address(this));}
+ function terms() internal pure returns(C.Terms memory){return C.Terms(keccak256("sample-subject"),keccak256("memo-1"),keccak256("policy-1"),C.Level.PartTime,0,1000,10000);}
+ function sig(address who,uint256 key,C.Terms memory t) internal returns(bytes memory){(uint8 v,bytes32 r,bytes32 s)=vm.sign(key,c.consentDigest(who,t,c.nonces(who),DEADLINE));return abi.encodePacked(r,s,v);}
+ function issue() internal returns(uint256){C.Terms memory t=terms();return c.issue(holder,t,DEADLINE,sig(holder,KEY,t));}
+ function testIssueConsentAndInterfaces() public {uint256 id=issue();require(c.ownerOf(id)==holder);require(c.locked(id));require(c.supportsInterface(0xb45a3c0e));require(c.supportsInterface(0x49064906));require(c.isCurrentAndActive(id));require(bytes(c.tokenURI(id)).length>0);}
+ function testTransfersAndApprovalsAlwaysBlocked() public {uint256 id=issue();vm.prank(holder);vm.expectRevert();c.transferFrom(holder,address(9),id);vm.prank(holder);vm.expectRevert();c.safeTransferFrom(holder,address(9),id);vm.prank(holder);vm.expectRevert();c.approve(address(9),id);vm.prank(holder);vm.expectRevert();c.setApprovalForAll(address(9),true);}
+ function testUnauthorizedIssuanceAndInvalidConsent() public {C.Terms memory t=terms();bytes memory signature=sig(holder,KEY,t);vm.prank(address(9));vm.expectRevert();c.issue(holder,t,DEADLINE,signature);vm.expectRevert();c.issue(holder,t,DEADLINE,hex"1234");t.level=C.Level.FullTime;vm.expectRevert();c.issue(holder,t,DEADLINE,signature);}
+ function testDuplicateSubjectAndExpiredConsent() public {issue();C.Terms memory t=terms();bytes memory signature=sig(holder,KEY,t);vm.expectRevert();c.issue(holder,t,DEADLINE,signature);t.subject=keccak256("other");signature=sig(holder,KEY,t);vm.warp(5001);vm.expectRevert();c.issue(holder,t,DEADLINE,signature);}
+ function testStatusExpiryAndIrreversibleRevocation() public {uint256 id=issue();c.setStanding(id,C.Standing.Suspended,keccak256("reason"));require(!c.isCurrentAndActive(id));c.setStanding(id,C.Standing.Active,keccak256("reviewed"));require(c.isCurrentAndActive(id));vm.warp(10000);require(!c.isCurrentAndActive(id));c.setStanding(id,C.Standing.Revoked,keccak256("error"));vm.expectRevert();c.setStanding(id,C.Standing.Active,keccak256("undo"));}
+ function testAmendmentNeedsNewConsentAndRejectsReplay() public {uint256 id=issue();C.Terms memory t=terms();t.memoHash=keccak256("memo-2");t.level=C.Level.FullTime;bytes memory signature=sig(holder,KEY,t);c.amend(id,t,DEADLINE,signature);require(c.ownerOf(id)==holder);t.memoHash=keccak256("memo-3");vm.expectRevert();c.amend(id,t,DEADLINE,signature);}
+ function testRecoveryInvalidatesOldCredentialAtomically() public {uint256 id=issue();address replacement=vm.addr(456);C.Terms memory t=terms();uint256 newer=c.replace(id,replacement,t,DEADLINE,sig(replacement,456,t));require(!c.isCurrentAndActive(id));require(c.isCurrentAndActive(newer));require(c.ownerOf(id)==holder);require(c.ownerOf(newer)==replacement);vm.expectRevert();c.replace(id,holder,t,DEADLINE,hex"");}
+ function testUnauthorizedRecoveryAndStatus() public {uint256 id=issue();C.Terms memory t=terms();bytes memory signature=sig(holder,KEY,t);vm.prank(address(9));vm.expectRevert();c.replace(id,holder,t,DEADLINE,signature);vm.prank(address(9));vm.expectRevert();c.setStanding(id,C.Standing.Revoked,keccak256("bad"));}
+ function testHolderCanRenounce() public {uint256 id=issue();vm.prank(holder);c.renounce(id);require(!c.isCurrentAndActive(id));require(c.locked(id));}
+}
