@@ -1,3 +1,4 @@
+import {applicationReviewers} from '../server/application-reviewers.mjs';
 import { getAddress } from "viem";
 import { withSignedRegistry, registryCommand, recoverMessageAddress, registryPolicyDecision } from "../server/signed-registry.mjs";
 
@@ -111,7 +112,8 @@ export async function handler(req, res) {
       readJson(ENCKEYS_KEY, {}),
       readJson(ROLEDEFS_KEY, []),
     ]);
-    res.status(200).json({ roles: roles || {}, flags: flags || {}, enckeys: enckeys || {}, roledefs: roledefs || [], threshold: FLAG_HIDE_THRESHOLD });
+    let reviewerAuthority;try{reviewerAuthority=await applicationReviewers(enckeys);}catch{reviewerAuthority={mode:'roles',ready:false,reviewers:[]};}
+    res.status(200).json({ reviewerAuthority,roles: roles || {}, flags: flags || {}, enckeys: enckeys || {}, roledefs: roledefs || [], threshold: FLAG_HIDE_THRESHOLD });
     return;
   }
 

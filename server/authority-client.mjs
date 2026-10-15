@@ -1,5 +1,15 @@
+import {ecosystemAccess} from './ecosystem-client.mjs';
 import {createPrivateKey,sign,randomUUID} from 'node:crypto';
 export async function authorityDecision(actor,action){
+ const shared=await ecosystemAccess('research',[actor.toLowerCase()],{authenticatedWallet:actor.toLowerCase()});
+ if(shared.enrolled){
+  const admin=shared.authoritative&&shared.actions.some(a=>['project.admin','role.executive'].includes(a));
+  const moderator=shared.authoritative&&shared.actions.includes('role.assistant');
+  const propose=shared.authoritative&&shared.actions.some(a=>['project.admin','role.researcher','role.steward','tier.partner','tier.junior-partner','tier.associate'].includes(a));
+  const allowed=shared.actions.includes(action)|| (action==='community.moderation.manage'?admin||moderator:action==='rooms.propose'?propose:admin);
+  return {allowed,configured:true,centralized:true,expiresAt:new Date(shared.expiresAt).toISOString(),reason:allowed?'Approved by Roles':'No current shared role',actions:shared.actions};
+ }
+
  const endpoint='https://roles.bittrees.org/api/authority/source-decision';
  const request={source:'research.bittrees.org',scope:'research',audience:endpoint,actor:actor.toLowerCase(),action,resource:'community-registry',issuedAt:Date.now(),requestId:randomUUID()};
  const key=createPrivateKey(process.env.ROLES_FEED_PRIVATE_KEY);

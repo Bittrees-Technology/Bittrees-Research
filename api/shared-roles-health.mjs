@@ -1,0 +1,1 @@
+export default function handler(req,res){res.setHeader('Cache-Control','no-store');if(req.method!=='GET')return res.status(405).json({error:'Method not allowed'});return res.status(200).json({protocol:'bittrees-roles-ecosystem-v1',project:'research',configured:!!process.env.ROLES_ECOSYSTEM_REQUEST_PRIVATE_KEY&&!!process.env.ROLES_ECOSYSTEM_DECISION_PUBLIC_KEY});}

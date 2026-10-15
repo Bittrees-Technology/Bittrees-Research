@@ -1,3 +1,4 @@
+import {useAuthorityAccess} from '../lib/authorityAccess';
 import { useMemo, useState } from "react";
 import { isAddress } from "viem";
 import { useAccount, useWalletClient } from "wagmi";
@@ -25,6 +26,7 @@ type Tab = "roles" | "applications" | "moderation";
 export default function Admin() {
   const { address } = useAccount();
   const level = useAdminAccess(address);
+  const shared=useAuthorityAccess(address);
   const [tab, setTab] = useState<Tab>("roles");
 
   if (level === "none") {
@@ -54,7 +56,7 @@ export default function Admin() {
       <PageHeader
         label="Admin"
         title="Administration"
-        intro="Manage roles, review applications, and moderate the community. The executive role carries full access; the super-admin holds it permanently."
+        intro="Review applications and moderate the community using current permissions from Roles."
       />
 
       <div style={{ display: "flex", gap: "0.25rem", borderBottom: "1px solid var(--color-border)", marginBottom: "1.5rem" }}>
@@ -79,7 +81,7 @@ export default function Admin() {
         ))}
       </div>
 
-      {active === "roles" && <RolesTab />}
+      {active === "roles" && (shared.data?.configured?<section className="card"><h2>Shared roles</h2><p>Project staff and partner permissions are managed in Roles.</p><a href="https://roles.bittrees.org">Manage shared roles</a></section>:<RolesTab />)}
       {active === "applications" && <ApplicationsTab />}
       {active === "moderation" && <ModerationTab />}
     </div>
