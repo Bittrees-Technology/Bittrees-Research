@@ -68,7 +68,6 @@ export function transition(original,actor,id,input){
   fields(input,['action','expectedVersion','level','rank','scope','start','end']);
   if(!actor.issue||!actor.decide.includes(app.lane))fail('Memorandum issuer authority is required.',403);
   if(app.state!=='approved')fail('Accept the application before preparing a memo.',409);
-  if(app.walletVerification!=='fixture-connected')fail('Verify the preferred payout wallet before preparing a memorandum.',409);
   if(app.credential&&app.credential.standing!=='active')fail('Only an active credential can be amended in this review.',409);
   if(!LEVELS.includes(input.level))fail('Select a recognized contribution level.');
   if(!['Contributor','Senior contributor','Lead contributor'].includes(input.rank))fail('Select a recognized rank.');
@@ -78,10 +77,19 @@ export function transition(original,actor,id,input){
   for(const memo of app.memos)if(memo.status==='draft')memo.status='superseded';
   const memo={version:app.memos.length+1,level:input.level,rank:input.rank,scope:text(input.scope,'Responsibilities'),start,end,policyVersion:'review-policy-v1',wallet:app.wallet,issuer:actor.id,status:'draft',createdAt:TODAY};
   memo.hash=hash({applicationId:app.id,...memo});app.memos.push(memo);log(state,actor,app,action,{memoVersion:memo.version,hash:memo.hash});
+ }else if(action==='link_sample_wallet'){
+  fields(input,['action','expectedVersion']);
+  if(!owns(actor,app)||!actor.wallet)fail('Only the applicant can link their sample session wallet.',403);
+  if(app.credential)fail('An issued credential requires the recovery process.',409);
+  if(app.walletVerification==='fixture-connected')fail('A verified sample wallet is already linked.',409);
+  app.wallet=actor.wallet.toLowerCase();app.walletVerification='fixture-connected';
+  for(const memo of app.memos)if(memo.status==='draft')memo.status='superseded';
+  log(state,actor,app,action,{proof:'fixture session only; no live wallet verification'});
  }else if(action==='acknowledge'){
   fields(input,['action','expectedVersion','memoVersion','memoHash']);
   if(!owns(actor,app))fail('Only the applicant may acknowledge their own memorandum.',403);
   const memo=app.memos.at(-1);
+  if(app.walletVerification!=='fixture-connected'||memo?.wallet!==app.wallet)fail('Link a verified wallet and prepare the matching memo before acknowledgment.',409);
   if(!memo||memo.status!=='draft'||memo.version!==input.memoVersion||memo.hash!==input.memoHash)fail('Review the current memorandum version before acknowledging.',409);
   if(memo.acknowledgedAt)fail('This version is already acknowledged.',409);
   memo.acknowledgedBy=actor.id;memo.acknowledgedAt=TODAY;log(state,actor,app,action,{memoVersion:memo.version,hash:memo.hash,proof:'simulated acknowledgment; not a wallet signature'});
@@ -89,6 +97,7 @@ export function transition(original,actor,id,input){
   fields(input,['action','expectedVersion']);
   if(!actor.issue||!actor.decide.includes(app.lane))fail('Credential issuer authority is required.',403);
   const memo=app.memos.at(-1);
+  if(app.walletVerification!=='fixture-connected'||!app.wallet||memo?.wallet!==app.wallet)fail('A verified wallet matching the memorandum is required before issuance.',409);
   if(app.state!=='approved'||!memo||memo.status!=='draft'||!memo.acknowledgedAt)fail('An accepted application and acknowledged draft are required.',409);
   if(memo.start>TODAY||memo.end<TODAY)fail('Issue during the memorandum effective period.',409);
   if(app.credential&&app.credential.standing!=='active')fail('This credential cannot be amended.',409);

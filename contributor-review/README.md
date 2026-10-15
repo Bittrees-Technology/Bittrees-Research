@@ -112,7 +112,7 @@ Sources reviewed locally: `BITTREES CONTRIBUTOR APPLICATION  (Responses) - Form 
 | Area of expertise, expert field | Separate expertise selections and expert-field text |
 | Specialty / contribution interests | Applicant scope statement; not an accepted memo |
 | Region, how heard, referrer | Application fields; languages retained from current site forms |
-| Preferred ETH wallet | Separate payout-wallet field; mismatch with sample session is unverified and blocks memo preparation |
+| Preferred ETH wallet | Separate payout-wallet field; mismatch with sample session is unverified and blocks final acknowledgment and issuance |
 | Research requested roles | Separate Research-only selections; never capability grants |
 | Follow up, start date | Staff follow-up; start date derived from issued memo |
 | Contributor ID, ENS, sector, group leader, group | Accepted contributor directory |
@@ -133,9 +133,11 @@ Confirmed by the user in this review:
 
 The revised interface adds search, a contextual next step, pending-proposal indicators, role-appropriate decision labels, collapsed contact details/history, and proposal fields limited to the selected type. Mobile layout and keyboard focus are checked. The role selector is still a review control only.
 
-Still awaiting user review:
-- Whether ended credentials remain terminal, with a new credential needed to return.
-- Whether recognition changes, as well as level changes, require fresh acknowledgment.
-- Email-first applications versus wallet-required applications. The current fixture still uses a sample wallet session.
+Additional decisions confirmed:
+- Active, Suspended, Ended and Revoked remain the four statuses. Ended and revoked credentials are terminal. Returning requires a new credential.
+- Level and recognition-rank changes both require fresh memo acknowledgment.
+- Applications require email; wallet is optional at application time. Acceptance and draft terms can proceed before linking a wallet. Final acknowledgment and issuance require a verified wallet matching the memo.
+
+The preview includes an applicant-only simulated wallet-link action using a fixed fixture-session wallet. Linking supersedes previous drafts so the final wallet-bound memo must be prepared and acknowledged again. Production must implement verified email sessions, account linking and wallet ownership proof; typing an email or wallet is not verification.
 
 Before production there are additional implementation and policy gates: final memorandum wording; approved contribution levels and rate formula (including the historical Advisor-rate discrepancy); confirmed issuer/signing account and chain; private record retention and identity recovery; applicant replies, notification delivery and historical-record import reconciliation. These are not activated by this UI review. Live Roles synchronization and payments remain separate integrations.
