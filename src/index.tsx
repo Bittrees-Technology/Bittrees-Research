@@ -24,13 +24,19 @@ import Messenger from "./pages/Messenger";
 import ChatRecovery from "./pages/ChatRecovery";
 import StructurePage from "./pages/StructurePage";
 import MembershipPage from "./pages/MembershipPage";
+import Contributors from "./pages/Contributors";
 import Admin from "./pages/Admin";
 import { MintBNOTEPage } from "./pages/membersPages/MintBNOTEPage.tsx";
 import { MintBITPage } from "./pages/membersPages/MintBITPage.tsx";
 import VisionStatementPage from "./pages/VisionStatementPage.tsx";
 import CodeOfEthicsPage from "./pages/CodeOfEthicsPage.tsx";
 
+const ContributorEntry=({apply=false}:{apply?:boolean})=><main style={{maxWidth:1140,margin:"0 auto",padding:"32px 24px"}}><Contributors apply={apply}/></main>;
+
 const router = createBrowserRouter([
+  // Email-first contributor access has its own authenticated API, separate from membership-gated research.
+  {path:"/admin/contributors",element:<ContributorEntry/>},
+  {path:"/contributors/apply",element:<ContributorEntry apply/>},
   // Local wallet-owned recovery grants no access to member pages or messaging.
   { path: "/chat-recovery", element: <ChatRecovery /> },
   {

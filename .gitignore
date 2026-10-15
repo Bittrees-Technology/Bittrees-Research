@@ -30,3 +30,6 @@ playwright-report/
 .vercel
 
 .push-sdk-dist/
+
+# Contributor visual review output
+/artifacts/contributor-*

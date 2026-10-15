@@ -5,7 +5,57 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "rewrites": [
-    { "source": "/api/gate/(.*)", "destination": "/api/gate?p=$1" },
-    { "source": "/((?!api/).*)", "destination": "/" }
+    {
+      "source": "/admin/contributors",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/contributors/apply",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/api/gate/(.*)",
+      "destination": "/api/gate?p=$1"
+    },
+    {
+      "source": "/((?!api/).*)",
+      "destination": "/"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/admin/contributors",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "no-referrer"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "no-store"
+        }
+      ]
+    },
+    {
+      "source": "/contributors/apply",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "no-referrer"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "no-store"
+        }
+      ]
+    }
   ]
 }

@@ -1,3 +1,4 @@
+import {Link} from "react-router";
 import {useAuthorityAccess} from '../lib/authorityAccess';
 import { useMemo, useState } from "react";
 import { isAddress } from "viem";
@@ -32,6 +33,7 @@ export default function Admin() {
   if (level === "none") {
     return (
       <div style={{ maxWidth: "640px", margin: "0 auto", textAlign: "center" }}>
+        <Link to="/admin/contributors">Open contributor administration</Link>
         <PageHeader label="Admin" title="Admin" />
         <p style={{ color: "var(--color-ink-muted)" }}>
           This area is for Bittrees Research executives and assistants.
@@ -53,6 +55,7 @@ export default function Admin() {
 
   return (
     <div style={{ maxWidth: "820px", margin: "0 auto" }}>
+      <Link to="/admin/contributors">Open contributor administration</Link>
       <PageHeader
         label="Admin"
         title="Administration"
