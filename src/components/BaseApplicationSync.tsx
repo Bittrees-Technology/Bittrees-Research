@@ -7,13 +7,14 @@ export default function BaseApplicationSync({wallet,records,onImport}:{wallet:st
  const {data:walletClient}=useWalletClient();
  const {data:posts,isLoading,isError}=useTopics(CONTRIB_COMMUNITY);
  const [unlocked,setUnlocked]=useState<any>(null),[busy,setBusy]=useState(false),[error,setError]=useState('');
- const own=(posts||[]).filter(p=>p.attester.toLowerCase()===wallet);
+ const own=(posts||[]).filter(p=>p.attester.toLowerCase()===wallet&&!records.some(a=>a.sourceAttestation?.uid===p.id));
+ if(!isLoading&&!isError&&!own.length)return null;
  async function unlock(p:any){setBusy(true);setError('');try{
   if(!walletClient||walletClient.account?.address.toLowerCase()!==wallet)throw Error('Connect the wallet used to submit this application.');
   const kp=await deriveEncKeypair(walletClient,wallet as `0x${string}`);
   try{const envelope=JSON.parse(p.body),plaintext=decryptApplication(envelope,wallet as `0x${string}`,kp.secretKey);if(!plaintext)throw Error('Application could not be unlocked.');setUnlocked({wallet,uid:p.id,application:JSON.parse(plaintext),key:applicationContentKey(envelope,wallet as `0x${string}`,kp.secretKey)});}finally{kp.secretKey.fill(0);}
  }catch(e){setError((e as Error).message);}finally{setBusy(false);}}
- return <section className="cp-panel"><h2>Your existing Base applications</h2><a href="/admin/contributors">Open contributor administration</a><p>Continue from the application you already submitted. Unlock it with your wallet, review it, then sync it into the private contributor record. Email is optional.</p>
+ return <section className="cp-panel"><h2>Continue a Base application</h2><p>Continue from the application you already submitted. Unlock it with your wallet, review it, then sync it into the private contributor record. Email is optional.</p>
  {isLoading?<p>Looking for your applications…</p>:isError?<p>The Base application index is unavailable. Try again shortly.</p>:!own.length?<p>No indexed applications found for this wallet.</p>:own.map(p=>{
  const linked=records.find(a=>a.sourceAttestation?.uid===p.id);return <div key={p.id}><a href={`https://base.easscan.org/attestation/view/${p.id}`} target="_blank" rel="noreferrer">Application · {new Date(p.time*1000).toLocaleDateString()}</a>{linked?<p>Synced · {linked.state}. Continue in contributor administration.</p>:<button disabled={busy} onClick={()=>unlock(p)}>Unlock existing application</button>}</div>;
  })}
