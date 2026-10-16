@@ -127,6 +127,7 @@ export function ContributorForm() {
           <p style={{ fontFamily: "var(--font-sans)", fontSize: "0.85rem", color: "var(--color-ink-muted)", margin: 0 }}>
             Encrypted and recorded on-chain. Only you and the Bittrees reviewers can decrypt it.
           </p>
+          <a href="/admin/contributors">Continue to application review and memorandum</a>
           {txHash && (
             <a href={`https://basescan.org/tx/${txHash}`} target="_blank" rel="noreferrer" style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem", color: "var(--color-ink-muted)", textDecoration: "none" }}>
               View on BaseScan ↗

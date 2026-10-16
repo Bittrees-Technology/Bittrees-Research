@@ -34,8 +34,8 @@ export async function acceptConsent(app,session,project,ctx,{typedData,signature
  memo.consent={typedData,signature};memo.acknowledgedAt=new Date().toISOString();memo.acknowledgedBy=session.identity;
 }
 export async function requestPermit(ctx,session,project,actionHash,{env=process.env,fetcher=fetch}={}){
- const subject=ecosystemSubject(project,'email',session.email,env.CONTRIBUTOR_IDENTITY_SECRET),issuedAt=Date.now(),requestId=randomUUID();
- const request={version:1,project,source:ecosystemSources[project].host,audience:ECOSYSTEM_ENDPOINT,subjects:[subject,session.wallet],authenticatedWallet:session.wallet,verifiedEmails:[{subject,email:session.email}],issuedAt,requestId};
+ const subject=session.email?ecosystemSubject(project,'email',session.email,env.CONTRIBUTOR_IDENTITY_SECRET):null,issuedAt=Date.now(),requestId=randomUUID();
+ const request={version:1,project,source:ecosystemSources[project].host,audience:ECOSYSTEM_ENDPOINT,subjects:[...(subject?[subject]:[]),session.wallet],authenticatedWallet:session.wallet,verifiedEmails:subject?[{subject,email:session.email}]:[],issuedAt,requestId};
  const operation={version:1,project,actor:session.wallet,contract:ctx.contract,actionHash,issuedAt,requestId};
  const signature=message=>sign(null,Buffer.from(message),env.ROLES_ECOSYSTEM_REQUEST_PRIVATE_KEY).toString('base64');
  const r=await fetcher('https://roles.bittrees.org/api/authority/contributor-permit',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({operation,signature:signature('Bittrees contributor operation permit v1\n'+canonical(operation)),authority:{request,signature:signature(ecosystemRequestMessage(request))}}),redirect:'error',cache:'no-store',signal:AbortSignal.timeout(12000)});

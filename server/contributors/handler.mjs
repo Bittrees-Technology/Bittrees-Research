@@ -1,3 +1,4 @@
+import {readBaseApplication} from './base-application.mjs';
 import {createHash,randomUUID} from 'node:crypto';
 import {chainContext,prepareConsent,acceptConsent,prepareExecution,reconcile,refreshCredential} from './chain.mjs';
 import {createPublicClient,http} from 'viem';
@@ -7,7 +8,7 @@ import {contributorService} from './core.mjs';
 import {privateCodec,contributorStore} from './storage.mjs';
 import {contributorActor} from './authority.mjs';
 import {contributorAuth} from './auth.mjs';
-export function createContributorHandler(project,{env=process.env,command=redisCommand,actorFor=contributorActor,verifyWallet,send}={}){
+export function createContributorHandler(project,{env=process.env,command=redisCommand,actorFor=contributorActor,verifyWallet,send,baseReader=readBaseApplication}={}){
  const origin=`https://${project==='gov'?'gov':'research'}.bittrees.org`;
  return async(req,res)=>{
  res.setHeader('Cache-Control','no-store');res.setHeader('Referrer-Policy','no-referrer');res.setHeader('X-Content-Type-Options','nosniff');
@@ -20,6 +21,8 @@ export function createContributorHandler(project,{env=process.env,command=redisC
   if(req.headers.origin!==origin)return res.status(403).json({error:'Use the contributor page to submit this request.'});
   if(!String(req.headers['content-type']||'').startsWith('application/json'))return res.status(415).json({error:'Use JSON'});
   const raw=typeof req.body==='string'?req.body:JSON.stringify(req.body||{});if(Buffer.byteLength(raw)>24000)return res.status(413).json({error:'Request too large'});const body=JSON.parse(raw);
+  if(body.action==='wallet_login_start')return res.status(200).json(await auth.walletLoginStart(req,res,body.address));
+  if(body.action==='wallet_login_finish')return res.status(200).json(await auth.walletLoginFinish(req,res,body.challenge,body.signature));
   if(body.action==='email_start')return res.status(200).json(await auth.start(req,body.email));
   if(body.action==='email_finish')return res.status(200).json(await auth.finish(req,res,body.challenge,body.code));
   if(!session)return res.status(401).json({error:'Sign in to continue.'});
@@ -51,8 +54,13 @@ export function createContributorHandler(project,{env=process.env,command=redisC
    });
    return res.status(200).json({result,...service.view(next,actor,project)});
   }
+  if(body.action==='import_base'){
+   const verified=await baseReader(project,session,body);
+   const next=await store.mutate(async s=>{if(actor.authorityExpiresAt<=Date.now())throw Object.assign(Error('Authority expired. Retry.'),{status:503});return service.importBase(s,actor,project,verified);});
+   return res.status(200).json(service.view(next,actor,project));
+  }
   if(body.action==='apply'){
-   if(body.application?.email?.trim().toLowerCase()!==session.email)return res.status(400).json({error:'Use your verified sign-in email.'});
+   if((body.application?.email||'').trim().toLowerCase()!==(session.email||''))return res.status(400).json({error:'Use your verified sign-in email.'});
    const next=await store.mutate(async s=>{if(actor.authorityExpiresAt<=Date.now())throw Object.assign(Error('Role verification expired. Try again.'),{status:503});return service.submitInterest(s,actor,project,body.application);});return res.status(200).json(service.view(next,actor,project));
   }
   if(body.action==='review'){

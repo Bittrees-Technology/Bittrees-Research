@@ -65,3 +65,11 @@ Verified mainnet names at preparation: `bittrees.eth` is the Safe `0x1B6c450FaDB
 ## Verification
 
 Run `npm run test:contributors`, `npm run test:contributors-browser`, `npm run build`, and the Solidity tests under `contributor-review`. Roles has separate signature, profile isolation, Partner-policy and permit tests. Production activation and wallet signing are not inferred from passing tests.
+
+## Existing Base applications and wallet-only sign-in
+
+The contributor portal supports a server-generated, browser-bound, single-use wallet sign-in challenge without an email. This creates a verified wallet identity; it does not grant staff authority or merge an existing email account. Roles receives only verified identities.
+
+Applicants can unlock their existing Base EAS application and explicitly sync it into the private contributor workflow. The server reads the attestation at a finalized Base block, verifies schema, project, attester and validity, and decrypts the original content using only that document's random content key. The wallet-derived private key stays in the browser; no decryption key is persisted server-side. The Base UID is retained as provenance and imports are idempotent. Contact email from the old encrypted form remains unverified and cannot establish Roles profile ownership.
+
+Import creates a submitted application, never acceptance or a credential. Partners review the same application; its contribution description prefills memorandum responsibilities. The applicant reviews and signs exact terms, then the credential follows the existing Ethereum issuance/finality checks. Existing Base submissions do not need to be submitted again or gain a new email identity.

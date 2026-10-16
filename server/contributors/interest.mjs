@@ -8,7 +8,7 @@ export function normalizeInterest(input,site,actor){
  if(!SITES[site])fail('Unknown project.');
  const allowed=['name','email','twitter','telegram','expertise','requestedRoles','specialty','expertField','region','languages','heardFrom','referrer','wallet'];
  for(const k of Object.keys(input))if(!allowed.includes(k))fail(`Unexpected application field: ${k}`);
- const email=string(input.email,'email',160,true);if(email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))fail('Enter a valid email.');
+ const email=string(input.email,'email',160,!actor.wallet);if(email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))fail('Enter a valid email.');
  const wallet=string(input.wallet,'preferred wallet',64)||null;
  if(wallet&&!/^0x[a-fA-F0-9]{40}$/.test(wallet||''))fail('Enter a full ETH address. ENS names must be resolved and verified before issuance.');
  const requestedRoles=list(input.requestedRoles,'requested roles',RESEARCH_ROLES,site==='research');if(site==='gov'&&requestedRoles.length)fail('Research roles belong to a Research application.');
