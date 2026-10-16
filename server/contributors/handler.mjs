@@ -1,6 +1,6 @@
 import {readBaseApplication} from './base-application.mjs';
 import {createHash,randomUUID} from 'node:crypto';
-import {chainContext,prepareConsent,acceptConsent,prepareExecution,reconcile,refreshCredential,expireBootstrap} from './chain.mjs';
+import {chainContext,prepareConsent,acceptConsent,prepareExecution,reconcile,refreshCredential,expireBootstrap,verifyExpiredMemoConsent} from './chain.mjs';
 import {createPublicClient,http} from 'viem';
 import {mainnet} from 'viem/chains';
 import {redisCommand} from '../signed-registry.mjs';
@@ -66,7 +66,15 @@ export function createContributorHandler(project,{env=process.env,command=redisC
   }
   if(body.action==='review'){
    if(body.change?.action==='link_wallet'&&(!session.walletVerifiedAt||Date.now()-session.walletVerifiedAt>300000))return res.status(403).json({error:'Verify the wallet again before linking.'});
-   const next=await store.mutate(async s=>{if(actor.authorityExpiresAt<=Date.now())throw Object.assign(Error('Role verification expired. Try again.'),{status:503});if(!s.applications.some(a=>a.id===body.id&&a.project===(project==='gov'?'Bittrees Governance':'Bittrees Research')))throw Object.assign(Error('Application not found.'),{status:404});if(body.change?.action==='validate_month'){const app=s.applications.find(a=>a.id===body.id);if(app?.credential){await refreshCredential(app,await chainContext(env));if(!app.credential.termActive)throw Object.assign(Error('The credential term is not currently active.'),{status:409});}}if(actor.authorityExpiresAt<=Date.now())throw Object.assign(Error('Role verification expired. Try again.'),{status:503});return service.transition(s,actor,body.id,body.change);});return res.status(200).json(service.view(next,actor,project));
+   const next=await store.mutate(async s=>{if(actor.authorityExpiresAt<=Date.now())throw Object.assign(Error('Role verification expired. Try again.'),{status:503});if(!s.applications.some(a=>a.id===body.id&&a.project===(project==='gov'?'Bittrees Governance':'Bittrees Research')))throw Object.assign(Error('Application not found.'),{status:404});if(body.change?.action==='validate_month'){const app=s.applications.find(a=>a.id===body.id);if(app?.credential){await refreshCredential(app,await chainContext(env));if(!app.credential.termActive)throw Object.assign(Error('The credential term is not currently active.'),{status:409});}}if(actor.authorityExpiresAt<=Date.now())throw Object.assign(Error('Role verification expired. Try again.'),{status:503});const app=s.applications.find(a=>a.id===body.id),change=body.change;
+    const revises=change?.action==='draft_memo'||change?.action==='review_memo_edit'&&change.decision==='approve'||change?.action==='review_proposal'&&change.decision==='approve'&&app.proposals.find(p=>p.id===change.proposalId)?.kind==='terms';
+    let expiredConsentVerified=false;
+    if(revises&&app.memos.at(-1)?.status==='draft'&&app.memos.at(-1)?.consent){
+     if(!actor.issue||!actor.decide.includes(app.lane))throw Object.assign(Error('Partner approval is required.'),{status:403});
+     expiredConsentVerified=await verifyExpiredMemoConsent(app,await chainContext(env));
+    }
+    if(actor.authorityExpiresAt<=Date.now())throw Object.assign(Error('Authority expired. Retry.'),{status:503});
+    return service.transition(s,actor,body.id,change,{expiredConsentVerified});});return res.status(200).json(service.view(next,actor,project));
   }
   return res.status(400).json({error:'Unknown contributor action.'});
  }catch(e){return res.status(e.status||503).json({error:e.status?e.message:'Contributor service unavailable. No success has been confirmed; reload records before retrying.'});}

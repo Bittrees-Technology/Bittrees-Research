@@ -20,13 +20,27 @@ export async function chainContext(env=process.env,client){
  if((await read('rootAuthority')).toLowerCase()!==ROOT_AUTHORITY.toLowerCase())throw fail('Unexpected root authority.',503);
  return {client,contract,read};
 }
-function currentMemo(app){const memo=app.memos.at(-1);if(app.state!=='approved'||app.walletVerification!=='verified'||memo?.status!=='draft'||memo.wallet!==app.wallet)throw fail('An accepted application, verified wallet and current memorandum are required.');return memo;}
+function currentMemo(app){if(app.memoEdits?.some(e=>e.state==='pending'))throw fail('Resolve the proposed memorandum edits before signing or issuing.');const memo=app.memos.at(-1);if(app.state!=='approved'||app.walletVerification!=='verified'||memo?.status!=='draft'||memo.wallet!==app.wallet)throw fail('An accepted application, verified wallet and current memorandum are required.');return memo;}
+// A replacement draft cannot silently cancel an executable signature.
+export async function verifyExpiredMemoConsent(app,ctx){
+ const memo=app.memos.at(-1);if(memo?.status!=='draft'||!memo.consent)return false;
+ if(app.chainOperation?.status==='prepared')throw fail('Reconcile the prepared transaction before changing its terms.');
+ const consent=memo.consent.typedData,contract=consent?.domain?.verifyingContract;
+ if(!/^0x[a-fA-F0-9]{40}$/.test(contract||'')||!Number.isSafeInteger(Number(consent?.message?.deadline)))throw fail('The previous signed memorandum needs manual reconciliation.');
+ const block=await ctx.client.getBlock({blockTag:'finalized'});
+ if(Number(block.timestamp)<=Number(consent.message.deadline))throw fail('The signed memorandum remains valid until '+new Date(Number(consent.message.deadline)*1000).toISOString()+'. Wait for Ethereum finality before revising it.');
+ const read=(functionName,args=[])=>ctx.client.readContract({address:contract,abi:credentialAbi,functionName,args,blockNumber:block.number});
+ if((await read('rootAuthority')).toLowerCase()!==ROOT_AUTHORITY.toLowerCase()||String(await read('nonces',[app.wallet]))!==String(consent.message.nonce))throw fail('The signed memorandum may already have been issued. Reconcile it before revising.');
+ return true;
+}
 export async function prepareConsent(app,session,project,ctx){
+ if(app.chainOperation?.status==='prepared')throw fail('Reconcile the prepared transaction before signing again.');
  if(app.identity!==session.identity||session.wallet!==app.wallet)throw fail('Sign in and verify the contributor wallet.',403);
  const memo=currentMemo(app),deadline=Math.floor(Date.now()/1000)+86400;
  return json({domain:credentialDomain(ctx.contract),types:consentTypes,primaryType:'Consent',message:{recipient:app.wallet,...termsFor(app,memo,project),nonce:await ctx.read('nonces',[app.wallet]),deadline}});
 }
 export async function acceptConsent(app,session,project,ctx,{typedData,signature}){
+ if(app.chainOperation?.status==='prepared')throw fail('Reconcile the prepared transaction before signing again.');
  if(app.identity!==session.identity||session.wallet!==app.wallet)throw fail('Only this contributor can sign their memorandum.',403);
  const memo=currentMemo(app),nonce=await ctx.read('nonces',[app.wallet]);
  const expected={domain:credentialDomain(ctx.contract),types:consentTypes,primaryType:'Consent',message:{recipient:app.wallet,...termsFor(app,memo,project),nonce:String(nonce),deadline:typedData?.message?.deadline}};
@@ -59,6 +73,8 @@ export async function prepareExecution(app,actor,session,project,ctx,input,optio
  if(['issue','amend','replace'].includes(kind)){
   memo=currentMemo(app);const consent=memo.consent;
   if(!consent||Number(consent.typedData.message.deadline)<=Date.now()/1000||String(await ctx.read('nonces',[app.wallet]))!==String(consent.typedData.message.nonce))throw fail('The contributor must sign the current memorandum again.');
+  const expected={domain:credentialDomain(ctx.contract),types:consentTypes,primaryType:'Consent',message:{recipient:app.wallet,...termsFor(app,memo,project),nonce:consent.typedData.message.nonce,deadline:consent.typedData.message.deadline}};
+  if(canonical(json(expected))!==canonical(consent.typedData)||!await ctx.client.verifyTypedData({...expected,address:app.wallet,signature:consent.signature}))throw fail('The contributor must sign the current memorandum for this contract.');
   const t=termsFor(app,memo,project),tail=[t,consent.typedData.message.deadline,consent.signature];
   if(kind==='issue'){if(app.credential)throw fail('A credential already exists.');args=[app.wallet,...tail];}
   else {if(!app.credential)throw fail('No credential exists.');if(kind==='amend'&&app.credential.standing!=='active')throw fail('Only an active credential can be amended.');args=kind==='amend'?[app.credential.tokenId,...tail]:[app.credential.tokenId,app.wallet,...tail];}
@@ -92,7 +108,7 @@ export async function reconcile(app,ctx,txHash){
  const memo=app.memos.find(m=>m.version===op.memoVersion);
  if(op.kind==='standing'){
   if(!events.some(e=>e.eventName==='StandingChanged'&&String(e.args.tokenId)===String(app.credential.tokenId)&&Number(e.args.standing)===op.args[1]&&e.args.reasonHash===op.args[2]))throw fail('Standing change was not confirmed.');
-  app.credential.standing=op.standing;app.credential.revision++;app.credential.history.push({action:'standing',standing:op.standing,reason:op.reason,transactionHash:txHash,at:new Date().toISOString()});
+  app.credential.standing=op.standing;app.credential.revision++;app.credential.history.push({action:'standing',actor:op.actor,standing:op.standing,reason:op.reason,transactionHash:txHash,at:new Date().toISOString()});
  }else{
   const event=events.find(e=>e.eventName==='MemorandumAccepted'&&e.args.memoHash==='0x'+memo.hash&&e.args.policyHash===hash(memo.policyVersion));if(!event||(op.kind==='bootstrap'&&String(event.args.tokenId)!=='1'))throw fail('Memorandum issuance was not confirmed.');
   const id=event.args.tokenId,[record,owner]=await Promise.all([ctx.read('records',[id],receipt.blockNumber),ctx.read('ownerOf',[id],receipt.blockNumber)]);
@@ -100,7 +116,7 @@ export async function reconcile(app,ctx,txHash){
   if(owner.toLowerCase()!==app.wallet||record[0].subject!==expected.subject||record[0].memoHash!==expected.memoHash||record[0].policyHash!==expected.policyHash||Number(record[0].level)!==expected.level||Number(record[0].rank)!==expected.rank||Number(record[0].validFrom)!==expected.validFrom||Number(record[0].validUntil)!==expected.validUntil||Number(record[0].weightNumerator)!==expected.weightNumerator||Number(record[0].weightDenominator)!==expected.weightDenominator)throw fail('The credential does not match the signed terms.');
   for(const m of app.memos)if(m.status==='issued')m.status='superseded';memo.status='issued';
   if(app.directory&&!app.directory.startDate)app.directory.startDate=memo.start;
-  const previous=app.credential;app.credential={tokenId:String(id),chainId:1,contract:ctx.contract,transactionHash:txHash,blockHash:receipt.blockHash,blockNumber:String(receipt.blockNumber),memoVersion:memo.version,level:memo.level,rank:memo.rank,standing:standings[Number(record[1])],revision:(previous?.revision||0)+1,history:[...(previous?.history||[]),{action:op.kind,at:new Date().toISOString(),transactionHash:txHash}]};
+  const previous=app.credential;app.credential={tokenId:String(id),chainId:1,contract:ctx.contract,transactionHash:txHash,blockHash:receipt.blockHash,blockNumber:String(receipt.blockNumber),memoVersion:memo.version,issuedBy:op.actor,memoApprovedBy:memo.issuer,acknowledgedBy:memo.acknowledgedBy,level:memo.level,rank:memo.rank,standing:standings[Number(record[1])],revision:(previous?.revision||0)+1,history:[...(previous?.history||[]),{action:op.kind,actor:op.actor,at:new Date().toISOString(),transactionHash:txHash}]};
  }
  if(op.proposalId){const p=app.proposals.find(p=>p.id===op.proposalId);if(p)p.execution='finalized';}
  op.status='finalized';op.transactionHash=txHash;op.blockHash=receipt.blockHash;
