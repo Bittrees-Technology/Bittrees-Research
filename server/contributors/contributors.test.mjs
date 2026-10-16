@@ -73,3 +73,14 @@ test('historical service is signed memo context, never retroactive validity or r
  state=change(partner,{...draft,historicalServiceStart:''});
  assert.equal(state.applications[0].memos.at(-1).historicalServiceStart,null);
 });
+
+test('only an issuer with Partner decision authority can prepare signed custom weights',()=>{
+ const core=contributorService(),today=new Date().toISOString().slice(0,10);let state=core.submitInterest(emptyState(),applicant,'research',interest);const id=state.applications[0].id;
+ const change=(actor,input)=>core.transition(state,actor,id,{expectedVersion:state.applications[0].version,...input});
+ for(const action of ['start_review','approve'])state=change(partner,{action,reason:'Reviewed'});
+ const draft={action:'draft_memo',level:'Half Time',rank:'Contributor',scope:'Research',start:today,end:null,allocationWeight:'1/3',allocationReason:'Agreed project commitment'};
+ assert.throws(()=>change({...partner,decide:[],issue:false},draft),/authority/);
+ assert.throws(()=>change(partner,{...draft,allocationReason:''}),/Explain/);
+ state=change(partner,draft);const first=structuredClone(state.applications[0].memos[0]);assert.equal(first.allocationWeight.label,'1/3');assert.equal(first.allocationWeight.approvedBy,partner.id);assert.equal(core.view(state,applicant,'research').applications[0].memos[0].allocationWeight.reason,draft.allocationReason);
+ state=change(partner,{...draft,allocationWeight:'1/4'});const second=state.applications[0].memos[1];assert.notEqual(first.hash,second.hash);assert.equal(second.consent,undefined);assert.equal(state.applications[0].memos[0].status,'superseded');assert.equal(state.applications[0].credential,null);
+});

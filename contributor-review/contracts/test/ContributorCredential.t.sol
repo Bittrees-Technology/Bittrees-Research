@@ -6,7 +6,7 @@ contract ContributorCredentialTest {
  Vm constant vm=Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
  C c;address holder;uint256 constant KEY=123;uint256 constant DEADLINE=5000;
  function setUp() public {vm.warp(1000);holder=vm.addr(KEY);c=new C(address(this),address(0));c.grantRole(c.ISSUER_ROLE(),address(this));c.grantRole(c.STATUS_ROLE(),address(this));c.grantRole(c.RECOVERY_ROLE(),address(this));}
- function terms() internal pure returns(C.Terms memory){return C.Terms(keccak256("sample-subject"),keccak256("memo-1"),keccak256("policy-1"),C.Level.PartTime,0,1000,10000);}
+ function terms() internal pure returns(C.Terms memory){return C.Terms(keccak256("sample-subject"),keccak256("memo-1"),keccak256("policy-1"),C.Level.PartTime,0,1000,10000,1,6);}
  function sig(address who,uint256 key,C.Terms memory t) internal returns(bytes memory){(uint8 v,bytes32 r,bytes32 s)=vm.sign(key,c.consentDigest(who,t,c.nonces(who),DEADLINE));return abi.encodePacked(r,s,v);}
  function issue() internal returns(uint256){C.Terms memory t=terms();return c.issue(holder,t,DEADLINE,sig(holder,KEY,t));}
  function testIssueConsentAndInterfaces() public {uint256 id=issue();require(c.ownerOf(id)==holder);require(c.locked(id));require(c.supportsInterface(0xb45a3c0e));require(c.supportsInterface(0x49064906));require(c.isCurrentAndActive(id));require(bytes(c.tokenURI(id)).length>0);}

@@ -1,3 +1,4 @@
+import {ALLOCATION_NOTICE} from './weights.mjs';
 import {createHash,randomUUID,sign} from 'node:crypto';
 import {createPublicClient,http,keccak256,encodeFunctionData,decodeEventLog,parseAbi} from 'viem';
 import {mainnet} from 'viem/chains';
@@ -8,7 +9,7 @@ const fail=(m,status=409)=>Object.assign(Error(m),{status});
 const hash=x=>'0x'+createHash('sha256').update(x).digest('hex');
 const json=v=>JSON.parse(JSON.stringify(v,(_,x)=>typeof x==='bigint'?String(x):x));
 const levels=['Advisor','Part Time','Half Time','Full Time'],ranks=['Contributor','Senior contributor','Lead contributor'],standings=['active','suspended','ended','revoked'];
-export function termsFor(app,memo,project){return {subject:hash(project+':'+app.id),memoHash:'0x'+memo.hash,policyHash:hash(memo.policyVersion),level:levels.indexOf(memo.level),rank:ranks.indexOf(memo.rank),validFrom:Math.floor(Date.parse(memo.start+'T00:00:00Z')/1000),validUntil:memo.end===null?0:Math.floor(Date.parse(memo.end+'T00:00:00Z')/1000)+86400};}
+export function termsFor(app,memo,project){if(!memo.allocationWeight||memo.allocationNotice!==ALLOCATION_NOTICE)throw fail('Prepare and acknowledge a memorandum with allocation weights and the allocation notice before issuance.');return {subject:hash(project+':'+app.id),memoHash:'0x'+memo.hash,policyHash:hash(memo.policyVersion),level:levels.indexOf(memo.level),rank:ranks.indexOf(memo.rank),validFrom:Math.floor(Date.parse(memo.start+'T00:00:00Z')/1000),validUntil:memo.end===null?0:Math.floor(Date.parse(memo.end+'T00:00:00Z')/1000)+86400,weightNumerator:memo.allocationWeight.numerator,weightDenominator:memo.allocationWeight.denominator};}
 export async function chainContext(env=process.env,client){
  const contract=env.CONTRIBUTOR_CONTRACT_ADDRESS?.toLowerCase();
  if(!/^0x[a-f0-9]{40}$/.test(contract||'')||!/^0x[a-f0-9]{64}$/.test(env.CONTRIBUTOR_CONTRACT_CODE_HASH||''))throw fail('The credential contract is awaiting deployment and verification.',503);
@@ -48,7 +49,7 @@ export async function prepareExecution(app,actor,session,project,ctx,input,optio
  if(!actor.issue||!actor.decide.includes(app.lane)||!session.wallet)throw fail('A verified Partner wallet is required.',403);
  if(app.chainOperation?.status==='prepared'){
   const old=app.chainOperation;const block=await ctx.client.getBlock({blockTag:'latest'});
-  if(old.actor===session.wallet&&input.kind===(old.kind==='bootstrap'?'issue':old.kind)&&(old.kind!=='standing'||(input.standing===old.standing&&input.reason?.trim()===old.reason))&&Number(block.timestamp)<=Number(old.deadline))return {to:old.kind==='bootstrap'?ROOT_AUTHORITY:old.contract,data:old.data,chainId:1,value:'0',operationId:old.id,expiresAt:Number(old.deadline)*1000};
+  if(old.contract===ctx.contract&&old.actor===session.wallet&&input.kind===(old.kind==='bootstrap'?'issue':old.kind)&&(old.kind!=='standing'||(input.standing===old.standing&&input.reason?.trim()===old.reason))&&Number(block.timestamp)<=Number(old.deadline))return {to:old.kind==='bootstrap'?ROOT_AUTHORITY:old.contract,data:old.data,chainId:1,value:'0',operationId:old.id,expiresAt:Number(old.deadline)*1000};
   if(old.kind==='bootstrap'){if(String(await ctx.read('nextId'))!=='1')throw fail('Reconcile the root issuance before preparing another transaction.');}
   const nonce=old.kind==='bootstrap'?null:await ctx.read('actionNonces',[old.actor]);
   if(Number(block.timestamp)<=Number(old.deadline)||(old.kind!=='bootstrap'&&String(nonce)!==old.permitNonce))throw fail('Reconcile the prepared transaction before creating another.');
@@ -96,7 +97,7 @@ export async function reconcile(app,ctx,txHash){
   const event=events.find(e=>e.eventName==='MemorandumAccepted'&&e.args.memoHash==='0x'+memo.hash&&e.args.policyHash===hash(memo.policyVersion));if(!event||(op.kind==='bootstrap'&&String(event.args.tokenId)!=='1'))throw fail('Memorandum issuance was not confirmed.');
   const id=event.args.tokenId,[record,owner]=await Promise.all([ctx.read('records',[id],receipt.blockNumber),ctx.read('ownerOf',[id],receipt.blockNumber)]);
   const expected=op.args[op.kind==='replace'?2:1];
-  if(owner.toLowerCase()!==app.wallet||record[0].subject!==expected.subject||record[0].memoHash!==expected.memoHash||record[0].policyHash!==expected.policyHash||Number(record[0].level)!==expected.level||Number(record[0].rank)!==expected.rank||Number(record[0].validFrom)!==expected.validFrom||Number(record[0].validUntil)!==expected.validUntil)throw fail('The credential does not match the signed terms.');
+  if(owner.toLowerCase()!==app.wallet||record[0].subject!==expected.subject||record[0].memoHash!==expected.memoHash||record[0].policyHash!==expected.policyHash||Number(record[0].level)!==expected.level||Number(record[0].rank)!==expected.rank||Number(record[0].validFrom)!==expected.validFrom||Number(record[0].validUntil)!==expected.validUntil||Number(record[0].weightNumerator)!==expected.weightNumerator||Number(record[0].weightDenominator)!==expected.weightDenominator)throw fail('The credential does not match the signed terms.');
   for(const m of app.memos)if(m.status==='issued')m.status='superseded';memo.status='issued';
   if(app.directory&&!app.directory.startDate)app.directory.startDate=memo.start;
   const previous=app.credential;app.credential={tokenId:String(id),chainId:1,contract:ctx.contract,transactionHash:txHash,blockHash:receipt.blockHash,blockNumber:String(receipt.blockNumber),memoVersion:memo.version,level:memo.level,rank:memo.rank,standing:standings[Number(record[1])],revision:(previous?.revision||0)+1,history:[...(previous?.history||[]),{action:op.kind,at:new Date().toISOString(),transactionHash:txHash}]};
