@@ -7,3 +7,16 @@ test('unverified email in imported application cannot claim its Roles profile',(
  assert.equal(projectContributors({applications:[app]},['unverified@example.invalid'],'gov').length,0);
  assert.equal(projectContributors({applications:[app]},[wallet],'gov').length,1);
 });
+
+test('application profile updates automatically while unsigned drafts and staff details stay private',()=>{
+ const wallet='0x'+'3'.repeat(40);
+ const app={id:'profile',name:'Jonathan',wallet,walletVerification:'verified',state:'submitted',specialty:'Metaverse strategy',expertise:['Technology'],languages:['English'],requestedRoles:['Steward'],email:'private@example.org',twitter:'private-contact',directory:{title:'Founder and Steward',notes:'STAFF ONLY'},memos:[{version:1,scope:'Agreed responsibilities',consent:{signature:'private signature'}},{version:2,scope:'UNSIGNED REPLACEMENT',status:'draft'}]};
+ const read=()=>projectContributors({applications:[app]},[wallet],'gov')[0];
+ assert.equal(read().profile.name,'Jonathan');assert.equal(read().profile.interests,'Metaverse strategy');
+ assert.equal(read().profile.title,'');assert.equal(read().profile.responsibilities,'Agreed responsibilities');
+ app.state='approved';assert.equal(read().profile.title,'Founder and Steward');
+ app.specialty='Talent acquisition';assert.equal(read().profile.interests,'Talent acquisition');
+ app.credential={memoVersion:1,tokenId:1};assert.equal(read().profile.responsibilitiesMemoVersion,1);
+ for(const secret of ['STAFF ONLY','private@example.org','private-contact','private signature','UNSIGNED REPLACEMENT'])assert.ok(!JSON.stringify(read()).includes(secret));
+ assert.equal(projectContributors({applications:[app]},['0x'+'4'.repeat(40)],'gov').length,0);
+});
