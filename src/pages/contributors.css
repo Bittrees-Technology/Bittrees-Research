@@ -5,3 +5,5 @@
 .cp-workspace.cp-single{grid-template-columns:minmax(0,1fr)}
 
 .cp-memo-diff>div{padding:.75rem 0;border-bottom:1px solid #dce4db}.cp-memo-diff p{white-space:pre-wrap;overflow-wrap:anywhere;margin:.4rem 0}
+
+.cp-access{max-width:560px;padding:24px 0}.cp-access h3{margin-top:0}.cp .cp-primary{background:#285b34;color:white;border-color:#285b34}.cp .cp-quiet{background:transparent;border:0;padding:0;font-size:13px;text-decoration:underline}.cp-tabs{border-bottom:1px solid #d7dfd4;padding-bottom:8px}.cp-workspace article{min-width:0}

@@ -4,7 +4,7 @@ const fail=(m,status=400)=>Object.assign(Error(m),{status});
 const equal=(a,b)=>typeof a==='string'&&typeof b==='string'&&a.length===b.length&&timingSafeEqual(Buffer.from(a),Buffer.from(b));
 export const consume=`if redis.call('GET',KEYS[1])~=ARGV[1] then return 0 end; redis.call('DEL',KEYS[1]); return 1`;
 const limited=`local n=redis.call('INCR',KEYS[1]); if n==1 then redis.call('EXPIRE',KEYS[1],ARGV[1]) end; return n`;
-export function contributorAuth({command,codec,project,origin,env=process.env,send=fetch,now=()=>Date.now(),verifyWallet}){
+export function contributorAuth({command,codec,project,origin,env=process.env,send=fetch,now=()=>Date.now(),verifyWallet,identityForWallet}){
  const prefix=`bittrees:contributors:v1:${project}:`,cookieName='__Host-bittrees-contributor';
  const cookie=req=>String(req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith(cookieName+'='))?.slice(cookieName.length+1)||'';
  const key=req=>prefix+'session:'+digest(cookie(req));
@@ -26,7 +26,7 @@ export function contributorAuth({command,codec,project,origin,env=process.env,se
   const k=prefix+'wallet-login:'+id,raw=(await command(['GET',k])).result;if(!raw)throw fail('Wallet sign-in expired.');const c=codec.open(raw);
   if(c.expiresAt<=now()||!await verifyWallet({address:c.wallet,message:c.message,signature}))throw fail('Wallet ownership could not be verified.',403);
   if(Number((await command(['EVAL',consume,1,k,raw])).result)!==1)throw fail('Wallet sign-in already used.');
-  const token=randomBytes(32).toString('hex'),session={identity:'wallet:'+createHmac('sha256',env.CONTRIBUTOR_IDENTITY_SECRET).update(c.wallet).digest('hex'),email:null,wallet:c.wallet,walletVerifiedAt:now(),csrf:randomBytes(32).toString('hex'),expiresAt:now()+86400000};
+  const token=randomBytes(32).toString('hex'),session={identity:identityForWallet?await identityForWallet(c.wallet):'wallet:'+createHmac('sha256',env.CONTRIBUTOR_IDENTITY_SECRET).update(c.wallet).digest('hex'),email:null,wallet:c.wallet,walletVerifiedAt:now(),csrf:randomBytes(32).toString('hex'),expiresAt:now()+86400000};
   await command(['SET',prefix+'session:'+digest(token),codec.seal(session),'EX',86400]);
   res.setHeader('Set-Cookie',[`${cookieName}=${token}; Secure; HttpOnly; SameSite=Strict; Path=/; Max-Age=86400`,'__Host-bittrees-contributor-login=; Secure; HttpOnly; SameSite=Strict; Path=/; Max-Age=0']);return {ok:true};
  },async start(req,email){

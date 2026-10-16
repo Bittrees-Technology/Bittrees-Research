@@ -125,7 +125,7 @@ export function MembershipGate() {
             </>
           )}
         </div>
-        <p style={{ marginTop: "1.5rem" }}><Link to="/contributors/apply">Apply as a contributor with email</Link>
+        <p style={{ marginTop: "1.5rem" }}><Link to="/contributors/apply">Apply as a contributor</Link>
           <Link to="/chat-recovery">Recover local data for Chat</Link></p>
       </main>
 

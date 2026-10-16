@@ -1,3 +1,5 @@
+import {Link} from 'react-router';
+import '../pages/contributor-application.css';
 import { useState } from "react";
 import { useAccount, useChainId, useSwitchChain, useWalletClient } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
@@ -44,7 +46,6 @@ export function ContributorForm() {
   const [region, setRegion] = useState<string[]>([]);
   const [languages, setLanguages] = useState<string[]>([]);
   const [heardFrom, setHeardFrom] = useState("");
-  const [email, setEmail] = useState("");
   const [twitter, setTwitter] = useState("");
   const [telegram, setTelegram] = useState("");
   const [referrer, setReferrer] = useState("");
@@ -77,13 +78,13 @@ export function ContributorForm() {
         languages,
         specialty: specialty.trim(),
         heardFrom: heardFrom.trim(),
-        email: email.trim(),
+        email: "",
         twitter: twitter.trim(),
         telegram: telegram.trim(),
         wallet: address,
         referrer: referrer.trim(),
       };
-      const { publicKey } = await deriveEncKeypair(wc, address);
+      const keypair = await deriveEncKeypair(wc, address);const publicKey=keypair.publicKey;keypair.secretKey.fill(0);
       const community = await fetchCommunity();
       const reviewers = currentReviewers(community)
         .map((a) => ({ addr: a, hex: community.enckeys[a] }))
@@ -107,15 +108,12 @@ export function ContributorForm() {
   }
 
   return (
-    <div style={{ maxWidth: "680px", margin: "0 auto", width: "100%" }}>
+    <div className="contributor-application">
       <header style={{ borderBottom: "1px solid var(--color-border)", paddingBottom: "1.25rem", marginBottom: "1.5rem" }}>
-        <p className="text-label" style={{ color: "var(--color-primary-hover)" }}>Get involved</p>
+        <p><Link to="/admin/contributors">View my application and memorandum</Link></p>
         <h2 className="text-display" style={{ fontSize: "1.6rem", margin: "0.3rem 0 0.5rem" }}>Apply to contribute</h2>
         <p style={{ fontFamily: "var(--font-sans)", fontSize: "0.9375rem", color: "var(--color-ink-muted)", lineHeight: 1.6, margin: 0 }}>
-          Bittrees Research brings together researchers, innovators, creatives, and community
-          members. Tell us how you'd like to contribute — your application is recorded{" "}
-          <strong>on-chain (Base) but encrypted</strong>, readable only by you and the Bittrees
-          reviewers.
+          Tell us what you would like to research or contribute. Submit with your wallet on Base; your answers are encrypted for you and the designated reviewers.
         </p>
       </header>
 
@@ -140,20 +138,20 @@ export function ContributorForm() {
           <ConnectButton chainStatus="none" showBalance={false} />
         </div>
       ) : (
-        <div className="card" style={{ display: "flex", flexDirection: "column", gap: "1.1rem" }}>
-          <Field label="Your name (what should we call you)" required>
+        <div className="application-form"><p className="application-wallet">Applying with {address?.slice(0,6)}…{address?.slice(-4)}. This wallet will own your application.</p><h3>Your contribution</h3>
+          <Field label="Name or handle" required>
             <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name or handle" maxLength={120} style={inputStyle} />
           </Field>
 
-          <Field label="Role(s) you're applying for — select all that apply" required>
+          <Field label="Roles of interest" required>
             <ChipMultiSelect options={APPLY_ROLES} value={roles} onChange={setRoles} />
           </Field>
 
-          <Field label="Briefly describe your specialty and what you'd contribute" required>
+          <Field label="What would you like to contribute?" required>
             <textarea value={specialty} onChange={(e) => setSpecialty(e.target.value)} rows={5} placeholder="A few sentences on your specialty and what you'd contribute." style={{ ...inputStyle, resize: "vertical", lineHeight: 1.6 }} />
           </Field>
 
-          <Field label="Region(s) — select all that apply" required>
+          <h3>Your background</h3><Field label="Regions" required>
             <ChipMultiSelect options={REGIONS} value={region} onChange={setRegion} />
           </Field>
 
@@ -165,12 +163,11 @@ export function ContributorForm() {
             <input value={heardFrom} onChange={(e) => setHeardFrom(e.target.value)} placeholder="X, a friend, an event, search…" maxLength={160} style={inputStyle} />
           </Field>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "1.1rem" }}>
-            <Field label="Email"><input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" maxLength={160} style={inputStyle} /></Field>
+          <details><summary>Optional contact and referral details</summary><div className="application-contact">
             <Field label="Twitter / X"><input value={twitter} onChange={(e) => setTwitter(e.target.value)} placeholder="@handle" maxLength={80} style={inputStyle} /></Field>
             <Field label="Telegram"><input value={telegram} onChange={(e) => setTelegram(e.target.value)} placeholder="@handle" maxLength={80} style={inputStyle} /></Field>
             <Field label="If someone referred you, their name"><input value={referrer} onChange={(e) => setReferrer(e.target.value)} placeholder="Referrer (optional)" maxLength={120} style={inputStyle} /></Field>
-          </div>
+          </div></details>
 
           <p style={{ fontFamily: "var(--font-sans)", fontSize: "0.72rem", color: "var(--color-ink-dim)", lineHeight: 1.55, margin: 0 }}>
             Submitting signs once to derive your encryption key (no gas), then records the encrypted

@@ -15,16 +15,15 @@ export function createContributorHandler(project,{env=process.env,command=redisC
  try{
   if(!['GET','POST'].includes(req.method))return res.status(405).json({error:'Method not allowed'});
   if(env.CONTRIBUTORS_ENABLED!=='1'||!env.CONTRIBUTOR_IDENTITY_SECRET||env.CONTRIBUTOR_IDENTITY_SECRET.length<48)return res.status(503).json({error:'Contributor administration is being configured. Existing applications remain available through the legacy form.',configured:false});
-  const codec=privateCodec(env.CONTRIBUTOR_STORAGE_SECRET),auth=contributorAuth({command,codec,project,origin,env,send,verifyWallet:verifyWallet||((args)=>createPublicClient({chain:mainnet,transport:http(env.ETHEREUM_RPC_URL)}).verifyMessage(args))});
-  const session=await auth.read(req);
+  const codec=privateCodec(env.CONTRIBUTOR_STORAGE_SECRET),auth=contributorAuth({command,codec,project,origin,env,send,identityForWallet:async wallet=>{const state=await contributorStore(command,codec,project).read();const identities=[...new Set(state.applications.filter(a=>a.wallet===wallet&&a.walletVerification==='verified').map(a=>a.identity))];if(identities.length>1)throw Object.assign(Error('This wallet needs account reconciliation. Contact a Partner.'),{status:409});return identities[0]||'wallet:'+createHmac('sha256',env.CONTRIBUTOR_IDENTITY_SECRET).update(wallet).digest('hex');},verifyWallet:verifyWallet||((args)=>createPublicClient({chain:mainnet,transport:http(env.ETHEREUM_RPC_URL)}).verifyMessage(args))});
+  const savedSession=await auth.read(req),session=savedSession?.wallet&&savedSession.walletVerifiedAt?savedSession:null;
   if(req.method==='GET')return res.status(200).json({configured:true,session:session?{email:session.email,wallet:session.wallet,csrf:session.csrf}:null});
   if(req.headers.origin!==origin)return res.status(403).json({error:'Use the contributor page to submit this request.'});
   if(!String(req.headers['content-type']||'').startsWith('application/json'))return res.status(415).json({error:'Use JSON'});
   const raw=typeof req.body==='string'?req.body:JSON.stringify(req.body||{});if(Buffer.byteLength(raw)>24000)return res.status(413).json({error:'Request too large'});const body=JSON.parse(raw);
   if(body.action==='wallet_login_start')return res.status(200).json(await auth.walletLoginStart(req,res,body.address));
   if(body.action==='wallet_login_finish')return res.status(200).json(await auth.walletLoginFinish(req,res,body.challenge,body.signature));
-  if(body.action==='email_start')return res.status(200).json(await auth.start(req,body.email));
-  if(body.action==='email_finish')return res.status(200).json(await auth.finish(req,res,body.challenge,body.code));
+  if(['email_start','email_finish'].includes(body.action))return res.status(410).json({error:'Contributor access uses a wallet signature. Email sign-in is no longer available.'});
   if(!session)return res.status(401).json({error:'Sign in to continue.'});
   if(req.headers['x-contributor-csrf']!==session.csrf)return res.status(403).json({error:'Refresh this page before continuing.'});
   if(body.action==='sign_out')return res.status(200).json(await auth.signOut(req,res));
@@ -73,10 +72,7 @@ export function createContributorHandler(project,{env=process.env,command=redisC
    const next=await store.mutate(async s=>{if(actor.authorityExpiresAt<=Date.now())throw Object.assign(Error('Authority expired. Retry.'),{status:503});return service.importBase(s,actor,project,verified);});
    return res.status(200).json(service.view(next,actor,project));
   }
-  if(body.action==='apply'){
-   if((body.application?.email||'').trim().toLowerCase()!==(session.email||''))return res.status(400).json({error:'Use your verified sign-in email.'});
-   const next=await store.mutate(async s=>{if(actor.authorityExpiresAt<=Date.now())throw Object.assign(Error('Role verification expired. Try again.'),{status:503});return service.submitInterest(s,actor,project,body.application);});return res.status(200).json(service.view(next,actor,project));
-  }
+  if(body.action==='apply')return res.status(409).json({error:'Submit the wallet-signed Base application, then unlock it here to continue.'});
   if(body.action==='review'){
    if(body.change?.action==='link_wallet'&&(!session.walletVerifiedAt||Date.now()-session.walletVerifiedAt>300000))return res.status(403).json({error:'Verify the wallet again before linking.'});
    const next=await store.mutate(async s=>{if(actor.authorityExpiresAt<=Date.now())throw Object.assign(Error('Role verification expired. Try again.'),{status:503});if(!s.applications.some(a=>a.id===body.id&&a.project===(project==='gov'?'Bittrees Governance':'Bittrees Research')))throw Object.assign(Error('Application not found.'),{status:404});if(body.change?.action==='validate_month'){const app=s.applications.find(a=>a.id===body.id);if(app?.credential){await refreshCredential(app,await chainContext(env));if(!app.credential.termActive)throw Object.assign(Error('The credential term is not currently active.'),{status:409});}}if(actor.authorityExpiresAt<=Date.now())throw Object.assign(Error('Role verification expired. Try again.'),{status:503});const app=s.applications.find(a=>a.id===body.id),change=body.change;
