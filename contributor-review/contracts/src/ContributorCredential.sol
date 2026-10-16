@@ -152,14 +152,16 @@ contract ContributorCredential is ERC721, AccessControl, EIP712, ReentrancyGuard
         newId=_issue(recipient,t,deadline,signature);
         emit StandingChanged(oldId,Standing.Revoked,keccak256("credential replacement"));emit MetadataUpdate(oldId);emit CredentialReplaced(oldId,newId);
     }
-    /// @notice Standing only: deliberately NOT a BTREE payment authorization.
+    /// @notice Current credential eligibility; no token transfer or payout calculation.
     function isCurrentAndActive(uint256 id) public view returns(bool){
         Record storage r=records[id];return _ownerOf(id)!=address(0)&&currentCredential[r.terms.subject]==id&&r.standing==Standing.Active&&block.timestamp>=r.terms.validFrom&&(r.terms.validUntil==0||block.timestamp<r.terms.validUntil);
     }
+    /// @notice Eligibility for monthly BTREE contributor distributions, not a payment instruction.
+    function isMonthlyBtreeBeneficiary(uint256 id) public view returns(bool){return isCurrentAndActive(id);}
     function tokenURI(uint256 id) public view override returns(string memory){
         _requireOwned(id);Record storage r=records[id];
-        string memory image=Art.imageUri(Art.Visual(id,ownerOf(id),uint8(r.terms.level),r.terms.rank,uint8(r.standing),r.terms.validFrom,r.terms.validUntil,block.timestamp,r.terms.weightNumerator,r.terms.weightDenominator));
-        string memory json=string.concat('{"name":"Bittrees Contributor #',Strings.toString(id),'","description":"Non-transferable contribution credential. Partner authority and allocations are governed separately.","image":"',image,'","attributes":[',
+        string memory image=Art.imageUri(Art.Visual(id,ownerOf(id),uint8(r.terms.level),r.terms.rank,uint8(r.standing),r.terms.validFrom,r.terms.validUntil,block.timestamp,r.terms.weightNumerator,r.terms.weightDenominator),address(this),r.version);
+        string memory json=string.concat('{"name":"Bittrees Contributor #',Strings.toString(id),'","description":"A valid current Active in-term credential establishes monthly BTREE beneficiary eligibility. Amounts require confirmed contributions and an approved funded policy. No automatic payments, Partner authority, or token-reissue claims.","image":"',image,'","attributes":[',
           '{"trait_type":"Standing","value":"',Art.standingName(uint8(r.standing)),'"},',
           '{"trait_type":"Display status","value":"',Art.displayName(uint8(r.standing),r.terms.validFrom,r.terms.validUntil,block.timestamp),'"},',
           '{"trait_type":"Level","value":"',Art.levelName(uint8(r.terms.level)),'"},',
@@ -168,6 +170,10 @@ contract ContributorCredential is ERC721, AccessControl, EIP712, ReentrancyGuard
           '{"trait_type":"Allocation weight","value":"',Art.weightName(r.terms.weightNumerator,r.terms.weightDenominator),'"},',
           '{"trait_type":"Weight numerator","value":',Strings.toString(r.terms.weightNumerator),'},',
           '{"trait_type":"Weight denominator","value":',Strings.toString(r.terms.weightDenominator),'},');
+        json=string.concat(json,
+          '{"trait_type":"Monthly BTREE beneficiary","value":"',isMonthlyBtreeBeneficiary(id)?'Eligible':'Not eligible','"},',
+          '{"trait_type":"Beneficiary policy","value":"btree-monthly-beneficiary-v1"},',
+          '{"trait_type":"Owner wallet","value":"',Strings.toHexString(ownerOf(id)),'"},');
         json=string.concat(json,
           '{"trait_type":"Credential revision","value":',Strings.toString(r.version),'},',
           '{"trait_type":"Standing code","value":',Strings.toString(uint8(r.standing)),'},',

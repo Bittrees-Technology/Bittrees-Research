@@ -3,6 +3,7 @@ export const ROOT_AUTHORITY='0x1B6c450FaDB7c77191f152473FC2f79dC515FA77';
 export const termsType={type:'tuple',components:[{name:'subject',type:'bytes32'},{name:'memoHash',type:'bytes32'},{name:'policyHash',type:'bytes32'},{name:'level',type:'uint8'},{name:'rank',type:'uint8'},{name:'validFrom',type:'uint64'},{name:'validUntil',type:'uint64'},{name:'weightNumerator',type:'uint32'},{name:'weightDenominator',type:'uint32'}]};
 export const credentialAbi=parseAbi([
  'struct Terms { bytes32 subject; bytes32 memoHash; bytes32 policyHash; uint8 level; uint8 rank; uint64 validFrom; uint64 validUntil; uint32 weightNumerator; uint32 weightDenominator; }',
+ 'function isMonthlyBtreeBeneficiary(uint256 id) view returns(bool)',
  'function nextId() view returns(uint256)','function bootstrapContributor(address recipient,Terms t,uint256 deadline,bytes signature) returns(uint256)',
  'function rootAuthority() view returns(address)','function rolesSigner() view returns(address)','function authorityEpoch() view returns(uint256)','function actionNonces(address) view returns(uint256)','function nonces(address) view returns(uint256)','function currentCredential(bytes32) view returns(uint256)','function ownerOf(uint256) view returns(address)','function records(uint256) view returns(Terms terms,uint8 standing,uint32 version)',
  'function issue(address recipient,Terms t,uint256 deadline,bytes signature) returns(uint256)',

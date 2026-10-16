@@ -17,4 +17,5 @@ export function allocationWeight(level,input='',reason=''){
  return {numerator,denominator,label:denominator===1?String(numerator):`${numerator}/${denominator}`,custom,reason:custom?reason.trim():'',policyVersion:WEIGHT_POLICY};
 }
 
-export const ALLOCATION_NOTICE='This memorandum records a relative contribution weight. It does not promise a fixed BTREE amount, authorize token payments, or grant a token-reissue claim. Monetary allocations require a separately approved and funded policy and confirmed eligible contributions. Historical service dates do not create retroactive accrual.';
+export const BENEFICIARY_POLICY='btree-monthly-beneficiary-v1';
+export const ALLOCATION_NOTICE='A current, Active contributor credential within its effective term establishes its holder as an eligible beneficiary of monthly BTREE contributor distributions. Suspended, ended, revoked, expired, not-yet-effective, and superseded credentials do not establish current eligibility. Allocation amounts depend on the signed contribution weight, confirmed eligible contributions, and a separately approved and funded distribution policy. Eligibility does not promise a fixed BTREE amount, execute a payment, grant Partner authority, or create a token-reissue claim. Historical service dates do not create retroactive accrual.';

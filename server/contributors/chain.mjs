@@ -1,4 +1,4 @@
-import {ALLOCATION_NOTICE} from './weights.mjs';
+import {ALLOCATION_NOTICE,BENEFICIARY_POLICY} from './weights.mjs';
 import {createHash,randomUUID,sign} from 'node:crypto';
 import {createPublicClient,http,keccak256,encodeFunctionData,decodeEventLog,parseAbi} from 'viem';
 import {mainnet} from 'viem/chains';
@@ -9,7 +9,7 @@ const fail=(m,status=409)=>Object.assign(Error(m),{status});
 const hash=x=>'0x'+createHash('sha256').update(x).digest('hex');
 const json=v=>JSON.parse(JSON.stringify(v,(_,x)=>typeof x==='bigint'?String(x):x));
 const levels=['Advisor','Part Time','Half Time','Full Time'],ranks=['Contributor','Senior contributor','Lead contributor'],standings=['active','suspended','ended','revoked'];
-export function termsFor(app,memo,project){if(!memo.allocationWeight||memo.allocationNotice!==ALLOCATION_NOTICE)throw fail('Prepare and acknowledge a memorandum with allocation weights and the allocation notice before issuance.');return {subject:hash(project+':'+app.id),memoHash:'0x'+memo.hash,policyHash:hash(memo.policyVersion),level:levels.indexOf(memo.level),rank:ranks.indexOf(memo.rank),validFrom:Math.floor(Date.parse(memo.start+'T00:00:00Z')/1000),validUntil:memo.end===null?0:Math.floor(Date.parse(memo.end+'T00:00:00Z')/1000)+86400,weightNumerator:memo.allocationWeight.numerator,weightDenominator:memo.allocationWeight.denominator};}
+export function termsFor(app,memo,project){if(!memo.allocationWeight||memo.allocationNotice!==ALLOCATION_NOTICE||memo.beneficiaryPolicy!==BENEFICIARY_POLICY)throw fail('Prepare and acknowledge a memorandum with allocation weights and the monthly BTREE beneficiary allocation notice before issuance.');return {subject:hash(project+':'+app.id),memoHash:'0x'+memo.hash,policyHash:hash(memo.policyVersion),level:levels.indexOf(memo.level),rank:ranks.indexOf(memo.rank),validFrom:Math.floor(Date.parse(memo.start+'T00:00:00Z')/1000),validUntil:memo.end===null?0:Math.floor(Date.parse(memo.end+'T00:00:00Z')/1000)+86400,weightNumerator:memo.allocationWeight.numerator,weightDenominator:memo.allocationWeight.denominator};}
 export async function chainContext(env=process.env,client){
  const contract=env.CONTRIBUTOR_CONTRACT_ADDRESS?.toLowerCase();
  if(!/^0x[a-f0-9]{40}$/.test(contract||'')||!/^0x[a-f0-9]{64}$/.test(env.CONTRIBUTOR_CONTRACT_CODE_HASH||''))throw fail('The credential contract is awaiting deployment and verification.',503);
@@ -111,11 +111,11 @@ export async function refreshCredential(app,ctx){
  const c=app.credential;if(c.contract!==ctx.contract)throw fail('Credential deployment does not match.',503);
  const block=await ctx.client.getBlock({blockTag:'latest'});
  if(Math.abs(Date.now()/1000-Number(block.timestamp))>90)throw fail('Credential chain data is stale.',503);
- const [record,current]=await Promise.all([ctx.read('records',[c.tokenId],block.number),ctx.read('currentCredential',[termsFor(app,app.memos.find(m=>m.version===c.memoVersion),app.project==='Bittrees Governance'?'gov':'research').subject],block.number)]);
+ const [record,current,owner,eligible]=await Promise.all([ctx.read('records',[c.tokenId],block.number),ctx.read('currentCredential',[termsFor(app,app.memos.find(m=>m.version===c.memoVersion),app.project==='Bittrees Governance'?'gov':'research').subject],block.number),ctx.read('ownerOf',[c.tokenId],block.number),ctx.read('isMonthlyBtreeBeneficiary',[c.tokenId],block.number)]);
  const memo=app.memos.find(m=>m.version===c.memoVersion);
- if(record[0].memoHash!=='0x'+memo.hash||record[0].policyHash!==hash(memo.policyVersion))throw fail('The on-chain memorandum changed. Reconcile its transaction before continuing.');
+ if(owner.toLowerCase()!==app.wallet||record[0].memoHash!=='0x'+memo.hash||record[0].policyHash!==hash(memo.policyVersion))throw fail('The on-chain memorandum changed. Reconcile its transaction before continuing.');
  c.standing=String(current)!==String(c.tokenId)?'revoked':standings[Number(record[1])];
- c.chainCheckedAt=new Date().toISOString();c.termActive=Number(record[0].validFrom)<=Number(block.timestamp)&&(Number(record[0].validUntil)===0||Number(block.timestamp)<Number(record[0].validUntil));
+ c.monthlyBtreeBeneficiary=eligible===true;c.chainCheckedBlock=String(block.number);c.chainCheckedAt=new Date().toISOString();c.termActive=Number(record[0].validFrom)<=Number(block.timestamp)&&(Number(record[0].validUntil)===0||Number(block.timestamp)<Number(record[0].validUntil));
 }
 
 // A rejected wallet prompt does not revoke its signed consent. Only release an

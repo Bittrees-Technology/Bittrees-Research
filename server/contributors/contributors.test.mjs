@@ -84,3 +84,11 @@ test('only an issuer with Partner decision authority can prepare signed custom w
  state=change(partner,draft);const first=structuredClone(state.applications[0].memos[0]);assert.equal(first.allocationWeight.label,'1/3');assert.equal(first.allocationWeight.approvedBy,partner.id);assert.equal(core.view(state,applicant,'research').applications[0].memos[0].allocationWeight.reason,draft.allocationReason);
  state=change(partner,{...draft,allocationWeight:'1/4'});const second=state.applications[0].memos[1];assert.notEqual(first.hash,second.hash);assert.equal(second.consent,undefined);assert.equal(state.applications[0].memos[0].status,'superseded');assert.equal(state.applications[0].credential,null);
 });
+
+test('monthly beneficiary eligibility requires a fresh chain check; validation does not authorize a payment',()=>{
+ const core=contributorService();let state=core.submitInterest(emptyState(),applicant,'research',interest),a=state.applications[0],today=new Date().toISOString().slice(0,10);a.state='approved';a.memos=[{version:1,start:today,end:null,allocationWeight:{numerator:1,denominator:1}}];a.credential={tokenId:'1',contract:'0x'+'2'.repeat(40),standing:'active',memoVersion:1,level:'Full Time'};
+ const input={action:'validate_month',expectedVersion:a.version,month:today.slice(0,7),from:today,through:today,evidence:'Documented work'};
+ assert.throws(()=>core.transition(state,partner,a.id,input),/beneficiary eligibility/);
+ a.credential.monthlyBtreeBeneficiary=true;a.credential.chainCheckedAt=new Date(Date.now()-100000).toISOString();assert.throws(()=>core.transition(state,partner,a.id,input),/beneficiary eligibility/);
+ a.credential.chainCheckedAt=new Date().toISOString();a.credential.chainCheckedBlock='123';const updated=core.transition(state,partner,a.id,input),v=updated.applications[0].validations[0];assert.equal(v.beneficiaryEligibility.eligible,true);assert.equal(v.beneficiaryEligibility.blockNumber,'123');assert.equal(v.amount,null);assert.equal(v.allocationStatus,'blocked_policy');
+});
