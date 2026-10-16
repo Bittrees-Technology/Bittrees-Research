@@ -45,3 +45,31 @@ test('HTTP wallet-only import requires CSRF and stores provenance without conten
  for(let i=0;i<2;i++){res=response();await handler(req(body,{cookie,'x-contributor-csrf':csrf}),res);assert.equal(res.code,200);assert.equal(res.body.applications.length,1);assert.equal(res.body.applications[0].state,'submitted');assert.equal(res.body.applications[0].sourceAttestation.uid,uid);assert.ok(!JSON.stringify(res.body).includes(contentKey));}
  for(const raw of mem.values.values()){try{assert.ok(!JSON.stringify(codec.open(raw)).includes(contentKey));}catch(e){if(e.code==='ERR_ASSERTION')throw e;}}
 });
+
+test('historical service is signed memo context, never retroactive validity or review eligibility',async()=>{
+ const {termsFor}=await import('./chain.mjs');
+ const core=contributorService(),today=new Date().toISOString().slice(0,10);
+ let state=core.submitInterest(emptyState(),applicant,'research',interest);
+ const id=state.applications[0].id;
+ const change=(actor,input)=>core.transition(state,actor,id,{expectedVersion:state.applications[0].version,...input});
+ for(const action of ['start_review','approve'])state=change(partner,{action,reason:'Reviewed'});
+ const draft={action:'draft_memo',level:'Full Time',rank:'Lead contributor',scope:'Stewardship',start:today,end:null,historicalServiceStart:'2020-03-27'};
+ assert.throws(()=>change(applicant,draft),/authority/);
+ assert.throws(()=>change(partner,{...draft,start:'2020-03-27'}),/today or a future/);
+ assert.throws(()=>change(partner,{...draft,historicalServiceStart:'2999-01-01'}),/Historical service/);
+ assert.throws(()=>change(partner,{...draft,historicalServiceStart:'2020-02-30'}),/valid date/);
+ state=change(partner,draft);
+ const first=structuredClone(state.applications[0].memos[0]),terms=termsFor(state.applications[0],first,'research');
+ assert.equal(first.historicalServiceStart,'2020-03-27');
+ assert.equal(core.view(state,applicant,'research').applications[0].memos[0].historicalServiceStart,'2020-03-27');
+ assert.equal(terms.validFrom,Date.parse(today+'T00:00:00Z')/1000);
+ state=change(partner,{...draft,historicalServiceStart:'2020-03-28'});
+ const revised=state.applications[0].memos[1];
+ assert.notEqual(first.hash,revised.hash);
+ assert.equal(termsFor(state.applications[0],revised,'research').validFrom,terms.validFrom);
+ assert.equal(state.applications[0].memos[0].historicalServiceStart,'2020-03-27');
+ assert.equal(state.applications[0].memos[0].status,'superseded');
+ assert.equal(state.applications[0].credential,null);
+ state=change(partner,{...draft,historicalServiceStart:''});
+ assert.equal(state.applications[0].memos.at(-1).historicalServiceStart,null);
+});

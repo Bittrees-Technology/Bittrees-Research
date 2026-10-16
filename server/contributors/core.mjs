@@ -44,7 +44,7 @@ function transition(original,actor,id,input){
   }
   app.reviews.push({action,reason,privateNote:privateNote(input.privateNote),state:app.state,actor:actor.id,at:TODAY});log(state,actor,app,action,{reason,privateNote:privateNote(input.privateNote),state:app.state});
  }else if(action==='draft_memo'){
-  fields(input,['action','expectedVersion','level','rank','scope','start','end']);
+  fields(input,['action','expectedVersion','level','rank','scope','start','end','historicalServiceStart']);
   if(!actor.issue||!actor.decide.includes(app.lane))fail('Memorandum issuer authority is required.',403);
   if(app.state!=='approved')fail('Accept the application before preparing a memo.',409);
   if(app.credential&&app.credential.standing==='suspended')fail('Resume the credential before revising its memorandum.',409);
@@ -52,9 +52,11 @@ function transition(original,actor,id,input){
   if(!['Contributor','Senior contributor','Lead contributor'].includes(input.rank))fail('Select a recognized rank.');
   const start=day(input.start),end=input.end===null?null:day(input.end);
   if((end!==null&&end<start)||start<TODAY)fail('Use today or a future effective date and an end date after it.');
+  const historicalServiceStart=input.historicalServiceStart==null||input.historicalServiceStart===''?null:day(input.historicalServiceStart);
+  if(historicalServiceStart&&(historicalServiceStart>TODAY||historicalServiceStart>start))fail('Historical service must begin on or before today and the memorandum effective date.');
   // Accepted terms are immutable. An unissued draft is superseded, not overwritten.
   for(const memo of app.memos)if(memo.status==='draft')memo.status='superseded';
-  const memo={version:app.memos.length+1,level:input.level,rank:input.rank,scope:text(input.scope,'Responsibilities'),start,end,policyVersion:'contributor-policy-v1',wallet:app.wallet,issuer:actor.id,status:'draft',createdAt:TODAY};
+  const memo={version:app.memos.length+1,level:input.level,rank:input.rank,scope:text(input.scope,'Responsibilities'),start,end,historicalServiceStart,policyVersion:'contributor-policy-v1',wallet:app.wallet,issuer:actor.id,status:'draft',createdAt:TODAY};
   memo.hash=hash({applicationId:app.id,...memo});app.memos.push(memo);log(state,actor,app,action,{memoVersion:memo.version,hash:memo.hash});
  }else if(action==='link_wallet'){
   fields(input,['action','expectedVersion']);
