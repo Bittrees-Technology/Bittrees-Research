@@ -16,6 +16,23 @@ function fields(input,allowed){for(const key of Object.keys(input))if(!allowed.i
 function log(state,actor,app,action,detail){
  const entry={id:randomUUID(),sequence:state.audit.length+1,at:new Date().toISOString(),actor:actor.id,applicationId:app.id,action,detail,policy:'contributor-policy-v1',previousHash:state.audit.at(-1)?.hash||null};entry.hash=hash(entry);state.audit.push(entry);
 }
+function memoTerms(input){
+  if(!LEVELS.includes(input.level))fail('Select a recognized contribution level.');
+  if(!['Contributor','Senior contributor','Lead contributor'].includes(input.rank))fail('Select a recognized rank.');
+  const start=day(input.start),end=input.end===null?null:day(input.end);
+  if((end!==null&&end<start)||start<TODAY)fail('Use today or a future effective date and an end date after it.');
+  const historicalServiceStart=input.historicalServiceStart==null||input.historicalServiceStart===''?null:day(input.historicalServiceStart);
+  if(historicalServiceStart&&(historicalServiceStart>TODAY||historicalServiceStart>start))fail('Historical service must begin on or before today and the memorandum effective date.');
+  const weight=allocationWeight(input.level,input.allocationWeight,input.allocationReason);
+  return {level:input.level,rank:input.rank,scope:text(input.scope,'Responsibilities'),start,end,historicalServiceStart,allocationWeight:weight};
+}
+function draftMemo(state,actor,app,input){
+ const terms=memoTerms(input);
+ for(const memo of app.memos)if(memo.status==='draft')memo.status='superseded';
+ for(const edit of app.memoEdits||[])if(edit.state==='pending')edit.state='superseded';
+ const memo={version:app.memos.length+1,...terms,allocationWeight:{...terms.allocationWeight,approvedBy:actor.id,approvedAt:new Date().toISOString()},allocationNotice:ALLOCATION_NOTICE,beneficiaryPolicy:BENEFICIARY_POLICY,policyVersion:'contributor-policy-v4-btree-beneficiary',wallet:app.wallet,issuer:actor.id,status:'draft',createdAt:new Date().toISOString()};
+ memo.hash=hash({applicationId:app.id,...memo});app.memos.push(memo);return memo;
+}
 function view(state,actor,site='gov'){
  if(!actor)fail('Choose a review persona.',401);
  if(!SITES[site])fail('Unknown project.');
@@ -23,13 +40,15 @@ function view(state,actor,site='gov'){
  const applications=state.applications.filter(a=>a.lane===SITES[site].lane&&(actor.review.includes(a.lane)||owns(actor,a))).map(a=>{const copy=structuredClone(a);if(!actor.review.includes(a.lane)){delete copy.directory;delete copy.proposals;copy.reviews=copy.reviews.filter(r=>r.state!=='pending_authority').map(({privateNote,...r})=>r);}return copy;});
  return {mode:state.mode,site,siteName:SITES[site].name,today:TODAY,revision:state.revision,persona:{id:actor.id,name:actor.name,isApplicant:!!actor.applicant,canReview:actor.review.includes(SITES[site].lane),canDecide:actor.decide.includes(SITES[site].lane),canIssue:actor.issue&&actor.decide.includes(SITES[site].lane),canValidate:actor.validate&&actor.review.includes(SITES[site].lane),canChangeStatus:actor.changeStatus?.includes(SITES[site].lane)||false,canProposeStatus:actor.proposeStatus?.includes(SITES[site].lane)||false},applications,audit:state.audit.filter(e=>applications.some(a=>a.id===e.applicationId)&&(actor.review.includes(SITES[site].lane)||!['update_directory','propose_change','review_proposal'].includes(e.action)&&e.detail.state!=='pending_authority')).map(e=>{if(actor.review.includes(SITES[site].lane))return e;const copy=structuredClone(e);delete copy.detail.privateNote;return copy;}),policy:{version:'contributor-policy-v4-btree-beneficiary',beneficiaryPolicy:BENEFICIARY_POLICY,allocationConfigured:false,issuer:'Partner authority',authority:'Verified Roles decisions',levelMultipliers:{'Full Time':'1','Half Time':'1/2','Part Time':'1/6',Advisor:'1/10'},rate:'Payment calculation remains subject to the approved distribution policy',blockers:['Approve allocation formula, snapshot and rounding rules','Approve and fund each distribution; no automatic token transfers']}};
 }
-function transition(original,actor,id,input){
+function transition(original,actor,id,input,{expiredConsentVerified=false}={}){
  if(!actor)fail('A verified session is required.',401);
  const state=structuredClone(original),app=state.applications.find(a=>a.id===id);
  if(!app||(!actor.review.includes(app.lane)&&!owns(actor,app)))fail('Application access denied.',403);
  if(!Number.isInteger(input.expectedVersion)||input.expectedVersion!==app.version)fail('This record changed. Reload it before trying again.',409);
  const action=input.action;
- if(app.chainOperation?.status==='prepared'&&['draft_memo','link_wallet','review_proposal'].includes(action))fail('Reconcile the prepared transaction before changing its terms.',409);
+ if(app.chainOperation?.status==='prepared'&&['draft_memo','link_wallet','review_proposal','request_memo_edit','review_memo_edit'].includes(action))fail('Reconcile the prepared transaction before changing its terms.',409);
+ const revisesMemo=action==='draft_memo'||action==='review_memo_edit'&&input.decision==='approve'||action==='review_proposal'&&input.decision==='approve'&&app.proposals.find(p=>p.id===input.proposalId)?.kind==='terms';
+ if(revisesMemo&&app.memos.at(-1)?.status==='draft'&&app.memos.at(-1)?.consent&&!expiredConsentVerified)fail('The signed memorandum must expire and be verified on-chain before revising it.',409);
  if(action==='standing'&&app.credential)fail('On-chain standing and amendment execution is not configured.',503);
  if(['start_review','request_info','resume_review','approve','reject'].includes(action)){
   fields(input,['action','expectedVersion','reason','privateNote']);
@@ -49,17 +68,36 @@ function transition(original,actor,id,input){
   if(!actor.issue||!actor.decide.includes(app.lane))fail('Memorandum issuer authority is required.',403);
   if(app.state!=='approved')fail('Accept the application before preparing a memo.',409);
   if(app.credential&&app.credential.standing==='suspended')fail('Resume the credential before revising its memorandum.',409);
-  if(!LEVELS.includes(input.level))fail('Select a recognized contribution level.');
-  if(!['Contributor','Senior contributor','Lead contributor'].includes(input.rank))fail('Select a recognized rank.');
-  const start=day(input.start),end=input.end===null?null:day(input.end);
-  if((end!==null&&end<start)||start<TODAY)fail('Use today or a future effective date and an end date after it.');
-  const historicalServiceStart=input.historicalServiceStart==null||input.historicalServiceStart===''?null:day(input.historicalServiceStart);
-  if(historicalServiceStart&&(historicalServiceStart>TODAY||historicalServiceStart>start))fail('Historical service must begin on or before today and the memorandum effective date.');
-  const weight=allocationWeight(input.level,input.allocationWeight,input.allocationReason);
-  // Accepted terms are immutable. An unissued draft is superseded, not overwritten.
-  for(const memo of app.memos)if(memo.status==='draft')memo.status='superseded';
-  const memo={version:app.memos.length+1,level:input.level,rank:input.rank,scope:text(input.scope,'Responsibilities'),start,end,historicalServiceStart,allocationWeight:{...weight,approvedBy:actor.id,approvedAt:TODAY},allocationNotice:ALLOCATION_NOTICE,beneficiaryPolicy:BENEFICIARY_POLICY,policyVersion:'contributor-policy-v4-btree-beneficiary',wallet:app.wallet,issuer:actor.id,status:'draft',createdAt:TODAY};
-  memo.hash=hash({applicationId:app.id,...memo});app.memos.push(memo);log(state,actor,app,action,{memoVersion:memo.version,hash:memo.hash});
+  const memo=draftMemo(state,actor,app,input);log(state,actor,app,action,{memoVersion:memo.version,hash:memo.hash});
+ }else if(action==='respond_info'){
+  fields(input,['action','expectedVersion','reason']);
+  if(!owns(actor,app))fail('Only the applicant can respond.',403);
+  if(app.state!=='needs_info')fail('No information has been requested.',409);
+  const reason=text(input.reason,'Application response');app.state='in_review';
+  app.reviews.push({action,reason,state:app.state,actor:actor.id,at:new Date().toISOString()});log(state,actor,app,action,{reason,state:app.state});
+ }else if(action==='request_memo_edit'){
+  fields(input,['action','expectedVersion','memoVersion','memoHash','reason','level','rank','scope','start','end','historicalServiceStart','allocationWeight','allocationReason']);
+  if(!owns(actor,app))fail('Only the applicant can propose edits to their memorandum.',403);
+  const memo=app.memos.at(-1);
+  if(app.state!=='approved'||memo?.status!=='draft'||memo.version!==input.memoVersion||memo.hash!==input.memoHash)fail('Reload the current draft before proposing edits.',409);
+  if(memo.consent)fail('This memorandum is already signed. Ask a Partner to prepare a revised draft after the authorization expires.',409);
+  if(app.memoEdits?.some(e=>e.state==='pending'))fail('A memorandum edit is already awaiting review.',409);
+  const terms=memoTerms(input),edit={id:randomUUID(),baseVersion:memo.version,baseHash:memo.hash,terms,reason:text(input.reason,'Reason for edits'),requestedBy:actor.id,requestedAt:new Date().toISOString(),state:'pending'};
+  app.memoEdits=[...(app.memoEdits||[]),edit];log(state,actor,app,action,{editId:edit.id,baseVersion:memo.version,reason:edit.reason});
+ }else if(action==='review_memo_edit'){
+  fields(input,['action','expectedVersion','editId','decision','reason','start']);
+  if(!actor.issue||!actor.decide.includes(app.lane))fail('Partner approval is required for memorandum edits.',403);
+  const edit=app.memoEdits?.find(e=>e.id===input.editId),memo=app.memos.at(-1);
+  if(!edit||edit.state!=='pending'||memo?.status!=='draft'||edit.baseVersion!==memo.version||edit.baseHash!==memo.hash)fail('This edit no longer matches the current draft.',409);
+  if(edit.requestedBy===actor.id)fail('A proposer cannot approve their own proposal.',403);
+  if(!['approve','reject'].includes(input.decision))fail('Choose approve or reject.');
+  const reason=text(input.reason,'Review explanation');
+  if(input.decision==='approve'){
+   const t=edit.terms,newMemo=draftMemo(state,actor,app,{...t,start:input.start||(t.start<TODAY?TODAY:t.start),allocationWeight:t.allocationWeight.label,allocationReason:t.allocationWeight.reason});
+   edit.acceptedVersion=newMemo.version;
+  }
+  edit.state=input.decision==='approve'?'approved':'rejected';edit.reviewedBy=actor.id;edit.reviewedAt=new Date().toISOString();edit.decisionReason=reason;
+  log(state,actor,app,action,{editId:edit.id,state:edit.state,memoVersion:edit.acceptedVersion||memo.version,reason});
  }else if(action==='link_wallet'){
   fields(input,['action','expectedVersion']);
   if(!owns(actor,app)||!actor.wallet)fail('Verify wallet ownership in this session before linking.',403);
@@ -67,12 +105,14 @@ function transition(original,actor,id,input){
   if(app.walletVerification==='verified')fail('A verified wallet is already linked.',409);
   if(state.applications.some(a=>a.identity!==actor.id&&a.wallet===actor.wallet.toLowerCase()&&a.walletVerification==='verified'))fail('This wallet is linked to another contributor account. Identity reconciliation is required.',409);
   app.wallet=actor.wallet.toLowerCase();app.walletVerification='verified';
+  for(const edit of app.memoEdits||[])if(edit.state==='pending')edit.state='superseded';
   for(const memo of app.memos)if(memo.status==='draft')memo.status='superseded';
   log(state,actor,app,action,{proof:'verified signed wallet challenge'});
  }else if(action==='acknowledge'){
   fields(input,['action','expectedVersion','memoVersion','memoHash']);
   if(!owns(actor,app))fail('Only the applicant may acknowledge their own memorandum.',403);
   const memo=app.memos.at(-1);
+  if(app.memoEdits?.some(e=>e.state==='pending'))fail('Resolve the proposed memorandum edits before acknowledgment.',409);
   if(app.walletVerification!=='verified'||memo?.wallet!==app.wallet)fail('Link a verified wallet and prepare the matching memo before acknowledgment.',409);
   if(!memo||memo.status!=='draft'||memo.version!==input.memoVersion||memo.hash!==input.memoHash)fail('Review the current memorandum version before acknowledging.',409);
   if(memo.acknowledgedAt)fail('This version is already acknowledged.',409);
@@ -121,8 +161,7 @@ function transition(original,actor,id,input){
     if(c.standing!=='active')fail('Only active credentials can receive revised terms.',409);
     const old=app.memos.find(m=>m.version===c.memoVersion);
     if(old.end!==null&&old.end<TODAY)fail('Renew the expired term before changing its level.',409);
-    for(const m of app.memos)if(m.status==='draft')m.status='superseded';
-    const memo={version:app.memos.length+1,level:p.change.level,rank:p.change.rank,scope:old.scope,start:TODAY,end:old.end,policyVersion:'contributor-policy-v1',wallet:app.wallet,issuer:actor.id,status:'draft',createdAt:TODAY};memo.hash=hash({applicationId:app.id,...memo});app.memos.push(memo);p.memoVersion=memo.version;
+    const memo=draftMemo(state,actor,app,{...old,...p.change,start:TODAY,allocationWeight:old.allocationWeight?.custom?old.allocationWeight.label:undefined,allocationReason:old.allocationWeight?.custom?old.allocationWeight.reason:undefined});p.memoVersion=memo.version;
    }
   }
   p.state=input.decision==='approve'?'approved':'rejected';p.reviewedBy=actor.id;p.reviewedAt=TODAY;p.decisionReason=reason;p.privateNote=privateNote(input.privateNote);

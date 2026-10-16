@@ -92,3 +92,68 @@ test('monthly beneficiary eligibility requires a fresh chain check; validation d
  a.credential.monthlyBtreeBeneficiary=true;a.credential.chainCheckedAt=new Date(Date.now()-100000).toISOString();assert.throws(()=>core.transition(state,partner,a.id,input),/beneficiary eligibility/);
  a.credential.chainCheckedAt=new Date().toISOString();a.credential.chainCheckedBlock='123';const updated=core.transition(state,partner,a.id,input),v=updated.applications[0].validations[0];assert.equal(v.beneficiaryEligibility.eligible,true);assert.equal(v.beneficiaryEligibility.blockNumber,'123');assert.equal(v.amount,null);assert.equal(v.allocationStatus,'blocked_policy');
 });
+
+test('application information reply and memo negotiation preserve exact approval, identity and version history',async()=>{
+ const core=contributorService(),wallet='0x'+'1'.repeat(40),owner={...applicant,wallet};
+ let state=core.submitInterest(emptyState(),owner,'research',{...interest,wallet});const id=state.applications[0].id;
+ const apply=(actor,action,extra={})=>{state=core.transition(state,actor,id,{action,expectedVersion:state.applications[0].version,...extra});};
+ apply(partner,'request_info',{reason:'Describe research scope'});
+ assert.throws(()=>apply(partner,'respond_info',{reason:'Not mine'}),/Only the applicant/);
+ apply(owner,'respond_info',{reason:'Research and documentation'});assert.equal(state.applications[0].state,'in_review');
+ apply(partner,'approve',{reason:'Approved'});
+ apply(partner,'draft_memo',{level:'Full Time',rank:'Contributor',scope:'Original scope',start:new Date().toISOString().slice(0,10),end:null});
+ const original=structuredClone(state.applications[0].memos[0]);
+ const edits={memoVersion:original.version,memoHash:original.hash,level:'Half Time',rank:'Senior contributor',scope:'Revised scope',start:original.start,end:null,allocationWeight:'1/3',allocationReason:'Agreed scope',reason:'Adjust weekly commitment'};
+ assert.throws(()=>apply({...owner,id:'intruder'},'request_memo_edit',edits),/access denied/);
+ apply(owner,'request_memo_edit',edits);
+ assert.deepEqual(state.applications[0].memos[0],original);
+ assert.throws(()=>apply(owner,'acknowledge',{memoVersion:1,memoHash:original.hash}),/Resolve/);
+ const {prepareConsent,prepareExecution}=await import('./chain.mjs');
+ const session={identity:owner.id,wallet};
+ await assert.rejects(()=>prepareConsent(state.applications[0],session,'research',{}),/Resolve/);
+ await assert.rejects(()=>prepareExecution(state.applications[0],partner,{wallet},'research',{}, {kind:'issue'}),/Resolve/);
+ const editId=state.applications[0].memoEdits[0].id;
+ assert.throws(()=>apply({...partner,id:owner.id},'review_memo_edit',{editId,decision:'approve',reason:'Self'}),/own proposal/);
+ assert.throws(()=>apply({...partner,issue:false},'review_memo_edit',{editId,decision:'approve',reason:'Jr'}),/Partner/);
+ apply(partner,'review_memo_edit',{editId,decision:'approve',reason:'Accepted reduced commitment'});
+ const app=state.applications[0],memo=app.memos.at(-1);
+ assert.equal(app.wallet,wallet);assert.equal(memo.wallet,wallet);assert.equal(memo.version,2);assert.equal(app.memos[0].status,'superseded');assert.equal(app.memos[0].hash,original.hash);
+ assert.equal(memo.scope,'Revised scope');assert.equal(memo.allocationWeight.label,'1/3');assert.equal(memo.allocationWeight.approvedBy,partner.id);assert.equal(memo.consent,undefined);assert.equal(memo.acknowledgedAt,undefined);assert.notEqual(memo.hash,original.hash);
+ assert.equal(app.memoEdits[0].reviewedBy,partner.id);assert.equal(app.memoEdits[0].state,'approved');assert.equal(app.memoEdits[0].acceptedVersion,2);
+ assert.throws(()=>apply(owner,'acknowledge',{memoVersion:1,memoHash:original.hash}),/current memorandum/);
+ await assert.rejects(()=>prepareExecution(app,partner,{wallet},'research',{}, {kind:'issue'}),/must sign/);
+ apply(owner,'acknowledge',{memoVersion:2,memoHash:memo.hash});assert.equal(state.applications[0].memos.at(-1).acknowledgedBy,owner.id);
+});
+
+test('declining edits preserves draft and stale or signed edits cannot replace it',()=>{
+ const core=contributorService();let s=core.submitInterest(emptyState(),applicant,'research',interest);const id=s.applications[0].id;
+ const act=(actor,action,extra={})=>{s=core.transition(s,actor,id,{action,expectedVersion:s.applications[0].version,...extra});};
+ act(partner,'start_review',{reason:'Review'});act(partner,'approve',{reason:'Approved'});
+ const terms={level:'Full Time',rank:'Contributor',scope:'Scope',start:new Date().toISOString().slice(0,10),end:null};act(partner,'draft_memo',terms);
+ let m=s.applications[0].memos.at(-1);const request={...terms,memoVersion:m.version,memoHash:m.hash,reason:'Please change',scope:'Changed'};
+ act(applicant,'request_memo_edit',request);const edit=s.applications[0].memoEdits[0];
+ assert.throws(()=>act(applicant,'request_memo_edit',request),/already awaiting/);
+ act(partner,'review_memo_edit',{editId:edit.id,decision:'reject',reason:'Keep original scope'});assert.equal(s.applications[0].memos.length,1);assert.equal(s.applications[0].memos[0].hash,m.hash);
+ assert.throws(()=>core.transition(s,applicant,id,{action:'request_memo_edit',expectedVersion:1,...request}),/record changed/);
+ s.applications[0].memos[0].consent={typedData:{message:{deadline:1}}};
+ assert.throws(()=>act(applicant,'request_memo_edit',request),/already signed/);
+ assert.throws(()=>act(partner,'draft_memo',terms),/expire and be verified/);
+ assert.throws(()=>act(partner,'draft_memo',{...terms,expiredConsentVerified:true}),/expire and be verified/);
+});
+
+test('expired draft revision requires finalized expiry and unused original-contract consent',async()=>{
+ const {verifyExpiredMemoConsent}=await import('./chain.mjs');const {ROOT_AUTHORITY}=await import('../../shared/contributor-chain.mjs');
+ const contract='0x'+'2'.repeat(40),app={wallet:'0x'+'1'.repeat(40),memos:[{status:'draft',consent:{typedData:{domain:{verifyingContract:contract},message:{deadline:100,nonce:'0'}}}}]};
+ let timestamp=100n,nonce=0n;const ctx={client:{getBlock:async({blockTag})=>{assert.equal(blockTag,'finalized');return {number:25n,timestamp};},readContract:async({address,blockNumber,functionName})=>{assert.equal(address,contract);assert.equal(blockNumber,25n);return functionName==='rootAuthority'?ROOT_AUTHORITY:nonce;}}};
+ await assert.rejects(()=>verifyExpiredMemoConsent(app,ctx),/remains valid/);timestamp=101n;assert.equal(await verifyExpiredMemoConsent(app,ctx),true);nonce=1n;await assert.rejects(()=>verifyExpiredMemoConsent(app,ctx),/already have been issued/);
+});
+
+test('approved level proposals use current memo policy and preserve individually agreed weights',async()=>{
+ const core=contributorService(),today=new Date().toISOString().slice(0,10);let s=core.submitInterest(emptyState(),applicant,'research',interest);const id=s.applications[0].id;
+ const act=(a,action,extra={})=>{s=core.transition(s,a,id,{action,expectedVersion:s.applications[0].version,...extra});};
+ act(partner,'start_review',{reason:'Review'});act(partner,'approve',{reason:'Accept'});act(partner,'draft_memo',{level:'Full Time',rank:'Contributor',scope:'Research',start:today,end:null,historicalServiceStart:'2020-03-27',allocationWeight:'1/3',allocationReason:'Agreed workload'});
+ s.applications[0].memos[0].status='issued';s.applications[0].credential={memoVersion:1,standing:'active',revision:1,level:'Full Time',rank:'Contributor'};
+ const junior={...applicant,id:'junior',review:['research'],proposeStatus:['research']};act(junior,'propose_change',{kind:'terms',level:'Half Time',rank:'Senior contributor',reason:'New scope'});act(partner,'review_proposal',{proposalId:s.applications[0].proposals[0].id,decision:'approve',reason:'Approved'});
+ const memo=s.applications[0].memos.at(-1);assert.equal(memo.policyVersion,'contributor-policy-v4-btree-beneficiary');assert.equal(memo.historicalServiceStart,'2020-03-27');assert.equal(memo.allocationWeight.label,'1/3');assert.equal(memo.consent,undefined);
+ const {termsFor}=await import('./chain.mjs');assert.equal(termsFor(s.applications[0],memo,'research').weightDenominator,3);
+});

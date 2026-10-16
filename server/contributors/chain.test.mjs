@@ -28,3 +28,12 @@ test('bootstrap recovery checks the original contract at finality and preserves 
  await assert.rejects(()=>expireBootstrap(a,actor,ctx),/may have issued/);assert.equal(a.chainOperation.status,'prepared');nextId=1n;
  await expireBootstrap(a,actor,ctx);assert.equal(a.chainOperation,null);assert.equal(a.chainHistory[0].verifiedBlock,'42');assert.equal(a.chainHistory[0].status,'expired');
 });
+
+test('issuance rechecks signed contract, recipient and terms and refuses prepared re-signing',async()=>{
+ const a=app();a.lane='gov';const actor={issue:true,decide:['gov']},ctx={contract,read:async()=>0n,client:{verifyTypedData}};
+ const typedData=await prepareConsent(a,session,'gov',ctx),signature=await account.signTypedData(typedData);await acceptConsent(a,session,'gov',ctx,{typedData,signature});
+ await assert.rejects(()=>prepareExecution(a,{...actor,issue:false},session,'gov',ctx,{kind:'issue'}),/Partner/);
+ await assert.rejects(()=>prepareExecution(a,actor,session,'gov',{...ctx,contract:'0x'+'9'.repeat(40)},{kind:'issue'}),/for this contract/);
+ a.memos[0].hash='b'.repeat(64);await assert.rejects(()=>prepareExecution(a,actor,session,'gov',ctx,{kind:'issue'}),/for this contract/);
+ a.chainOperation={status:'prepared'};await assert.rejects(()=>prepareConsent(a,session,'gov',ctx),/Reconcile/);await assert.rejects(()=>acceptConsent(a,session,'gov',ctx,{typedData,signature}),/Reconcile/);
+});

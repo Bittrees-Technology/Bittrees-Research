@@ -3,3 +3,5 @@
 .cp-account{display:flex;align-items:baseline;gap:18px;flex-wrap:wrap;margin:18px 0}.cp-account details{margin:0;border:0;padding:0}.cp-account summary{font-size:14px}.cp-source{font-size:13px;color:#596954}.cp-responsibilities{white-space:pre-wrap}.cp textarea[name=scope]{min-height:220px}
 
 .cp-workspace.cp-single{grid-template-columns:minmax(0,1fr)}
+
+.cp-memo-diff>div{padding:.75rem 0;border-bottom:1px solid #dce4db}.cp-memo-diff p{white-space:pre-wrap;overflow-wrap:anywhere;margin:.4rem 0}
