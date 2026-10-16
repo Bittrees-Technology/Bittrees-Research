@@ -1,6 +1,6 @@
 import {readBaseApplication} from './base-application.mjs';
 import {createHash,randomUUID} from 'node:crypto';
-import {chainContext,prepareConsent,acceptConsent,prepareExecution,reconcile,refreshCredential} from './chain.mjs';
+import {chainContext,prepareConsent,acceptConsent,prepareExecution,reconcile,refreshCredential,expireBootstrap} from './chain.mjs';
 import {createPublicClient,http} from 'viem';
 import {mainnet} from 'viem/chains';
 import {redisCommand} from '../signed-registry.mjs';
@@ -37,7 +37,7 @@ export function createContributorHandler(project,{env=process.env,command=redisC
    if(visible.some(a=>a.credential)){const ctx=await chainContext(env);await Promise.all(visible.filter(a=>a.credential).map(a=>refreshCredential(a,ctx)));}
    return res.status(200).json(service.view(state,actor,project));
   }
-  if(['chain_consent_prepare','chain_consent_save','chain_execute_prepare','chain_reconcile'].includes(body.action)){
+  if(['chain_consent_prepare','chain_consent_save','chain_execute_prepare','chain_reconcile','chain_expire_bootstrap'].includes(body.action)){
    const ctx=await chainContext(env);let result;
    const next=await store.mutate(async state=>{
     const app=state.applications.find(a=>a.id===body.id&&a.project===(project==='gov'?'Bittrees Governance':'Bittrees Research'));
@@ -47,6 +47,7 @@ export function createContributorHandler(project,{env=process.env,command=redisC
     if(body.action==='chain_consent_prepare'){result=await prepareConsent(app,session,project,ctx);return state;}
     if(body.action==='chain_consent_save')await acceptConsent(app,session,project,ctx,body);
     if(body.action==='chain_execute_prepare')result=await prepareExecution(app,actor,session,project,ctx,body,{env});
+    if(body.action==='chain_expire_bootstrap')await expireBootstrap(app,actor,ctx);
     if(body.action==='chain_reconcile')await reconcile(app,ctx,body.transactionHash);
     app.version++;state.revision++;
     const entry={id:randomUUID(),sequence:state.audit.length+1,at:new Date().toISOString(),actor:actor.id,applicationId:app.id,action:body.action,detail:{memoVersion:app.memos.at(-1)?.version,operationId:app.chainOperation?.id||null,transactionHash:body.transactionHash||null},policy:'contributor-policy-v1',previousHash:state.audit.at(-1)?.hash||null};

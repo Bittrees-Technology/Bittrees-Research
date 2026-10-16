@@ -1,6 +1,6 @@
 import {ALLOCATION_NOTICE} from './weights.mjs';
 import test from 'node:test';import assert from 'node:assert/strict';import {privateKeyToAccount} from 'viem/accounts';import {verifyTypedData,encodeEventTopics,encodeAbiParameters} from 'viem';
-import {termsFor,prepareConsent,acceptConsent,reconcile,chainContext,prepareExecution,refreshCredential} from './chain.mjs';import {credentialAbi,operationHash} from '../../shared/contributor-chain.mjs';
+import {termsFor,prepareConsent,acceptConsent,expireBootstrap,reconcile,chainContext,prepareExecution,refreshCredential} from './chain.mjs';import {credentialAbi,operationHash} from '../../shared/contributor-chain.mjs';
 const account=privateKeyToAccount('0x'+'1'.repeat(64)),wallet=account.address.toLowerCase(),contract='0x'+'2'.repeat(40),tx='0x'+'3'.repeat(64),blockHash='0x'+'4'.repeat(64);
 const app=()=>({id:'app-test',identity:'person',state:'approved',wallet,walletVerification:'verified',memos:[{version:1,hash:'a'.repeat(64),policyVersion:'contributor-policy-v3-credential-terms',allocationNotice:ALLOCATION_NOTICE,wallet,level:'Full Time',rank:'Lead contributor',start:'2026-10-16',end:null,allocationWeight:{numerator:1,denominator:1},status:'draft'}]});
 const session={identity:'person',wallet};
@@ -19,3 +19,12 @@ test('external memorandum changes block stale local contribution confirmation',a
 test('weight changes invalidate contributor consent and legacy memos require revision',async()=>{const a=app(),ctx={contract,read:async()=>0n,client:{verifyTypedData}};const typedData=await prepareConsent(a,session,'gov',ctx),signature=await account.signTypedData(typedData);a.memos[0].allocationWeight={numerator:1,denominator:3};await assert.rejects(()=>acceptConsent(a,session,'gov',ctx,{typedData,signature}),/does not match/);delete a.memos[0].allocationWeight;assert.throws(()=>termsFor(a,a.memos[0],'gov'),/Prepare and acknowledge/);});
 
 test('legacy weight-only memorandum cannot authorize issuance without acknowledged allocation notice',()=>{const a=app();delete a.memos[0].allocationNotice;assert.throws(()=>termsFor(a,a.memos[0],'gov'),/allocation notice/);});
+
+test('bootstrap recovery checks the original contract at finality and preserves audit history',async()=>{
+ const a=app();a.lane='gov';a.chainOperation={kind:'bootstrap',status:'prepared',contract,deadline:100};const actor={id:'partner',issue:true,decide:['gov']};let timestamp=100n,nextId=1n;
+ const ctx={contract:'0x'+'9'.repeat(40),client:{getBlock:async()=>({number:42n,timestamp}),readContract:async q=>{assert.equal(q.address,contract);assert.equal(q.blockNumber,42n);return q.functionName==='nextId'?nextId:'0x1B6c450FaDB7c77191f152473FC2f79dC515FA77';}}};
+ await assert.rejects(()=>expireBootstrap(a,{...actor,issue:false},ctx),/Partner/);
+ await assert.rejects(()=>expireBootstrap(a,actor,ctx),/remains valid/);timestamp=101n;nextId=2n;
+ await assert.rejects(()=>expireBootstrap(a,actor,ctx),/may have issued/);assert.equal(a.chainOperation.status,'prepared');nextId=1n;
+ await expireBootstrap(a,actor,ctx);assert.equal(a.chainOperation,null);assert.equal(a.chainHistory[0].verifiedBlock,'42');assert.equal(a.chainHistory[0].status,'expired');
+});
