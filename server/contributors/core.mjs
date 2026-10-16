@@ -1,5 +1,5 @@
 import {createHash, randomUUID} from 'node:crypto';
-import {allocationWeight} from './weights.mjs';
+import {allocationWeight,ALLOCATION_NOTICE} from './weights.mjs';
 import {SITES,normalizeInterest,emptyDirectory} from './interest.mjs';
 export function contributorService(){
 const TODAY=new Date().toISOString().slice(0,10);
@@ -58,7 +58,7 @@ function transition(original,actor,id,input){
   const weight=allocationWeight(input.level,input.allocationWeight,input.allocationReason);
   // Accepted terms are immutable. An unissued draft is superseded, not overwritten.
   for(const memo of app.memos)if(memo.status==='draft')memo.status='superseded';
-  const memo={version:app.memos.length+1,level:input.level,rank:input.rank,scope:text(input.scope,'Responsibilities'),start,end,historicalServiceStart,allocationWeight:{...weight,approvedBy:actor.id,approvedAt:TODAY},policyVersion:'contributor-policy-v2-weights',wallet:app.wallet,issuer:actor.id,status:'draft',createdAt:TODAY};
+  const memo={version:app.memos.length+1,level:input.level,rank:input.rank,scope:text(input.scope,'Responsibilities'),start,end,historicalServiceStart,allocationWeight:{...weight,approvedBy:actor.id,approvedAt:TODAY},allocationNotice:ALLOCATION_NOTICE,policyVersion:'contributor-policy-v3-credential-terms',wallet:app.wallet,issuer:actor.id,status:'draft',createdAt:TODAY};
   memo.hash=hash({applicationId:app.id,...memo});app.memos.push(memo);log(state,actor,app,action,{memoVersion:memo.version,hash:memo.hash});
  }else if(action==='link_wallet'){
   fields(input,['action','expectedVersion']);

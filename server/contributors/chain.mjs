@@ -1,3 +1,4 @@
+import {ALLOCATION_NOTICE} from './weights.mjs';
 import {createHash,randomUUID,sign} from 'node:crypto';
 import {createPublicClient,http,keccak256,encodeFunctionData,decodeEventLog,parseAbi} from 'viem';
 import {mainnet} from 'viem/chains';
@@ -8,7 +9,7 @@ const fail=(m,status=409)=>Object.assign(Error(m),{status});
 const hash=x=>'0x'+createHash('sha256').update(x).digest('hex');
 const json=v=>JSON.parse(JSON.stringify(v,(_,x)=>typeof x==='bigint'?String(x):x));
 const levels=['Advisor','Part Time','Half Time','Full Time'],ranks=['Contributor','Senior contributor','Lead contributor'],standings=['active','suspended','ended','revoked'];
-export function termsFor(app,memo,project){if(!memo.allocationWeight)throw fail('Prepare and acknowledge a memorandum with allocation weights before issuance.');return {subject:hash(project+':'+app.id),memoHash:'0x'+memo.hash,policyHash:hash(memo.policyVersion),level:levels.indexOf(memo.level),rank:ranks.indexOf(memo.rank),validFrom:Math.floor(Date.parse(memo.start+'T00:00:00Z')/1000),validUntil:memo.end===null?0:Math.floor(Date.parse(memo.end+'T00:00:00Z')/1000)+86400,weightNumerator:memo.allocationWeight.numerator,weightDenominator:memo.allocationWeight.denominator};}
+export function termsFor(app,memo,project){if(!memo.allocationWeight||memo.allocationNotice!==ALLOCATION_NOTICE)throw fail('Prepare and acknowledge a memorandum with allocation weights and the allocation notice before issuance.');return {subject:hash(project+':'+app.id),memoHash:'0x'+memo.hash,policyHash:hash(memo.policyVersion),level:levels.indexOf(memo.level),rank:ranks.indexOf(memo.rank),validFrom:Math.floor(Date.parse(memo.start+'T00:00:00Z')/1000),validUntil:memo.end===null?0:Math.floor(Date.parse(memo.end+'T00:00:00Z')/1000)+86400,weightNumerator:memo.allocationWeight.numerator,weightDenominator:memo.allocationWeight.denominator};}
 export async function chainContext(env=process.env,client){
  const contract=env.CONTRIBUTOR_CONTRACT_ADDRESS?.toLowerCase();
  if(!/^0x[a-f0-9]{40}$/.test(contract||'')||!/^0x[a-f0-9]{64}$/.test(env.CONTRIBUTOR_CONTRACT_CODE_HASH||''))throw fail('The credential contract is awaiting deployment and verification.',503);

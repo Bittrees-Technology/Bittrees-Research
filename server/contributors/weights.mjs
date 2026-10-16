@@ -16,3 +16,5 @@ export function allocationWeight(level,input='',reason=''){
  if(custom&&(typeof reason!=='string'||!reason.trim()||reason.length>2000))fail('Explain the custom allocation weight for the contributor to acknowledge.');
  return {numerator,denominator,label:denominator===1?String(numerator):`${numerator}/${denominator}`,custom,reason:custom?reason.trim():'',policyVersion:WEIGHT_POLICY};
 }
+
+export const ALLOCATION_NOTICE='This memorandum records a relative contribution weight. It does not promise a fixed BTREE amount, authorize token payments, or grant a token-reissue claim. Monetary allocations require a separately approved and funded policy and confirmed eligible contributions. Historical service dates do not create retroactive accrual.';
