@@ -2,9 +2,9 @@ import {unlockAndSaveApplications} from '../lib/bulkApplicationUnlock';
 import {useEffect,useState,useRef,type ReactNode} from 'react';
 import {useWalletClient} from 'wagmi';
 import {CONTRIB_COMMUNITY,useTopics} from '../lib/forum';
-import {deriveEncKeypair,applicationContentKey,decryptApplication,pubKeyHex} from '../lib/appcrypto';
+import {deriveEncKeypair,applicationContentKey,decryptApplication} from '../lib/appcrypto';
 
-import {publishEncKey} from '../lib/community';
+
 
 function previewApplication(input:any){
  const result:Record<string,any>={_preview:true};
@@ -42,11 +42,6 @@ export default function BaseApplicationSync({wallet,records,onImport,reviewer=fa
   }catch(e){if(isCurrent()){setError((e as Error).message);setBatchNotice('');}}
   finally{if(active.current)setBusy(false);}
  }
- async function publish(){setBusy(true);setError('');try{
-  if(!walletClient||walletClient.account?.address.toLowerCase()!==wallet)throw Error('Connect your verified reviewer wallet.');
-  const kp=await deriveEncKeypair(walletClient,wallet as `0x${string}`);
-  try{await publishEncKey({walletClient,account:wallet as `0x${string}`,pubkey:pubKeyHex(kp.publicKey)});}finally{kp.secretKey.fill(0);}
- }catch(e){setError((e as Error).message);}finally{setBusy(false);}}
  return <section className="cp-panel">{!renderApplications&&<><h2>{reviewer?'Base applications awaiting review':'Continue a Base application'}</h2><p>{reviewer?'Unlock an application addressed to your wallet, then add it to the same review queue below. Approval, memorandum edits, acceptance and issuance continue in this workspace.':'Continue from the application you already submitted. Unlock it with your wallet, review it, then sync it into the private contributor record. '}</p></>}
 
 
@@ -57,7 +52,6 @@ export default function BaseApplicationSync({wallet,records,onImport,reviewer=fa
  })}
  {renderApplications&&isLoading&&<p role="status">Loading encrypted applications…</p>}{renderApplications&&isError&&<p role="alert">Encrypted applications could not be loaded. Reload to try again.</p>}
  {unlocked?.wallet===wallet&&<div><h3>{unlocked.application.name}</h3><p>{unlocked.application.specialty}</p><p>Sync shares this application's contents with authorized contributor reviewers. It preserves the Base source and does not accept the application or issue a credential.</p><button disabled={busy} onClick={async()=>{setBusy(true);setError('');try{await onImport(unlocked.uid,unlocked.key);setUnlocked(null);}catch(e){setError((e as Error).message);}finally{setBusy(false);}}}>{reviewer?'Add to contributor review':'Sync application for review and memorandum'}</button><button disabled={busy} onClick={()=>setUnlocked(null)}>Cancel</button></div>}
- {reviewer&&<details><summary>Encryption access for future applications</summary><p>Publishing your public encryption key lets future applicants encrypt to you if you hold the required application-access role. It does not unlock older applications or grant review authority.</p><button disabled={busy} onClick={publish}>Publish reviewer encryption key</button></details>}
  {error&&<p role="alert">{error}</p>}
  </section>;
 }
