@@ -157,3 +157,30 @@ test('approved level proposals use current memo policy and preserve individually
  const memo=s.applications[0].memos.at(-1);assert.equal(memo.policyVersion,'contributor-policy-v4-btree-beneficiary');assert.equal(memo.historicalServiceStart,'2020-03-27');assert.equal(memo.allocationWeight.label,'1/3');assert.equal(memo.consent,undefined);
  const {termsFor}=await import('./chain.mjs');assert.equal(termsFor(s.applications[0],memo,'research').weightDenominator,3);
 });
+
+
+test('reviewer import preserves applicant ownership, source, audit actor and duplicate safety',()=>{
+ const core=contributorService(),wallet='0x'+'8'.repeat(40),owner={...applicant,id:'wallet:source-owner',wallet};
+ const input={application:{...interest,wallet},source:{uid:'0x'+'7'.repeat(64),attester:wallet,chainId:8453}};
+ assert.throws(()=>core.importBaseForReview(emptyState(),applicant,owner,'research',input),/reviewer permission/);
+ const s=core.importBaseForReview(emptyState(),partner,owner,'research',input),app=s.applications[0];
+ assert.equal(app.identity,owner.id);assert.equal(app.wallet,wallet);assert.equal(app.state,'submitted');assert.equal(app.emailVerified,false);assert.equal(app.credential,null);assert.ok(s.audit.every(e=>e.actor===partner.id));
+ assert.equal(core.view(s,owner,'research').applications.length,1);assert.equal(core.view(s,{...applicant,id:'other'},'research').applications.length,0);
+ assert.equal(core.importBaseForReview(s,partner,owner,'research',input).applications.length,1);
+ assert.throws(()=>core.transition(s,partner,app.id,{action:'acknowledge',expectedVersion:app.version}),/Only the applicant/);
+});
+
+test('applicant cannot request reviewer import or spoof reviewer authority',async()=>{
+ const mem=memory();let sent,read=false;const env={CONTRIBUTORS_ENABLED:'1',CONTRIBUTOR_IDENTITY_SECRET:secret,CONTRIBUTOR_STORAGE_SECRET:secret,RESEND_API_KEY:'test',CONTRIBUTOR_EMAIL_FROM:'test@example.invalid'};
+ const handler=createContributorHandler('gov',{env,command:mem.command,send:async(_,o)=>{sent=JSON.parse(o.body);return {ok:true};},actorFor:async s=>({...applicant,id:s.identity,authorityExpiresAt:Date.now()+10000}),baseReader:async()=>{read=true;throw Error('must not read');}});
+ let res=response();await handler(req({action:'email_start',email:'test@example.invalid'}),res);const challenge=res.body.challenge,code=sent.text.match(/\b\d{6}\b/)[0];res=response();await handler(req({action:'email_finish',challenge,code}),res);const cookie=res.headers['Set-Cookie'].split(';')[0];res=response();await handler({...req({}, {cookie}),method:'GET'},res);const csrf=res.body.session.csrf;
+ res=response();await handler(req({action:'import_base_review',reviewer:true,wallet:'0x'+'1'.repeat(40)},{cookie,'x-contributor-csrf':csrf}),res);assert.equal(res.code,403);assert.equal(read,false);
+});
+
+test('HTTP reviewer imports Base application into the original applicant wallet account',async()=>{
+ const mem=memory(),reviewerWallet='0x'+'3'.repeat(40),ownerWallet='0x'+'4'.repeat(40),uid='0x'+'5'.repeat(64);
+ const handler=createContributorHandler('gov',{env:{CONTRIBUTORS_ENABLED:'1',CONTRIBUTOR_IDENTITY_SECRET:secret,CONTRIBUTOR_STORAGE_SECRET:secret},command:mem.command,verifyWallet:async()=>true,actorFor:async s=>({...s.wallet===reviewerWallet?partner:applicant,id:s.identity,wallet:s.wallet,authorityExpiresAt:Date.now()+10000}),baseReader:async(project,session,body,client,options)=>{assert.equal(options.reviewer,true);assert.equal(session.wallet,reviewerWallet);return {application:{...interest,requestedRoles:[],wallet:ownerWallet},source:{uid,attester:ownerWallet,chainId:8453}};}});
+ async function login(wallet){let r=response();await handler(req({action:'wallet_login_start',address:wallet}),r);const challenge=r.body.challenge,binding=r.headers['Set-Cookie'].split(';')[0];r=response();await handler(req({action:'wallet_login_finish',challenge,signature:'valid'},{cookie:binding}),r);const cookie=r.headers['Set-Cookie'][0].split(';')[0];r=response();await handler({...req({}, {cookie}),method:'GET'},r);return {cookie,'x-contributor-csrf':r.body.session.csrf};}
+ const reviewerHeaders=await login(reviewerWallet);let r=response();await handler(req({action:'import_base_review',uid,contentKey:'6'.repeat(64)},reviewerHeaders),r);assert.equal(r.code,200);assert.equal(r.body.applications[0].wallet,ownerWallet);assert.notEqual(r.body.applications[0].identity,r.body.persona.id);assert.equal(r.body.applications[0].state,'submitted');
+ const ownerHeaders=await login(ownerWallet);r=response();await handler(req({action:'list'},ownerHeaders),r);assert.equal(r.code,200);assert.equal(r.body.applications.length,1);assert.equal(r.body.applications[0].identity,r.body.persona.id);assert.equal(r.body.applications[0].sourceAttestation.uid,uid);
+});

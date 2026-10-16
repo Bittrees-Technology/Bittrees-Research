@@ -483,3 +483,5 @@ h2, h3, h4, h5, h6 {
 }
 .member-frame--sm { padding: 9px; border-radius: 6px; }
 .member-frame--sm .member-frame-inner { padding: 0; }
+
+@media(max-width:650px){.research-header-row{flex-wrap:wrap;gap:.5rem!important;height:auto!important;min-height:56px;padding-top:.5rem!important;padding-bottom:.5rem!important}}

@@ -1,4 +1,4 @@
-import {Link} from "react-router";
+import Contributors from "./Contributors";
 import {useAuthorityAccess} from '../lib/authorityAccess';
 import { useMemo, useState } from "react";
 import { isAddress } from "viem";
@@ -14,12 +14,9 @@ import {
   unassignRole,
   createRole,
   deleteRole,
-  publishEncKey,
   moderateItem,
   type RoleDef,
 } from "@/lib/community";
-import { useTopics } from "@/lib/forum";
-import { deriveEncKeypair, decryptApplication, pubKeyHex, type Envelope } from "@/lib/appcrypto";
 import { shortAddress } from "@/lib/links";
 
 type Tab = "roles" | "applications" | "moderation";
@@ -28,34 +25,21 @@ export default function Admin() {
   const { address } = useAccount();
   const level = useAdminAccess(address);
   const shared=useAuthorityAccess(address);
-  const [tab, setTab] = useState<Tab>("roles");
-
-  if (level === "none") {
-    return (
-      <div style={{ maxWidth: "640px", margin: "0 auto", textAlign: "center" }}>
-        <Link to="/admin/contributors">Open contributor administration</Link>
-        <PageHeader label="Admin" title="Admin" />
-        <p style={{ color: "var(--color-ink-muted)" }}>
-          This area is for Bittrees Research executives and assistants.
-        </p>
-      </div>
-    );
-  }
+  const [tab, setTab] = useState<Tab>("applications");
 
   const tabs: { key: Tab; label: string }[] =
     level === "full"
       ? [
           { key: "roles", label: "Roles" },
-          { key: "applications", label: "Applications" },
+          { key: "applications", label: "Contributor applications" },
           { key: "moderation", label: "Moderation" },
         ]
-      : [{ key: "moderation", label: "Moderation" }];
+      : level === "moderation" ? [{ key: "moderation", label: "Moderation" },{key:"applications",label:"Contributor applications"}] : [{key:"applications",label:"Contributor applications"}];
 
   const active = tabs.some((t) => t.key === tab) ? tab : tabs[0].key;
 
   return (
     <div style={{ maxWidth: "820px", margin: "0 auto" }}>
-      <Link to="/admin/contributors">Open contributor administration</Link>
       <PageHeader
         label="Admin"
         title="Administration"
@@ -85,7 +69,7 @@ export default function Admin() {
       </div>
 
       {active === "roles" && (shared.data?.configured?<section className="card"><h2>Shared roles</h2><p>Project staff and partner permissions are managed in Roles.</p><a href="https://roles.bittrees.org/role-management?project=research">Manage roles</a></section>:<RolesTab />)}
-      {active === "applications" && <ApplicationsTab />}
+      {active === "applications" && <Contributors embedded />}
       {active === "moderation" && <ModerationTab />}
     </div>
   );
@@ -239,94 +223,6 @@ function RolesTab() {
         </div>
       </section>
     </div>
-  );
-}
-
-/* ── Applications ──────────────────────────────────────────────────────── */
-function ApplicationsTab() {
-  const { address } = useAccount();
-  const { data: walletClient } = useWalletClient();
-  const { data: topics, isLoading } = useTopics("bittrees-research-contributors");
-  const [secretKey, setSecretKey] = useState<Uint8Array>();
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string>();
-
-  async function unlock() {
-    if (!walletClient || !address) return;
-    setBusy(true);
-    setErr(undefined);
-    try {
-      const kp = await deriveEncKeypair(walletClient, address);
-      setSecretKey(kp.secretKey);
-      await publishEncKey({ walletClient, account: address, pubkey: pubKeyHex(kp.publicKey) });
-    } catch (e) {
-      setErr((e as Error)?.message?.split("\n")[0] || "Failed");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-      <div className="card" style={{ display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
-        <p style={{ fontSize: "0.85rem", color: "var(--color-ink-muted)", margin: 0, flex: 1 }}>
-          Applications are encrypted to reviewers. Unlock to derive your key (signature, no gas) and publish it so future applicants encrypt to you.
-        </p>
-        <button className="btn-primary" disabled={busy} onClick={unlock}>
-          {busy ? "Unlocking…" : secretKey ? "Re-publish key" : "Unlock applications"}
-        </button>
-      </div>
-      {err && <p style={{ fontSize: "0.8rem", color: "#b42318" }}>{err}</p>}
-
-      {isLoading && <p style={{ fontSize: "0.875rem", color: "var(--color-ink-muted)" }}>Loading applications…</p>}
-      {topics && topics.length === 0 && <p style={{ fontSize: "0.875rem", color: "var(--color-ink-muted)" }}>No applications yet.</p>}
-
-      {topics?.map((t) => (
-        <ApplicationRow key={t.id} body={t.body} attester={t.attester} account={address} secretKey={secretKey} />
-      ))}
-    </div>
-  );
-}
-
-function ApplicationRow({ body, attester, account, secretKey }: { body: string; attester: string; account?: string; secretKey?: Uint8Array }) {
-  const decoded = useMemo(() => {
-    if (!secretKey || !account) return null;
-    try {
-      const env = JSON.parse(body) as Envelope;
-      const plain = decryptApplication(env, account as `0x${string}`, secretKey);
-      return plain ? JSON.parse(plain) : null;
-    } catch {
-      return null;
-    }
-  }, [body, account, secretKey]);
-
-  return (
-    <div className="card">
-      <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem", color: "var(--color-ink-dim)", marginBottom: "0.5rem" }}>
-        <AddressName address={attester} />
-      </div>
-      {!secretKey ? (
-        <p style={{ fontSize: "0.82rem", color: "var(--color-ink-dim)", margin: 0 }}>Unlock to decrypt.</p>
-      ) : decoded ? (
-        <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "0.3rem 1rem", fontSize: "0.85rem" }}>
-          {Object.entries(decoded).map(([k, v]) => (
-            <FieldRow key={k} k={k} v={Array.isArray(v) ? v.join(", ") : String(v)} />
-          ))}
-        </div>
-      ) : (
-        <p style={{ fontSize: "0.82rem", color: "var(--color-ink-dim)", margin: 0 }}>Not addressed to you (or undecryptable).</p>
-      )}
-    </div>
-  );
-}
-
-function FieldRow({ k, v }: { k: string; v: string }) {
-  if (!v) return null;
-  return (
-    <>
-      <span style={{ color: "var(--color-ink-muted)", textTransform: "capitalize" }}>{k}</span>
-      <span style={{ color: "var(--color-ink)" }}>{v}</span>
-    </>
   );
 }
 

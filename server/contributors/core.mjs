@@ -177,13 +177,13 @@ function transition(original,actor,id,input,{expiredConsentVerified=false}={}){
  app.version++;state.revision++;return state;
 }
 
-function submitInterest(original,actor,site,input){
+function submitInterest(original,actor,site,input,auditActor=actor){
  if(!actor?.applicant)fail('Use the applicant session to submit an interest form.',403);
  const state=structuredClone(original),details=normalizeInterest(input,site,actor);
  if(details.walletVerification==='verified'&&state.applications.some(a=>a.identity!==actor.id&&a.wallet===details.wallet&&a.walletVerification==='verified'))fail('This wallet belongs to another contributor account. Identity reconciliation is required.',409);
  if(state.applications.some(a=>a.lane===SITES[site].lane&&owns(actor,a)&&!['rejected'].includes(a.state)))fail('You already have an application for this project. Review it instead of submitting a duplicate.',409);
  const id='app-'+randomUUID();const app={...details,id,identity:actor.id,lane:SITES[site].lane,roleId:site==='research'?'research-contributor':'contributor',project:SITES[site].name,state:'submitted',version:1,createdAt:TODAY,capabilityGrant:null,provisioning:'not_requested',reviews:[],memos:[],credential:null,validations:[],proposals:[],directory:emptyDirectory('BC-'+id.slice(-8))};
- state.applications.push(app);state.revision++;log(state,actor,app,'submit_interest',{source:app.source,lane:app.lane});return state;
+ state.applications.push(app);state.revision++;log(state,auditActor,app,'submit_interest',{source:app.source,lane:app.lane});return state;
 }
 
 function importBase(original,actor,site,{application,source}){
@@ -193,6 +193,14 @@ function importBase(original,actor,site,{application,source}){
  app.source='base-eas';app.sourceAttestation=source;app.emailVerified=false;
  log(next,actor,app,'import_base_application',{sourceAttestation:source});return next;
 }
-return {view,transition,submitInterest,importBase};
+function importBaseForReview(original,reviewer,owner,site,{application,source}){
+ if(!reviewer.review.includes(SITES[site]?.lane))fail('Contributor reviewer permission is required.',403);
+ const existing=original.applications.find(a=>a.sourceAttestation?.uid===source.uid);
+ if(existing){if(existing.lane!==SITES[site].lane)fail('Application belongs to another project.',403);return original;}
+ const next=submitInterest(original,owner,site,application,reviewer),app=next.applications.at(-1);
+ app.source='base-eas';app.sourceAttestation=source;app.emailVerified=false;
+ log(next,reviewer,app,'import_base_for_review',{sourceAttestation:source});return next;
+}
+return {view,transition,submitInterest,importBase,importBaseForReview};
 }
 export const emptyState=()=>({schemaVersion:2,revision:1,mode:"production",applications:[],audit:[],nextTokenId:1});
