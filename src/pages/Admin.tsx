@@ -39,7 +39,7 @@ export default function Admin() {
   const active = tabs.some((t) => t.key === tab) ? tab : tabs[0].key;
 
   return (
-    <div style={{ maxWidth: "820px", margin: "0 auto" }}>
+    <div className="gov-admin" style={{ maxWidth: "820px", margin: "0 auto" }}>
       <PageHeader
         label="Admin"
         title="Administration"

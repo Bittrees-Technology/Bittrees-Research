@@ -4,8 +4,8 @@ import {xchacha20poly1305} from '@noble/ciphers/chacha.js';
 import {bytesToHex} from '@noble/hashes/utils.js';
 import {readBaseApplication} from './base-application.mjs';
 const uid='0x'+'1'.repeat(64),wallet='0x'+'2'.repeat(40),zero='0x'+'0'.repeat(64),key=new Uint8Array(32).fill(4),nonce=new Uint8Array(24).fill(5);
-function fixture({community='bittrees-contributors',recipients=[],...changes}={}){
- const application={name:'Applicant',email:'',specialty:'Engineering',wallet};const ciphertext=bytesToHex(xchacha20poly1305(key,nonce).encrypt(new TextEncoder().encode(JSON.stringify(application))));
+function fixture({community='bittrees-contributors',recipients=[],declaredWallet=wallet,declaredEmail='',...changes}={}){
+ const application={name:'Applicant',email:declaredEmail,specialty:'Engineering',wallet:declaredWallet};const ciphertext=bytesToHex(xchacha20poly1305(key,nonce).encrypt(new TextEncoder().encode(JSON.stringify(application))));
  const a={uid,schema:keccak256(encodePacked(['string','address','bool'],['string community,string title,string body','0x'+'0'.repeat(40),true])),refUID:zero,attester:wallet,revocationTime:0n,expirationTime:0n,time:20n,data:encodeAbiParameters([{type:'string'},{type:'string'},{type:'string'}],[community,'Contributor application',JSON.stringify({v:1,alg:'x25519-xchacha20poly1305',nonce:bytesToHex(nonce),ciphertext,recipients})]),...changes};
  return {getChainId:async()=>8453,getBlock:async()=>({number:100n,timestamp:100n}),readContract:async args=>{assert.equal(args.blockNumber,100n);return a;}};
 }
@@ -21,3 +21,7 @@ test('reviewer import requires named encryption recipient and still verifies sou
  await assert.rejects(()=>readBaseApplication('gov',rs,input,fixture({recipients:[{addr:reviewer}],revocationTime:1n}),{reviewer:true}));
  await assert.rejects(()=>readBaseApplication('research',rs,input,fixture({recipients:[{addr:reviewer}]}),{reviewer:true}),/another project/);
 });
+
+test('historical free-text payout wallets remain declarations, not identity proofs or import blockers',async()=>{for(const declaredWallet of ['someone.eth','0x'+'9'.repeat(40)]){const result=await readBaseApplication('gov',session,input,fixture({declaredWallet}));assert.equal(result.application.wallet,wallet);assert.equal(result.source.declaredWallet,declaredWallet);}});
+
+test('historical free-text contact entries are retained without claiming a verified email',async()=>{const result=await readBaseApplication('gov',session,input,fixture({declaredEmail:'Prefer wallet contact'}));assert.equal(result.application.email,'');assert.equal(result.source.declaredEmail,'Prefer wallet contact');});
