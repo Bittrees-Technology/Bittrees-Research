@@ -117,3 +117,17 @@ export async function refreshCredential(app,ctx){
  c.standing=String(current)!==String(c.tokenId)?'revoked':standings[Number(record[1])];
  c.chainCheckedAt=new Date().toISOString();c.termActive=Number(record[0].validFrom)<=Number(block.timestamp)&&(Number(record[0].validUntil)===0||Number(block.timestamp)<Number(record[0].validUntil));
 }
+
+// A rejected wallet prompt does not revoke its signed consent. Only release an
+// unissued bootstrap after its deadline is past in a finalized block.
+export async function expireBootstrap(app,actor,ctx){
+ if(!actor.issue||!actor.decide.includes(app.lane))throw fail('A current Partner is required.',403);
+ const op=app.chainOperation;
+ if(op?.status!=='prepared'||op.kind!=='bootstrap'||app.credential||!/^0x[a-fA-F0-9]{40}$/.test(op.contract||'')||!Number.isSafeInteger(Number(op.deadline)))throw fail('Only an unissued prepared root issuance can be released.');
+ const block=await ctx.client.getBlock({blockTag:'finalized'});
+ if(Number(block.timestamp)<=Number(op.deadline))throw fail('The earlier issuance authorization remains valid until '+new Date(Number(op.deadline)*1000).toISOString()+'. Wait for Ethereum finality after that time.');
+ const read=functionName=>ctx.client.readContract({address:op.contract,abi:credentialAbi,functionName,blockNumber:block.number});
+ if((await read('rootAuthority')).toLowerCase()!==ROOT_AUTHORITY.toLowerCase()||String(await read('nextId'))!=='1')throw fail('The earlier contract may have issued a credential. Reconcile it before continuing.');
+ app.chainHistory=[...(app.chainHistory||[]),{...op,status:'expired',verifiedBlock:String(block.number),releasedBy:actor.id}];
+ app.chainOperation=null;
+}
