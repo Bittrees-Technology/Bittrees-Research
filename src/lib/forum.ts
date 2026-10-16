@@ -247,15 +247,15 @@ function toPost(a: RawAttestation): ForumPost {
 }
 
 /** Top-level posts (topics) for a community, newest first. */
-export function useTopics(community = FORUM_COMMUNITY) {
+export function useTopics(community = FORUM_COMMUNITY, allPages = false) {
   return useQuery({
-    queryKey: ["forum-topics", community],
+    queryKey: ["forum-topics", community, allPages],
     staleTime: 30_000,
     refetchInterval: 60_000,
     retry: 1,
     queryFn: async (): Promise<ForumPost[]> => {
       const q = `
-        query Topics($schemaId: String!, $community: String!) {
+        query Topics($schemaId: String!, $community: String!, $skip: Int!) {
           attestations(
             where: {
               schemaId: { equals: $schemaId }
@@ -263,15 +263,24 @@ export function useTopics(community = FORUM_COMMUNITY) {
               revocationTime: { equals: 0 }
               decodedDataJson: { contains: $community }
             }
-            orderBy: { time: desc }
+            orderBy: [{time: desc}, {id: desc}]
             take: 100
+            skip: $skip
           ) { ${FIELDS} }
         }`;
-      const d = await gql<{ attestations: RawAttestation[] }>(q, {
-        schemaId: SCHEMA_UID,
-        community,
-      });
-      return (d.attestations ?? []).map(toPost).filter((p) => p.community === community);
+      const collected = new Map<string, RawAttestation>();
+      let skip = 0;
+      while (true) {
+        const d = await gql<{ attestations: RawAttestation[] }>(q, {schemaId: SCHEMA_UID, community, skip});
+        const batch = d.attestations ?? [];
+        const before = collected.size;
+        for (const item of batch) collected.set(item.id, item);
+        if (!allPages || batch.length < 100) break;
+        if (collected.size === before) throw Error('Application index pagination stalled. Reload to try again.');
+        skip += batch.length;
+      }
+      const posts = [...collected.values()].map(toPost).filter((p) => p.community === community);
+      return posts;
     },
   });
 }
