@@ -8,7 +8,7 @@ export function projectContributors(state,identities,project){
  const owned=new Set(identities);
  return state.applications.filter(a=>(a.emailVerified!==false&&!!a.email&&owned.has(a.email.toLowerCase()))||(a.walletVerification==='verified'&&owned.has(a.wallet))).map(a=>{
   const memo=a.memos.find(m=>m.version===a.credential?.memoVersion)||a.memos.at(-1);
-  return {id:a.id,project,applicationStatus:a.state,level:memo?.level||null,rank:memo?.rank||null,term:memo?{start:memo.start,end:memo.end}:null,memoStatus:memo?.status||null,credential:a.credential?{tokenId:String(a.credential.tokenId),standing:a.credential.standing,chainId:a.credential.chainId||null,contract:a.credential.contract||null,transactionHash:a.credential.transactionHash||null}:null,url:PROFILE_SITES[project]+'/admin/contributors'};
+  return {id:a.id,project,applicationStatus:a.state,level:memo?.level||null,rank:memo?.rank||null,term:memo?{start:memo.start,end:memo.end}:null,memoStatus:memo?.status||null,credential:a.credential?{tokenId:String(a.credential.tokenId),standing:a.credential.standing,chainId:a.credential.chainId||null,contract:a.credential.contract||null,transactionHash:a.credential.transactionHash||null,monthlyBtreeBeneficiary:a.credential.monthlyBtreeBeneficiary===true,eligibilityCheckedAt:a.credential.chainCheckedAt||null}:null,url:PROFILE_SITES[project]+'/admin/contributors'};
  });
 }
 export function createProfileHandler(project,{env=process.env,command=redisCommand,now=Date.now}={}){

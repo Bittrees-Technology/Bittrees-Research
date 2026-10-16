@@ -22,7 +22,7 @@ library ContributorArtwork {
   if(end!=0&&now_>=end)return 5;
   return 0;
  }
- function imageUri(Visual memory v) internal pure returns(string memory){
-  return string.concat("https://raw.githubusercontent.com/Bittrees-Technology/Bittrees-Inc/1fb88b5ba11bfc000f8feb87c3320483b2726d87/public/contributor-artwork/v1/",Strings.toString(v.level),"-",Strings.toString(v.rank),"-",Strings.toString(displayCode(v.standing,v.start,v.end,v.now_)),".svg");
+ function imageUri(Visual memory v,address credential,uint32 revision) internal pure returns(string memory){
+  return string.concat("https://gov.bittrees.org/api/contributor-artwork?contract=",Strings.toHexString(credential),"&tokenId=",Strings.toString(v.id),"&revision=",Strings.toString(revision),"&status=",Strings.toString(displayCode(v.standing,v.start,v.end,v.now_)));
  }
 }

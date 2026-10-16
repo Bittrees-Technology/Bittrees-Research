@@ -57,5 +57,10 @@
         }
       ]
     }
-  ]
+  ],
+  "functions": {
+    "api/contributor-artwork.js": {
+      "includeFiles": "public/bittrees_logo_tree.png"
+    }
+  }
 }
