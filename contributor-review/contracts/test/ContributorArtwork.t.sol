@@ -9,7 +9,7 @@ contract ContributorArtworkTest is ContributorCredentialTest {
  function has(string memory whole,string memory part) internal pure returns(bool){bytes memory a=bytes(whole);bytes memory b=bytes(part);if(b.length>a.length)return false;for(uint256 i=0;i<=a.length-b.length;i++){bool same=true;for(uint256 j=0;j<b.length;j++)if(a[i+j]!=b[j]){same=false;break;}if(same)return true;}return false;}
  function testArtworkAllLevelsRanksAndStandings() public pure {
   for(uint8 l=0;l<4;l++)for(uint8 r=0;r<3;r++)for(uint8 s=0;s<4;s++){
-   string memory svg=Art.svg(Art.Visual(1,address(1),l,r,s,1000,0,1000));
+   string memory svg=Art.svg(Art.Visual(1,address(1),l,r,s,1000,0,1000,1,l==0?10:l==1?6:l==2?2:1));
    require(has(svg,Art.levelName(l)));require(has(svg,Art.rankName(r)));require(has(svg,Art.standingName(s)));require(has(svg,"Non-transferable"));require(has(svg,"<svg"));
   }
  }
@@ -24,11 +24,15 @@ contract ContributorArtworkTest is ContributorCredentialTest {
  }
  function testUnissuedTokenHasNoMetadata() public {vm.expectRevert();c.tokenURI(1);}
  function testRuntimeFitsMainnetLimit() public view {require(address(c).code.length<=24576);}
+ function testIndividualWeightRequiresExactFreshConsent() public {C.Terms memory t=terms();bytes memory signature=sig(holder,KEY,t);t.weightDenominator=3;vm.expectRevert();c.issue(holder,t,DEADLINE,signature);uint256 id=c.issue(holder,t,DEADLINE,sig(holder,KEY,t));bytes32 before_=keccak256(bytes(c.tokenURI(id)));t.memoHash=keccak256("weight-change");t.weightNumerator=2;signature=sig(holder,KEY,t);t.weightNumerator=3;vm.expectRevert();c.amend(id,t,DEADLINE,signature);c.amend(id,t,DEADLINE,sig(holder,KEY,t));require(before_!=keccak256(bytes(c.tokenURI(id))));}
+ function testZeroDenominatorRejected() public {C.Terms memory t=terms();t.weightDenominator=0;bytes memory signature=sig(holder,KEY,t);vm.expectRevert();c.issue(holder,t,DEADLINE,signature);}
  function testExportArtworkReview() public {
   Files files=Files(address(vm));files.createDir("out/artwork",true);address recipient=0xE5350D96FC3161BF5c385843ec5ee24E8B465B2f;
-  for(uint8 l=0;l<4;l++)for(uint8 r=0;r<3;r++)for(uint8 s=0;s<4;s++)files.writeFile(string.concat("out/artwork/",Strings.toString(l),"-",Strings.toString(r),"-",Strings.toString(s),".svg"),Art.svg(Art.Visual(1,recipient,l,r,s,1792108800,0,1792108800)));
-  files.writeFile("out/artwork/expired.svg",Art.svg(Art.Visual(1,recipient,3,2,0,1000,2000,2000)));
-  files.writeFile("out/artwork/scheduled.svg",Art.svg(Art.Visual(1,recipient,3,2,0,2000,0,1000)));
+  for(uint8 l=0;l<4;l++)for(uint8 r=0;r<3;r++)for(uint8 s=0;s<4;s++)files.writeFile(string.concat("out/artwork/",Strings.toString(l),"-",Strings.toString(r),"-",Strings.toString(s),".svg"),Art.svg(Art.Visual(1,recipient,l,r,s,1792108800,0,1792108800,1,l==0?10:l==1?6:l==2?2:1)));
+  files.writeFile("out/artwork/expired.svg",Art.svg(Art.Visual(1,recipient,3,2,0,1000,2000,2000,1,1)));
+  files.writeFile("out/artwork/scheduled.svg",Art.svg(Art.Visual(1,recipient,3,2,0,2000,0,1000,1,1)));
+  files.writeFile("out/artwork/custom.svg",Art.svg(Art.Visual(1,recipient,2,2,0,1000,0,1000,1,3)));
   uint256 id=issue();files.writeFile("out/artwork/token-uri.txt",c.tokenURI(id));
+  files.writeFile("out/artwork/consent-vector.json",string.concat('{"contract":"',Strings.toHexString(address(c)),'","recipient":"',Strings.toHexString(holder),'","chainId":',Strings.toString(block.chainid),',"digest":"',Strings.toHexString(uint256(c.consentDigest(holder,terms(),0,DEADLINE)),32),'"}'));
  }
 }

@@ -4,7 +4,8 @@ import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {Base64} from "@openzeppelin/contracts/utils/Base64.sol";
 /// @notice Immutable, self-contained SVG. Standing, rank and level are derived from the credential.
 library ContributorArtwork {
- struct Visual {uint256 id;address owner;uint8 level;uint8 rank;uint8 standing;uint64 start;uint64 end;uint256 now_;}
+ struct Visual {uint256 id;address owner;uint8 level;uint8 rank;uint8 standing;uint64 start;uint64 end;uint256 now_;uint32 weightNumerator;uint32 weightDenominator;}
+ function weightName(uint32 n,uint32 d) internal pure returns(string memory){return d==1?Strings.toString(n):string.concat(Strings.toString(n),"/",Strings.toString(d));}
  function levelName(uint8 v) internal pure returns(string memory){return v==0?"Advisor":v==1?"Part Time":v==2?"Half Time":"Full Time";}
  function rankName(uint8 v) internal pure returns(string memory){return v==0?"Contributor":v==1?"Senior Contributor":"Lead Contributor";}
  function standingName(uint8 v) internal pure returns(string memory){return v==0?"Active":v==1?"Suspended":v==2?"Ended":"Revoked";}
@@ -26,7 +27,7 @@ library ContributorArtwork {
   string memory output=string.concat('<svg xmlns="http://www.w3.org/2000/svg" width="800" height="1000" viewBox="0 0 800 1000"><title>Bittrees Contributor #',Strings.toString(v.id),'</title><rect width="800" height="1000" rx="24" fill="#f7fbf8"/>',rings,
    '<text x="400" y="107" text-anchor="middle" font-family="Georgia,serif" font-size="44" fill="#204d32">Bittrees</text><text x="400" y="143" text-anchor="middle" font-family="Arial,sans-serif" font-size="18" fill="#52655a">Contributor credential</text><g transform="translate(185 166) scale(.86)">',tree,'</g>');
   output=string.concat(output,
-   '<g font-family="Arial,sans-serif"><text x="400" y="653" text-anchor="middle" font-size="32" fill="#204d32">',rankName(v.rank),'</text><path d="M100 678H700" stroke="#cddbd0"/><text x="100" y="717" font-size="25" fill="#204d32">',levelName(v.level),'</text>',marks);
+   '<g font-family="Arial,sans-serif"><text x="400" y="653" text-anchor="middle" font-size="32" fill="#204d32">',rankName(v.rank),'</text><path d="M100 678H700" stroke="#cddbd0"/><text x="100" y="717" font-size="25" fill="#204d32">',levelName(v.level),'</text>',marks,'<text x="100" y="741" font-size="16" fill="#52655a">Allocation weight: ',weightName(v.weightNumerator,v.weightDenominator),'</text>');
   output=string.concat(output,
    '<rect x="100" y="751" width="600" height="69" rx="12" fill="',color,'"/><text x="400" y="795" text-anchor="middle" font-size="27" fill="white">',status,'</text>');
   return string.concat(output,'<text x="400" y="864" text-anchor="middle" font-size="21" fill="#204d32">Contributor #',Strings.toString(v.id),'</text><text x="400" y="898" text-anchor="middle" font-size="16" fill="#52655a">',Strings.toHexString(v.owner),'</text><text x="400" y="943" text-anchor="middle" font-size="17" fill="#52655a">Non-transferable</text></g></svg>');

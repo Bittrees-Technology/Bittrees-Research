@@ -16,3 +16,25 @@ Run `forge test` in `contributor-review/contracts`. The artwork suite exercises 
 ## Deployment hold
 
 This is a replacement deployment candidate, not an update to the deployed contract at `0x878158700D57b1f20c69A0871e9667c1eb2Da219`. Do not issue the pending old-contract transaction for this design. Review the artwork first, then prepare a fresh TLD deployment with the existing bittrees.eth root and verified Roles signer. Verify live issuance state before replacement, update code-hash/address configuration in Gov, Research and Roles, and reconcile or retire any old prepared operation through the supported workflow. The already-signed memorandum consent binds the old contract address and cannot authorize the replacement: obtain fresh contributor consent. Verify the final transaction and Roles profile after issuance. No authority or transferability changes are part of this patch.
+
+
+## Relative allocation weights and individual agreements
+
+Historical source reviewed: Time Distribution Schedule for BTREE - Contributor Rate_Level.pdf (four pages; level/rate tables on page 1, calendar and historical role estimates on page 2).
+
+| Level | Standard exact weight | Historical daily display | Historical weekly display |
+| --- | --- | --- | --- |
+| Full Time | 1 | 209 | 1464 |
+| Half Time | 1/2 | 105 | 732 |
+| Part Time | 1/6 | 35 | 244 |
+| Advisor | 1/10 | 21 | 146 |
+
+The source header lists a 10,686,604 capital figure and 2.5% rate. Its dated schedule changes to 1.25% on October 1, 2026. The daily/weekly values are rounded historical displays, not activated payouts. The PDF does not expose the spreadsheet's calculation formula. Confirm the capital basis, period denominator, eligible-day treatment, rounding and funding policy before calculating payable BTREE. The first calendar interval (January 2020 to April 2023) also differs from subsequent 42-month intervals; do not infer a uniform formula backwards.
+
+By explicit user decision, Partners may agree individual exceptions with contributor acknowledgment. The revised memorandum stores a normalized exact fraction, the contributor-facing reason, approval actor and date, and weight-policy identifier. The credential consent signs numerator and denominator explicitly. The contract stores those terms and renders the exact weight; changing it requires a newly signed amendment. Blank custom input uses the selected level's standard weight. A custom weight survives a selected level change only when explicitly retained in the form. Zero represents no relative allocation, while a nonzero denominator is mandatory. uint32 bounds limit representation, not an economic entitlement.
+
+The custom preview is illustrative: Half Time at 1/3 instead of the default 1/2. It does not change raging.eth's actual Full Time memorandum. New weights require a fresh memorandum; legacy memos without weight terms are blocked from the revised issuance flow.
+
+Monthly confirmation records snapshot agreed weights, but remain blocked from monetary allocation. Recognition rank does not multiply allocations. Standing and term eligibility are separate. Historical service dates do not backdate new contribution eligibility. The historical 420,000/210,000/69,000 role estimates do not replace current BGOV eligibility and majority-approved appointments.
+
+Rollout must coordinate the revised Terms ABI and EIP-712 consent fields with the replacement contract and new address/code-hash configuration. These draft branches must not be deployed against the old mainnet contract. After design and allocation-term review, prepare a new memorandum and signature; never reuse the previous consent. The old prepared transaction must not be retried after changing contract configuration.

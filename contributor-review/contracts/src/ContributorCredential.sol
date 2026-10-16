@@ -22,10 +22,10 @@ contract ContributorCredential is ERC721, AccessControl, EIP712, ReentrancyGuard
     bytes32 public constant ISSUER_ROLE=keccak256("ISSUER_ROLE");
     bytes32 public constant STATUS_ROLE=keccak256("STATUS_ROLE");
     bytes32 public constant RECOVERY_ROLE=keccak256("RECOVERY_ROLE");
-    bytes32 public constant CONSENT_TYPEHASH=keccak256("Consent(address recipient,bytes32 subject,bytes32 memoHash,bytes32 policyHash,uint8 level,uint8 rank,uint64 validFrom,uint64 validUntil,uint256 nonce,uint256 deadline)");
+    bytes32 public constant CONSENT_TYPEHASH=keccak256("Consent(address recipient,bytes32 subject,bytes32 memoHash,bytes32 policyHash,uint8 level,uint8 rank,uint64 validFrom,uint64 validUntil,uint32 weightNumerator,uint32 weightDenominator,uint256 nonce,uint256 deadline)");
     enum Standing { Active, Suspended, Ended, Revoked }
     enum Level { Advisor, PartTime, HalfTime, FullTime }
-    struct Terms { bytes32 subject; bytes32 memoHash; bytes32 policyHash; Level level; uint8 rank; uint64 validFrom; uint64 validUntil; }
+    struct Terms { bytes32 subject; bytes32 memoHash; bytes32 policyHash; Level level; uint8 rank; uint64 validFrom; uint64 validUntil; uint32 weightNumerator; uint32 weightDenominator; }
     struct Record { Terms terms; Standing standing; uint32 version; }
     mapping(uint256=>Record) public records;
     mapping(bytes32=>uint256) public currentCredential;
@@ -108,10 +108,10 @@ contract ContributorCredential is ERC721, AccessControl, EIP712, ReentrancyGuard
         return super._update(to,id,auth);
     }
     function consentDigest(address recipient,Terms calldata t,uint256 nonce,uint256 deadline) public view returns(bytes32){
-        return _hashTypedDataV4(keccak256(abi.encode(CONSENT_TYPEHASH,recipient,t.subject,t.memoHash,t.policyHash,uint8(t.level),t.rank,t.validFrom,t.validUntil,nonce,deadline)));
+        return _hashTypedDataV4(keccak256(abi.encode(CONSENT_TYPEHASH,recipient,t,nonce,deadline)));
     }
     function _consent(address recipient,Terms calldata t,uint256 deadline,bytes calldata signature) internal {
-        if(recipient==address(0)||t.subject==bytes32(0)||t.memoHash==bytes32(0)||t.policyHash==bytes32(0)||t.rank>2||(t.validUntil!=0&&(t.validUntil<=t.validFrom||t.validUntil<=block.timestamp)))revert InvalidTerms();
+        if(recipient==address(0)||t.subject==bytes32(0)||t.memoHash==bytes32(0)||t.policyHash==bytes32(0)||t.rank>2||t.weightDenominator==0||(t.validUntil!=0&&(t.validUntil<=t.validFrom||t.validUntil<=block.timestamp)))revert InvalidTerms();
         if(block.timestamp>deadline||!SignatureChecker.isValidSignatureNow(recipient,consentDigest(recipient,t,nonces[recipient],deadline),signature))revert InvalidConsent();
         nonces[recipient]++;
     }
@@ -158,12 +158,17 @@ contract ContributorCredential is ERC721, AccessControl, EIP712, ReentrancyGuard
     }
     function tokenURI(uint256 id) public view override returns(string memory){
         _requireOwned(id);Record storage r=records[id];
-        string memory image=string.concat("data:image/svg+xml;base64,",Base64.encode(bytes(Art.svg(Art.Visual(id,ownerOf(id),uint8(r.terms.level),r.terms.rank,uint8(r.standing),r.terms.validFrom,r.terms.validUntil,block.timestamp)))));
+        string memory image=string.concat("data:image/svg+xml;base64,",Base64.encode(bytes(Art.svg(Art.Visual(id,ownerOf(id),uint8(r.terms.level),r.terms.rank,uint8(r.standing),r.terms.validFrom,r.terms.validUntil,block.timestamp,r.terms.weightNumerator,r.terms.weightDenominator)))));
         string memory json=string.concat('{"name":"Bittrees Contributor #',Strings.toString(id),'","description":"Non-transferable contribution credential. Partner authority and allocations are governed separately.","image":"',image,'","attributes":[',
           '{"trait_type":"Standing","value":"',Art.standingName(uint8(r.standing)),'"},',
           '{"trait_type":"Display status","value":"',Art.displayName(uint8(r.standing),r.terms.validFrom,r.terms.validUntil,block.timestamp),'"},',
           '{"trait_type":"Level","value":"',Art.levelName(uint8(r.terms.level)),'"},',
-          '{"trait_type":"Rank","value":"',Art.rankName(r.terms.rank),'"},',
+          '{"trait_type":"Rank","value":"',Art.rankName(r.terms.rank),'"},');
+        json=string.concat(json,
+          '{"trait_type":"Allocation weight","value":"',Art.weightName(r.terms.weightNumerator,r.terms.weightDenominator),'"},',
+          '{"trait_type":"Weight numerator","value":',Strings.toString(r.terms.weightNumerator),'},',
+          '{"trait_type":"Weight denominator","value":',Strings.toString(r.terms.weightDenominator),'},');
+        json=string.concat(json,
           '{"trait_type":"Credential revision","value":',Strings.toString(r.version),'},',
           '{"trait_type":"Standing code","value":',Strings.toString(uint8(r.standing)),'},',
           '{"trait_type":"Level code","value":',Strings.toString(uint8(r.terms.level)),'}]}');
