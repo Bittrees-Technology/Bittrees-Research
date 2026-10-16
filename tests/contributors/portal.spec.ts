@@ -1,3 +1,4 @@
+import {setup} from '../app-recovery/membership-fixture';
 import {test,expect} from '@playwright/test';
 test.beforeEach(async({page})=>{await page.addLocatorHandler(page.getByRole('region',{name:'Analytics preferences'}),async()=>{await page.getByRole('button',{name:'Decline',exact:true}).click();});});
 test('native contributor page fails closed and retains legacy access',async({page})=>{await page.route('**/api/contributors',r=>r.fulfill({status:503,contentType:'application/json',body:JSON.stringify({configured:false,error:'Contributor administration is being configured.'})}));await page.goto('/admin/contributors');await expect(page.locator('.cp-error')).toContainText('being configured');await expect(page.getByRole('link',{name:'Base application form'})).toBeVisible();await expect(page.getByText('Review as',{exact:true})).toHaveCount(0);});
@@ -47,10 +48,14 @@ test('applicant proposes edits and Partner reviews the exact changes before a fr
  await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:'artifacts/contributor-negotiation-mobile.png',fullPage:true});
 });
 
-test('admin applications tab is the single workspace for application, memo and issuance',async({page})=>{
+test('admin applications tab is the single workspace for application, memo and issuance',async({browser,baseURL})=>{
+ const fixture=await setup(browser,baseURL!,'valid');const page=fixture.page;
+ await page.addLocatorHandler(page.getByRole('region',{name:'Analytics preferences'}),async()=>{await page.getByRole('button',{name:'Decline',exact:true}).click();});
+ try {
  const app={id:'unified',identity:'owner',name:'Imported contributor',project:'Bittrees Governance',state:'approved',version:1,specialty:'Documentation',wallet:null,walletVerification:'not_connected',reviews:[],memos:[],proposals:[],validations:[],credential:null};
  await page.route('**/api/contributors',r=>r.fulfill({json:r.request().method()==='GET'?{session:{email:'partner@example.invalid',csrf:'test'}}:{today:'2026-10-16',applications:[app],persona:{id:'partner',canReview:true,canDecide:true,canIssue:true}}}));
- await page.goto('/admin');await expect(page.getByRole('button',{name:'Contributor applications',exact:true})).toBeVisible();await expect(page.getByRole('link',{name:/Open contributor administration/})).toHaveCount(0);await expect(page.getByRole('heading',{name:'Contributor applications',exact:true})).toBeVisible();
+ await page.goto('/admin');await fixture.connect();await expect(page.getByRole('button',{name:'Contributor applications',exact:true})).toBeVisible({timeout:20000});await expect(page.getByRole('link',{name:/Open contributor administration/})).toHaveCount(0);await expect(page.getByRole('heading',{name:'Contributor applications',exact:true})).toBeVisible();
  await page.getByRole('button',{name:'Review memorandum',exact:true}).click();await page.getByText('Prepare the memorandum',{exact:true}).click();await expect(page.getByRole('textbox',{name:'Responsibilities',exact:true})).toHaveValue('Documentation');await expect(page).toHaveURL(/\/admin$/);
  await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:'artifacts/unified-contributor-admin-mobile.png',fullPage:true});
+ } finally {await fixture.close();}
 });

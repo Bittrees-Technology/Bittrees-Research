@@ -56,7 +56,7 @@ export default function Header() {
         borderBottom: "1px solid var(--color-border)",
       }}
     >
-      <div
+      <div className="research-header-row"
         style={{
           maxWidth: "1140px",
           margin: "0 auto",
