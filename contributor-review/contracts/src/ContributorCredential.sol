@@ -158,7 +158,7 @@ contract ContributorCredential is ERC721, AccessControl, EIP712, ReentrancyGuard
     }
     function tokenURI(uint256 id) public view override returns(string memory){
         _requireOwned(id);Record storage r=records[id];
-        string memory image=string.concat("data:image/svg+xml;base64,",Base64.encode(bytes(Art.svg(Art.Visual(id,ownerOf(id),uint8(r.terms.level),r.terms.rank,uint8(r.standing),r.terms.validFrom,r.terms.validUntil,block.timestamp,r.terms.weightNumerator,r.terms.weightDenominator)))));
+        string memory image=Art.imageUri(Art.Visual(id,ownerOf(id),uint8(r.terms.level),r.terms.rank,uint8(r.standing),r.terms.validFrom,r.terms.validUntil,block.timestamp,r.terms.weightNumerator,r.terms.weightDenominator));
         string memory json=string.concat('{"name":"Bittrees Contributor #',Strings.toString(id),'","description":"Non-transferable contribution credential. Partner authority and allocations are governed separately.","image":"',image,'","attributes":[',
           '{"trait_type":"Standing","value":"',Art.standingName(uint8(r.standing)),'"},',
           '{"trait_type":"Display status","value":"',Art.displayName(uint8(r.standing),r.terms.validFrom,r.terms.validUntil,block.timestamp),'"},',
