@@ -1,3 +1,4 @@
+import {workflowPlan} from './workflow-plan.mjs';
 import {createHash, randomUUID} from 'node:crypto';
 import {allocationWeight,ALLOCATION_NOTICE,BENEFICIARY_POLICY} from './weights.mjs';
 import {SITES,normalizeInterest,emptyDirectory} from './interest.mjs';
@@ -37,7 +38,7 @@ function view(state,actor,site='gov'){
  if(!actor)fail('Choose a review persona.',401);
  if(!SITES[site])fail('Unknown project.');
  if(!actor.review.includes(SITES[site].lane)&&!actor.applicant)fail('This account has no application or review access.',403);
- const applications=state.applications.filter(a=>a.lane===SITES[site].lane&&(actor.review.includes(a.lane)||owns(actor,a))).map(a=>{const copy=structuredClone(a);if(!actor.review.includes(a.lane)){delete copy.directory;delete copy.proposals;copy.reviews=copy.reviews.filter(r=>r.state!=='pending_authority').map(({privateNote,...r})=>r);}return copy;});
+ const applications=state.applications.filter(a=>a.lane===SITES[site].lane&&(actor.review.includes(a.lane)||owns(actor,a))).map(a=>{const copy=structuredClone(a);copy.workflowPlan=workflowPlan(a);if(!actor.review.includes(a.lane)){delete copy.directory;delete copy.proposals;copy.reviews=copy.reviews.filter(r=>r.state!=='pending_authority').map(({privateNote,...r})=>r);}return copy;});
  return {mode:state.mode,site,siteName:SITES[site].name,today:TODAY,revision:state.revision,persona:{id:actor.id,name:actor.name,isApplicant:!!actor.applicant,canReview:actor.review.includes(SITES[site].lane),canDecide:actor.decide.includes(SITES[site].lane),canIssue:actor.issue&&actor.decide.includes(SITES[site].lane),canValidate:actor.validate&&actor.review.includes(SITES[site].lane),canChangeStatus:actor.changeStatus?.includes(SITES[site].lane)||false,canProposeStatus:actor.proposeStatus?.includes(SITES[site].lane)||false},applications,audit:state.audit.filter(e=>applications.some(a=>a.id===e.applicationId)&&(actor.review.includes(SITES[site].lane)||!['update_directory','propose_change','review_proposal'].includes(e.action)&&e.detail.state!=='pending_authority')).map(e=>{if(actor.review.includes(SITES[site].lane))return e;const copy=structuredClone(e);delete copy.detail.privateNote;return copy;}),policy:{version:'contributor-policy-v4-btree-beneficiary',beneficiaryPolicy:BENEFICIARY_POLICY,allocationConfigured:false,issuer:'Partner authority',authority:'Verified Roles decisions',levelMultipliers:{'Full Time':'1','Half Time':'1/2','Part Time':'1/6',Advisor:'1/10'},rate:'Payment calculation remains subject to the approved distribution policy',blockers:['Approve allocation formula, snapshot and rounding rules','Approve and fund each distribution; no automatic token transfers']}};
 }
 function transition(original,actor,id,input,{expiredConsentVerified=false}={}){
@@ -59,10 +60,18 @@ function transition(original,actor,id,input,{expiredConsentVerified=false}={}){
   if(action==='request_info'){if(!['submitted','in_review','pending_authority'].includes(app.state))fail('This application is already waiting for information.',409);app.state='needs_info';}
   if(action==='resume_review'){if(!['needs_info','pending_authority'].includes(app.state))fail('There is no review to resume.',409);app.state='in_review';}
   if(['approve','reject'].includes(action)){
-   if(!['in_review','pending_authority'].includes(app.state))fail('Start or resume the review before deciding.',409);
+   if(!['submitted','in_review','pending_authority'].includes(app.state))fail('Resume the review before deciding.',409);
    app.state=actor.decide.includes(app.lane)?(action==='approve'?'approved':'rejected'):'pending_authority';
   }
   app.reviews.push({action,reason,privateNote:privateNote(input.privateNote),state:app.state,actor:actor.id,at:TODAY});log(state,actor,app,action,{reason,privateNote:privateNote(input.privateNote),state:app.state});
+ }else if(action==='review_workflow_plan'){
+  fields(input,['action','expectedVersion','fingerprint','decision','reason']);
+  if(!actor.decide.includes(app.lane))fail('Partner approval is required.',403);
+  const plan=workflowPlan(app);
+  if(!plan||plan.fingerprint!==input.fingerprint)fail('Signed responsibilities changed. Review the current suggestions.',409);
+  if(!['approved','rejected'].includes(input.decision))fail('Choose approve or reject.');
+  app.workflowDecision={fingerprint:plan.fingerprint,decision:input.decision,reason:text(input.reason,'Decision reason'),reviewedBy:actor.id,reviewedAt:new Date().toISOString()};
+  log(state,actor,app,action,app.workflowDecision);
  }else if(action==='draft_memo'){
   fields(input,['action','expectedVersion','level','rank','scope','start','end','historicalServiceStart','allocationWeight','allocationReason']);
   if(!actor.issue||!actor.decide.includes(app.lane))fail('Memorandum issuer authority is required.',403);

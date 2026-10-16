@@ -194,3 +194,11 @@ test('wallet login restores only verified legacy identities and rejects ambiguou
  if(mode==='ambiguous'){assert.equal(res.code,409);continue;}assert.equal(res.code,200);const cookie=res.headers['Set-Cookie'][0].split(';')[0];res=response();await handler({...req({}, {cookie}),method:'GET'},res);const csrf=res.body.session.csrf;res=response();await handler(req({action:'list'},{cookie,'x-contributor-csrf':csrf}),res);if(mode==='verified')assert.equal(identity,'legacy');else assert.match(identity,/^wallet:/);
  }
 });
+
+test('new applications can be decided in one step while Associate recommendations still need a Partner',()=>{
+ const core=contributorService();const initial=core.submitInterest(emptyState(),applicant,'research',interest),app=initial.applications[0];
+ const change={action:'approve',expectedVersion:1,reason:'Application reviewed'};
+ const approved=core.transition(initial,partner,app.id,change);assert.equal(approved.applications[0].state,'approved');assert.equal(approved.applications[0].reviews[0].actor,partner.id);
+ const recommended=core.transition(initial,{...partner,id:'associate',decide:[],issue:false},app.id,change);assert.equal(recommended.applications[0].state,'pending_authority');
+ assert.throws(()=>core.transition(initial,applicant,app.id,change),/Reviewer permission/);
+});
