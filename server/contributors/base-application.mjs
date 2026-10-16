@@ -29,5 +29,11 @@ export async function readBaseApplication(project,session,{uid,contentKey},clien
  }catch{throw fail('The selected application could not be decrypted.',400);}
  // Research's original form called requestedRoles "roles" and had no expertise field.
  if(project==='research'){application.requestedRoles=application.roles;delete application.roles;application.expertise ||= ['Research'];}
- return {application,source:{kind:'base-eas',chainId:8453,contract:EAS,uid:a.uid.toLowerCase(),attester:a.attester.toLowerCase(),submittedAt:Number(a.time),verifiedBlock:String(block.number),dataHash:keccak256(a.data)}};
+ // The original form allowed a free-text preferred payout wallet (including ENS).
+ // Preserve that declaration, but bind the contributor record to the proven signer.
+ const declaredWallet=typeof application.wallet==='string'?application.wallet:null;
+ const declaredEmail=typeof application.email==='string'&&application.email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(application.email)?application.email:null;
+ if(declaredEmail)application.email='';
+ application.wallet=a.attester.toLowerCase();
+ return {application,source:{...(declaredEmail?{declaredEmail}:{}),...(declaredWallet&&declaredWallet.toLowerCase()!==application.wallet?{declaredWallet}:{}),kind:'base-eas',chainId:8453,contract:EAS,uid:a.uid.toLowerCase(),attester:a.attester.toLowerCase(),submittedAt:Number(a.time),verifiedBlock:String(block.number),dataHash:keccak256(a.data)}};
 }
