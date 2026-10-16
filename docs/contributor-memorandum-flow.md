@@ -13,3 +13,11 @@ Gov and Research use the same contributor service and native portal. Existing Ba
 Signed terms are immutable. Before superseding a signed but unissued draft, the service checks that the consent has expired in a finalized Ethereum block and its original-contract nonce remains unused. A prepared transaction must be reconciled or safely released first. These guards also apply to amendments proposed by Junior Partners or Associates. Existing prepared raging.eth issuance is not changed by this feature release.
 
 Applicant edit proposals cannot change the recipient wallet, staff authority or private staff notes. Optimistic record versions prevent stale approvals. Historical service is descriptive and never backdates eligibility. No payment, token reissue or new role grant is performed by this flow.
+
+## Unified admin workspace
+
+The admin console's Contributor applications tab embeds this same workspace. It replaces the separate legacy read-only application tab and duplicate contributor-admin banner. The direct `/admin/contributors` route remains available for existing links.
+
+Authorized reviewers can unlock a Base application addressed to their verified wallet and add it to the private review queue. The server verifies the finalized attestation, project, encryption recipient and decryption before importing. Applicant ownership is derived from the original attester, using the existing verified account when available; the reviewer is recorded as the importer, never as the applicant. Import is idempotent by attestation UID and does not approve, issue or link an unrelated wallet. The applicant retains acknowledgment authority. Existing unmapped-account conflicts require reconciliation instead of creating duplicate contributor identities.
+
+Publishing a reviewer public encryption key is a separate optional control for future applications. It preserves the existing application-access permission checks and cannot decrypt older ciphertext or confer contributor-review authority.

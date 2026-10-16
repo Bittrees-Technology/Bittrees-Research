@@ -1,5 +1,5 @@
 import {readBaseApplication} from './base-application.mjs';
-import {createHash,randomUUID} from 'node:crypto';
+import {createHash,createHmac,randomUUID} from 'node:crypto';
 import {chainContext,prepareConsent,acceptConsent,prepareExecution,reconcile,refreshCredential,expireBootstrap,verifyExpiredMemoConsent} from './chain.mjs';
 import {createPublicClient,http} from 'viem';
 import {mainnet} from 'viem/chains';
@@ -54,6 +54,19 @@ export function createContributorHandler(project,{env=process.env,command=redisC
     entry.hash=createHash('sha256').update(JSON.stringify(entry)).digest('hex');state.audit.push(entry);return state;
    });
    return res.status(200).json({result,...service.view(next,actor,project)});
+  }
+  if(body.action==='import_base_review'){
+   const lane=project==='gov'?'inc-ops-governance':'research';
+   if(!actor.review.includes(lane)||!session.wallet) return res.status(403).json({error:'A verified contributor reviewer wallet is required.'});
+   const verified=await baseReader(project,session,body,undefined,{reviewer:true});
+   const wallet=verified.source.attester.toLowerCase();
+   const next=await store.mutate(async s=>{
+    if(actor.authorityExpiresAt<=Date.now())throw Object.assign(Error('Authority expired. Retry.'),{status:503});
+    const linked=s.applications.find(a=>a.wallet===wallet&&a.walletVerification==='verified');
+    const owner={id:linked?.identity||'wallet:'+createHmac('sha256',env.CONTRIBUTOR_IDENTITY_SECRET).update(wallet).digest('hex'),applicant:true,wallet};
+    return service.importBaseForReview(s,actor,owner,project,verified);
+   });
+   return res.status(200).json(service.view(next,actor,project));
   }
   if(body.action==='import_base'){
    const verified=await baseReader(project,session,body);
