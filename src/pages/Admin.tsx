@@ -1,3 +1,4 @@
+import ReviewerAccessSettings, {useReviewerSetupAccess} from '../components/ReviewerAccessSettings';
 import Contributors from "./Contributors";
 import {useAuthorityAccess} from '../lib/authorityAccess';
 import { useMemo, useState } from "react";
@@ -19,7 +20,7 @@ import {
 } from "@/lib/community";
 import { shortAddress } from "@/lib/links";
 
-type Tab = "roles" | "applications" | "moderation";
+type Tab = "reviewer-settings" | "roles" | "applications" | "moderation";
 
 export default function Admin() {
   const { address } = useAccount();
@@ -36,6 +37,8 @@ export default function Admin() {
         ]
       : level === "moderation" ? [{ key: "moderation", label: "Moderation" },{key:"applications",label:"Contributor applications"}] : [{key:"applications",label:"Contributor applications"}];
 
+  const reviewerSetup=useReviewerSetupAccess(address);
+  if(reviewerSetup)tabs.push({key:"reviewer-settings",label:"Admin settings"});
   const active = tabs.some((t) => t.key === tab) ? tab : tabs[0].key;
 
   return (
@@ -68,6 +71,7 @@ export default function Admin() {
         ))}
       </div>
 
+      {active === "reviewer-settings" && <ReviewerAccessSettings address={address} />}
       {active === "roles" && (shared.data?.configured?<section className="card"><h2>Shared roles</h2><p>Project staff and partner permissions are managed in Roles.</p><a href="https://roles.bittrees.org/role-management?project=research">Manage roles</a></section>:<RolesTab />)}
       {active === "applications" && <Contributors embedded />}
       {active === "moderation" && <ModerationTab />}
