@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
+import {ContributorArtwork as Art} from "./ContributorArtwork.sol";
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
@@ -8,8 +9,8 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {Base64} from "@openzeppelin/contracts/utils/Base64.sol";
 
-/// @notice Review candidate only. No production deployment or issuer is configured.
-/// Terms and authority must be reviewed independently of the local UI simulation.
+/// @notice Non-transferable contributor credentials with root-controlled authority.
+/// Artwork revisions require a new deployment; this contract is not upgradeable.
 contract ContributorCredential is ERC721, AccessControl, EIP712, ReentrancyGuard {
     address public immutable rootAuthority;
     address public rolesSigner;
@@ -157,7 +158,15 @@ contract ContributorCredential is ERC721, AccessControl, EIP712, ReentrancyGuard
     }
     function tokenURI(uint256 id) public view override returns(string memory){
         _requireOwned(id);Record storage r=records[id];
-        string memory json=string.concat('{"name":"Bittrees Contributor #',Strings.toString(id),'","description":"Non-transferable contribution credential. Ownership alone does not authorize allocations.","attributes":[{"trait_type":"Standing code","value":',Strings.toString(uint8(r.standing)),'},{"trait_type":"Level code","value":',Strings.toString(uint8(r.terms.level)),'},{"trait_type":"Memo version","value":',Strings.toString(r.version),'}]}');
+        string memory image=string.concat("data:image/svg+xml;base64,",Base64.encode(bytes(Art.svg(Art.Visual(id,ownerOf(id),uint8(r.terms.level),r.terms.rank,uint8(r.standing),r.terms.validFrom,r.terms.validUntil,block.timestamp)))));
+        string memory json=string.concat('{"name":"Bittrees Contributor #',Strings.toString(id),'","description":"Non-transferable contribution credential. Partner authority and allocations are governed separately.","image":"',image,'","attributes":[',
+          '{"trait_type":"Standing","value":"',Art.standingName(uint8(r.standing)),'"},',
+          '{"trait_type":"Display status","value":"',Art.displayName(uint8(r.standing),r.terms.validFrom,r.terms.validUntil,block.timestamp),'"},',
+          '{"trait_type":"Level","value":"',Art.levelName(uint8(r.terms.level)),'"},',
+          '{"trait_type":"Rank","value":"',Art.rankName(r.terms.rank),'"},',
+          '{"trait_type":"Credential revision","value":',Strings.toString(r.version),'},',
+          '{"trait_type":"Standing code","value":',Strings.toString(uint8(r.standing)),'},',
+          '{"trait_type":"Level code","value":',Strings.toString(uint8(r.terms.level)),'}]}');
         return string.concat("data:application/json;base64,",Base64.encode(bytes(json)));
     }
 }
