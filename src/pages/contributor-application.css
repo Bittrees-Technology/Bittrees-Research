@@ -1,0 +1,11 @@
+.contributor-application{max-width:680px;margin:0 auto;width:100%;color:var(--color-ink,#202820);font-family:var(--font-sans,Arial,sans-serif)}
+.contributor-application>header{padding-bottom:1.5rem;border-bottom:1px solid var(--color-border,#dce2d8)}
+.contributor-application .application-form{display:flex;flex-direction:column;gap:1.25rem;padding:0;border:0;background:transparent}
+.contributor-application h3{font:600 1.1rem var(--font-sans,Arial,sans-serif);margin:1.5rem 0 0;padding-top:1.25rem;border-top:1px solid var(--color-border,#dce2d8)}
+.contributor-application h3:first-child{border:0;margin-top:0}
+.contributor-application .text-label{font-size:.85rem;text-transform:none;letter-spacing:normal;font-weight:600}
+.contributor-application details{border-block:1px solid var(--color-border,#dce2d8);padding:1rem 0}
+.contributor-application summary{cursor:pointer;font-weight:600;margin-bottom:.5rem}
+.contributor-application .application-wallet{font-size:.85rem;overflow-wrap:anywhere;padding:.75rem 0;color:var(--color-ink-muted,#606a60)}
+.contributor-application .application-contact{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem;padding-top:.75rem}
+@media(max-width:600px){.contributor-application .application-contact{grid-template-columns:1fr}}
