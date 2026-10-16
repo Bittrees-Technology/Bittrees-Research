@@ -97,3 +97,12 @@ export function decryptApplication(env: Envelope, account: `0x${string}`, secret
 
 export const pubKeyHex = (pub: Uint8Array): string => bytesToHex(pub);
 export const pubKeyFromHex = (hex: string): Uint8Array => hexToBytes(hex);
+
+/** Share only this document's random key with the private contributor service. */
+export function applicationContentKey(env: Envelope, account: `0x${string}`, secretKey: Uint8Array): string {
+  const entry = env.recipients.find(r => r.addr.toLowerCase() === account.toLowerCase());
+  if (!entry || env.v !== 1 || env.alg !== 'x25519-xchacha20poly1305') throw Error('This wallet cannot unlock the application.');
+  const shared = x25519.getSharedSecret(secretKey, hexToBytes(entry.epk));
+  const wk = hkdf(sha256, shared, undefined, WRAP_INFO, 32);
+  return bytesToHex(xchacha20poly1305(wk, hexToBytes(entry.n)).decrypt(hexToBytes(entry.k)));
+}

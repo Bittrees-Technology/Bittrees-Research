@@ -10,7 +10,26 @@ export function contributorAuth({command,codec,project,origin,env=process.env,se
  const key=req=>prefix+'session:'+digest(cookie(req));
  async function limit(suffix,max,seconds){const n=Number((await command(['EVAL',limited,1,prefix+suffix,seconds])).result);if(n>max)throw fail('Too many attempts. Please try again later.',429);}
  async function read(req){const token=cookie(req);if(!/^[a-f0-9]{64}$/.test(token))return null;const raw=(await command(['GET',key(req)])).result;if(!raw)return null;const s=codec.open(raw);return s.expiresAt>now()?s:null;}
- return {read,async start(req,email){
+ return {read,
+ async walletLoginStart(req,res,address){
+  if(!/^0x[a-fA-F0-9]{40}$/.test(address||''))throw fail('Connect an Ethereum wallet.');
+  await limit('wallet-login-ip:'+digest(String(req.headers['x-forwarded-for']||req.socket?.remoteAddress||'unknown').split(',')[0]),15,900);
+  const id=randomBytes(32).toString('hex'),wallet=address.toLowerCase();
+  const message=`Bittrees contributor sign-in\nOrigin: ${origin}\nWallet: ${wallet}\nNonce: ${id}\nExpires: ${new Date(now()+300000).toISOString()}\nSign in to your contributor application. No transaction or memorandum approval.`;
+  await command(['SET',prefix+'wallet-login:'+id,codec.seal({wallet,message,expiresAt:now()+300000}),'EX',300]);
+  res.setHeader('Set-Cookie',`__Host-bittrees-contributor-login=${id}; Secure; HttpOnly; SameSite=Strict; Path=/; Max-Age=300`);
+  return {challenge:id,message};
+ },async walletLoginFinish(req,res,id,signature){
+  const binding=String(req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith('__Host-bittrees-contributor-login='))?.split('=')[1];
+  if(!/^[a-f0-9]{64}$/.test(id||'')||binding!==id||typeof signature!=='string'||signature.length>8192)throw fail('Wallet sign-in request rejected.',403);
+  await limit('wallet-login-attempts:'+id,5,300);
+  const k=prefix+'wallet-login:'+id,raw=(await command(['GET',k])).result;if(!raw)throw fail('Wallet sign-in expired.');const c=codec.open(raw);
+  if(c.expiresAt<=now()||!await verifyWallet({address:c.wallet,message:c.message,signature}))throw fail('Wallet ownership could not be verified.',403);
+  if(Number((await command(['EVAL',consume,1,k,raw])).result)!==1)throw fail('Wallet sign-in already used.');
+  const token=randomBytes(32).toString('hex'),session={identity:'wallet:'+createHmac('sha256',env.CONTRIBUTOR_IDENTITY_SECRET).update(c.wallet).digest('hex'),email:null,wallet:c.wallet,walletVerifiedAt:now(),csrf:randomBytes(32).toString('hex'),expiresAt:now()+86400000};
+  await command(['SET',prefix+'session:'+digest(token),codec.seal(session),'EX',86400]);
+  res.setHeader('Set-Cookie',[`${cookieName}=${token}; Secure; HttpOnly; SameSite=Strict; Path=/; Max-Age=86400`,'__Host-bittrees-contributor-login=; Secure; HttpOnly; SameSite=Strict; Path=/; Max-Age=0']);return {ok:true};
+ },async start(req,email){
   if(typeof email!=='string'||email.length>160||! /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))throw fail('Enter a valid email.');email=email.trim().toLowerCase();
   if(!env.RESEND_API_KEY)throw fail('Contributor email sign-in is not configured.',503);
   await limit('email-rate:'+digest(email),4,900);await limit('ip-rate:'+digest(String(req.headers['x-forwarded-for']||req.socket?.remoteAddress||'unknown').split(',')[0]),15,900);

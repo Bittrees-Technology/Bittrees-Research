@@ -143,6 +143,13 @@ function submitInterest(original,actor,site,input){
  state.applications.push(app);state.revision++;log(state,actor,app,'submit_interest',{source:app.source,lane:app.lane});return state;
 }
 
-return {view,transition,submitInterest};
+function importBase(original,actor,site,{application,source}){
+ const existing=original.applications.find(a=>a.sourceAttestation?.uid===source.uid);
+ if(existing){if(!owns(actor,existing))fail('This application is already linked to another account. Identity reconciliation is required.',409);return original;}
+ const next=submitInterest(original,actor,site,application),app=next.applications.at(-1);
+ app.source='base-eas';app.sourceAttestation=source;app.emailVerified=false;
+ log(next,actor,app,'import_base_application',{sourceAttestation:source});return next;
+}
+return {view,transition,submitInterest,importBase};
 }
 export const emptyState=()=>({schemaVersion:2,revision:1,mode:"production",applications:[],audit:[],nextTokenId:1});
