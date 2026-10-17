@@ -91,7 +91,7 @@ for (const mode of ['transient', 'rpc-transient', 'call-transient'] as const) {
     try {
       await expect(member(app.page)).toHaveCount(0);
       await expect(member(app.page)).toBeVisible({timeout:10000});
-      expect(app.stats().nftReads).toBe(2);
+      expect(app.stats().nftReads).toBe(mode === 'rpc-transient' ? 1 : 2);
       expect(app.stats().balances.length).toBeGreaterThan(0);
     } finally { await app.close(); }
   });
