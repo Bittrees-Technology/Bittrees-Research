@@ -73,4 +73,4 @@ export function ResearchCredentialRoles() {
   {message&&<p role="status">{message}</p>}{hash&&<a href={`https://etherscan.io/tx/${hash}`} target="_blank" rel="noreferrer">View transaction ↗</a>}
  </section>;
 }
-const field={display:'block',width:'100%',boxSizing:'border-box' as const,padding:'0.6rem',marginTop:'0.4rem'};
+const field={display:'block',width:'100%',boxSizing:'border-box' as const,padding:'0.6rem',marginTop:'0.4rem',border:'1px solid var(--color-border)',borderRadius:2,background:'var(--color-bg)'};
