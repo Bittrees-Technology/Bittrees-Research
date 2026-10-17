@@ -7,6 +7,7 @@ const receipts=createMembershipMintReceipts(session);
 const listeners = new Set<() => void>();
 const set = (update: Partial<typeof state>) => { state = {...state, ...update, version: state.version + 1}; receipts.observe(); listeners.forEach(fn => fn()); };
 (window as any).__membershipFixture = (change: string) => {
+  if (change === 'active-v2') set({tokens:[{tokenId:'7',version:'v2',expiresAt:1793448000,isExpired:false}]});
   if (change === 'v2') set({tokens:[{tokenId:'7',version:'v2',expiresAt:1,isExpired:true}]});
   if (change === 'receipt' || change === 'late_receipt') set({receipt:'success'});
   if (['reverted','cancelled','repriced'].includes(change)) set({receipt:change});

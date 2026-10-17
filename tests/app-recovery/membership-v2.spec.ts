@@ -21,3 +21,18 @@ test('legacy-only holdings never grant access or trigger legacy discovery',async
   expect(app.stats().checks).toBeGreaterThan(0);expect(app.stats().nftReads).toBe(0);
  }finally{await app.close();}
 });
+
+test('new holders see only fresh minting; existing holders get a separate renewal flow',async({browser,baseURL})=>{
+ const empty=await setup(browser,baseURL!,'empty',false,false,true);try{
+  await expect(empty.page.getByRole('region',{name:'Mint a fresh membership'})).toBeVisible();
+  await expect(empty.page.getByRole('region',{name:'Renew or extend membership'})).toHaveCount(0);
+ }finally{await empty.close();}
+ const member=await setup(browser,baseURL!,'v2-valid',false,false,true);try{
+  await expect(member.page.getByRole('heading',{name:'Members Chat',exact:true})).toBeVisible();
+  await member.page.locator('a[href="/membership"]').first().click();
+  await expect(member.page.getByRole('region',{name:'Renew or extend membership'})).toBeVisible();
+  await expect(member.page.getByRole('region',{name:'Mint a fresh membership'})).toBeVisible();
+  await expect(member.page.getByText('Current expiration',{exact:true})).toBeVisible();
+  await expect(member.page.getByText('Proposed expiration',{exact:true})).toBeVisible();
+ }finally{await member.close();}
+});
