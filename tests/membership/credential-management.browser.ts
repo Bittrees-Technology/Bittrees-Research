@@ -46,3 +46,9 @@ test('creation saves a definition separately; assignment selects its exact type'
  await expect(page.getByRole('region',{name:'Prepared credential transaction'})).toContainText('Issue 0x');
  await page.getByRole('button',{name:'Create a role credential',exact:true}).click();await expect(page.getByRole('region',{name:'Prepared credential transaction'})).toHaveCount(0);
 });
+
+test('five built-in definitions are available and unrelated credentials have no role actions',async({page})=>{
+ await page.goto('/?manage');await expect(page.getByRole('combobox',{name:/Role credential/}).locator('option')).toHaveText(['Researcher','Contributor','Assistant','Steward','Executive']);
+ await page.evaluate(()=>(window as any).__unknownCredential=true);await page.getByLabel('Member wallet').fill('0x1111111111111111111111111111111111111111');
+ await expect(page.getByText(/Read at block 100/)).toBeVisible();await expect(page.getByRole('button',{name:'Prepare revocation'})).toHaveCount(0);
+});

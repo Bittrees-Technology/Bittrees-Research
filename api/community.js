@@ -1,3 +1,4 @@
+import {BUILTIN_ROLE_CREDENTIALS} from '../shared/research-role-credentials.mjs';
 import {applicationReviewers} from '../server/application-reviewers.mjs';
 import { getAddress, keccak256, toBytes } from "viem";
 import { withSignedRegistry, registryCommand, recoverMessageAddress, registryPolicyDecision } from "../server/signed-registry.mjs";
@@ -148,7 +149,7 @@ export async function handler(req, res) {
       let url;try{url=new URL(metadataURI);}catch{}
       if(!label||label.length>80||!/^research\.role\.[a-z][a-z0-9-]{0,63}\.v[1-9][0-9]{0,3}$/.test(identifier)||!url||url.protocol!=="https:"||url.username||url.password||Buffer.byteLength(metadataURI)>2048){res.status(400).json({error:"Provide a name, a versioned research.role identifier and a public HTTPS metadata URL"});return;}
       const defs=await readJson(CREDENTIALDEFS_KEY,[]);
-      if(identifier==='research.role.researcher.v1'||label.toLowerCase()==='researcher'||defs.some(x=>x.identifier===identifier||x.label.toLowerCase()===label.toLowerCase())){res.status(409).json({error:"Credential definition already exists"});return;}
+      if(BUILTIN_ROLE_CREDENTIALS.some(x=>x.identifier===identifier||x.label.toLowerCase()===label.toLowerCase())||defs.some(x=>x.identifier===identifier||x.label.toLowerCase()===label.toLowerCase())){res.status(409).json({error:"Credential definition already exists"});return;}
       if(defs.length>=200){res.status(409).json({error:"Credential catalog limit reached"});return;}
       const definition={label,identifier,credentialType:keccak256(toBytes(identifier)),metadataURI};
       await writeJson(CREDENTIALDEFS_KEY,[...defs,definition]);

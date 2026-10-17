@@ -1,3 +1,4 @@
+import {BUILTIN_ROLE_CREDENTIALS} from '../../shared/research-role-credentials.mjs';
 import {useCommunity,createCredentialDefinition,type CredentialDefinition} from '@/lib/community';
 import {useEffect,useRef,useState} from 'react';
 import {useQuery,useQueryClient} from '@tanstack/react-query';
@@ -10,7 +11,7 @@ import {AUTHORITIES,RESEARCHER_TYPE,credentialReceiptMatches,prepareCredential,r
 export function ResearchCredentialRoles() {
  const [flow,setFlow]=useState<'create'|'assign'>('assign');
  const {data:catalog}=useCommunity();
- const definitions:CredentialDefinition[]=[{label:'Researcher',identifier:'research.role.researcher.v1',credentialType:RESEARCHER_TYPE,metadataURI:'https://research.bittrees.org/credentials/researcher.json'},...(catalog?.credentialdefs||[])];
+ const definitions:CredentialDefinition[]=[...BUILTIN_ROLE_CREDENTIALS,...(catalog?.credentialdefs||[])];
  const [selected,setSelected]=useState('research.role.researcher.v1');
  const definition=definitions.find(d=>d.identifier===selected)||definitions[0];
  const catalogReady=Array.isArray(catalog?.credentialdefs),selectionExists=definitions.some(d=>d.identifier===selected);
@@ -68,7 +69,7 @@ export function ResearchCredentialRoles() {
    {query.isPending?<p>Checking current credentials…</p>:query.isError?<p role="alert">Credential verification unavailable. No role state can be confirmed.</p>:<>
     <p>Read at block {query.data?.blockNumber}. {query.data?.records.length===0?'No credentials found.':''}</p>
     <ul>{query.data?.records.map(r=><li key={r.id} style={{marginBottom:'0.75rem'}}>#{r.id} · Membership #{r.parentId} · {r.role||definitions.find(d=>d.credentialType===r.type)?.label||'Unmapped credential'} · {r.burned?'Burned':r.revoked?'Revoked':r.valid?'Valid':'Inactive'}
-     {!r.burned&&<div><button disabled={busy} onClick={()=>void prepare({kind:r.revoked?'restore':'revoke',member:target,credentialId:r.id,credentialType:r.type as `0x${string}`})}>Prepare {r.revoked?'restoration':'revocation'}</button></div>}
+     {catalogReady&&definitions.some(d=>d.credentialType===r.type)&&!r.burned&&<div><button disabled={busy} onClick={()=>void prepare({kind:r.revoked?'restore':'revoke',member:target,credentialId:r.id,credentialType:r.type as `0x${string}`})}>Prepare {r.revoked?'restoration':'revocation'}</button></div>}
     </li>)}</ul>
    </>}
    <button disabled={query.isFetching||busy} onClick={()=>void query.refetch()}>Refresh credential status</button>
