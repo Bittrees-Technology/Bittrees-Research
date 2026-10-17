@@ -5,14 +5,14 @@ import { useAccount } from "wagmi";
 import { BittreesMark } from "@/components/Brand";
 import { useMembershipStatus } from "@/hooks/membership/useMembershipStatus";
 import { useAdminAccess } from "@/lib/adminAccess";
-import { ROUTES } from "@/lib/links";
+import { RESEARCH_LINKS, ROUTES } from "@/lib/links";
 
 const NAV = [
   { to: ROUTES.overview, label: "Overview", end: true },
   { to: "/research", label: "Research", end: false },
   { to: ROUTES.contribute, label: "Contribute", end: false },
   { to: ROUTES.forum, label: "Forum", end: false },
-  { to: ROUTES.chat, label: "Chat", end: false },
+  { to: RESEARCH_LINKS.chat, label: "Chat", end: false },
   { to: ROUTES.bnote, label: "BNOTE", end: false },
   { to: ROUTES.bit, label: "BIT", end: false },
   { to: "/structure", label: "Structure", end: false },
