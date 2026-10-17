@@ -17,14 +17,15 @@ test('built app preserves a confirmed synthetic mint through delayed discovery, 
   await app.page.setViewportSize({width:390,height:844});await app.page.getByRole('heading',{name:'Transaction confirmed',exact:true}).scrollIntoViewIfNeeded();
   expect(await app.page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await app.page.screenshot({path:info.outputPath('mint-wait-mobile.png')});
-  await app.page.goto('/membership');
+  // Match client-side navigation without reloading the wallet session.
+  await app.page.evaluate(() => { history.pushState(null, '', '/membership'); window.dispatchEvent(new PopStateEvent('popstate')); });
   await expect(app.page.getByRole('heading',{name:'Transaction confirmed',exact:true})).toBeVisible();
   // Remounting after navigation can start a fresh query. Keep the failure fixture
   // until that query settles before offering valid evidence for an explicit retry.
   await expect(app.page.getByRole('alert')).toContainText('Your confirmed transaction is still recorded here');
   await expect(app.page.getByRole('button',{name:'Check membership again'})).toBeEnabled();
   app.setMode('valid');await app.page.getByRole('button',{name:'Check membership again'}).click();
-  await expect(app.page.getByRole('heading',{name:'Members Chat',exact:true})).toBeVisible();
+  await expect(app.page.getByRole('heading',{name:'Your membership',exact:true})).toBeVisible();
   expect(await app.page.evaluate(()=>(window as any).__mintTransactions)).toBe(1);
  } finally {await app.close();}
 });
