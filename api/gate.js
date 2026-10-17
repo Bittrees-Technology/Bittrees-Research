@@ -1,3 +1,4 @@
+import {MEMBERSHIP,LEGACY,researchMembershipBalance} from '../server/research-membership.mjs';
 import {ecosystemAccess} from '../server/ecosystem-client.mjs';
 import { createPublicClient, http, getAddress, parseUnits } from "viem";
 import { mainnet } from "viem/chains";
@@ -184,6 +185,10 @@ async function evalRule(rule, user, roles) {
       const token = getAddress(rule.token);
       if (rule.standard === "erc1155") {
         let min; try { min = BigInt(rule.min || "1"); } catch { min = 1n; }
+        if ([MEMBERSHIP,LEGACY].includes(token.toLowerCase())) {
+          const id=rule.tokenId === undefined || rule.tokenId === "" ? undefined : BigInt(rule.tokenId);
+          return min > 0n && (await researchMembershipBalance(client,token,user,id)) >= min;
+        }
         if (rule.tokenId === undefined || rule.tokenId === "") {
           return (await tokenBalance1155Any(token, user)) >= min; // any token id
         }

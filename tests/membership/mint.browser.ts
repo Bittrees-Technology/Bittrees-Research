@@ -4,7 +4,7 @@ const member=(page:Page)=>page.getByRole('heading',{name:'Synthetic member conte
 const confirmed=(page:Page)=>page.getByRole('heading',{name:'Transaction confirmed',exact:true});
 async function confirm(page:Page) {
  await page.goto('/');
- await page.getByRole('button',{name:/^Join —/}).click();
+ await page.getByRole('button',{name:/^Mint membership —/}).click();
  await change(page,'receipt');
  await expect(confirmed(page)).toBeVisible();
  await expect(page.getByRole('button',{name:'Checking membership…'})).toBeDisabled();
@@ -16,7 +16,7 @@ test('confirmed mint remains visible through loading, delayed discovery and erro
  await change(page,'render'); expect(await page.evaluate(()=>(window as any).__verificationRequests)).toBe(1);
  await change(page,'empty');
  await expect(confirmed(page)).toBeVisible();
- await expect(page.getByRole('button',{name:/^Join —/})).toHaveCount(0);
+ await expect(page.getByRole('button',{name:/^Mint membership —/})).toHaveCount(0);
  await expect(page.getByRole('link',{name:'View confirmed transaction'})).toHaveAttribute('href',`https://etherscan.io/tx/0x${'1'.repeat(64)}`);
  await page.getByRole('button',{name:'Check membership again'}).click();
  await expect(page.getByRole('button',{name:'Checking membership…'})).toBeDisabled();
@@ -42,22 +42,22 @@ for(const kind of ['switch','chain','disconnect']) {
 }
 test('reverted or unsolicited receipts do not create a pending-verification notice',async({page})=>{
  await page.goto('/');await change(page,'receipt');await expect(confirmed(page)).toHaveCount(0);
- await change(page,'reconnect');await page.getByRole('button',{name:/^Join —/}).click();
+ await change(page,'reconnect');await page.getByRole('button',{name:/^Mint membership —/}).click();
  await change(page,'reverted');await expect(confirmed(page)).toHaveCount(0);await expect(member(page)).toHaveCount(0);
  expect(await page.evaluate(()=>(window as any).__verificationRequests)).toBe(0);
 });
 
 test('cancelled or replaced purchases require review instead of a confirmed membership notice',async({page})=>{
- await page.goto('/');await page.getByRole('button',{name:/^Join —/}).click();
+ await page.goto('/');await page.getByRole('button',{name:/^Mint membership —/}).click();
  await change(page,'cancelled');
  await expect(page.getByRole('heading',{name:'Transaction changed'})).toBeVisible();
  await expect(confirmed(page)).toHaveCount(0);await expect(member(page)).toHaveCount(0);
  expect(await page.evaluate(()=>(window as any).__verificationRequests)).toBe(0);
  await page.getByRole('button',{name:'Return to membership options'}).click();
- await expect(page.getByRole('button',{name:/^Join —/})).toBeEnabled();
+ await expect(page.getByRole('button',{name:/^Mint membership —/})).toBeEnabled();
 });
 test('a repriced purchase records its confirmed replacement hash without granting membership',async({page})=>{
- await page.goto('/');await page.getByRole('button',{name:/^Join —/}).click();
+ await page.goto('/');await page.getByRole('button',{name:/^Mint membership —/}).click();
  await change(page,'repriced');
  await expect(confirmed(page)).toBeVisible();
  await expect(page.getByRole('link',{name:'View confirmed transaction'})).toHaveAttribute('href',`https://etherscan.io/tx/0x${'4'.repeat(64)}`);

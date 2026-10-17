@@ -22,7 +22,7 @@ export const TOKEN_STACK: StackToken[] = [
     standard: "ERC-1155",
     chain: "Ethereum",
     role: "Access pass to the foundation — a 360-day, renewable membership.",
-    address: "0xc8121e650bd797d8b9dad00227a9a77ef603a84a",
+    address: "0xCecD807193Cf79B59e9C849b9CCCbA10DD6f8335",
     explorer: EXPLORERS.membership,
     badgeClass: "badge-member",
   },

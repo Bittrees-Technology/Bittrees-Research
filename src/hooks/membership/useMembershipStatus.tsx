@@ -47,7 +47,7 @@ export function useMembershipStatus(): MembershipStatus {
   const fresh = !!query.data && now - query.data.verifiedAt < MEMBERSHIP_FRESHNESS;
   const usable = current && query.isSuccess && fresh;
   const tokens = usable ? query.data!.tokens.map(t => ({ ...t, isExpired: t.isExpired || t.expiresAt <= Math.floor(now / 1000) })) : [];
-  const active = tokens.filter(t => !t.isExpired);
+  const active = tokens.filter(t => !t.isExpired && !t.revoked && !t.blocked && t.active !== false);
   const activeExpiresAt = active.length ? Math.max(...active.map(t => t.expiresAt)) : undefined;
   const daysLeft = activeExpiresAt ? Math.max(0, Math.ceil((activeExpiresAt - now / 1000) / 86400)) : undefined;
   useEffect(() => {

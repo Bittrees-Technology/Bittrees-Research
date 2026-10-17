@@ -1,3 +1,5 @@
+import { MembershipRenew } from "@/components/membership/MembershipRenew";
+import { MembershipCredentials } from "@/components/membership/MembershipCredentials";
 import { PageHeader } from "@/components/PageHeader";
 import { MembershipVerificationWait } from "@/components/membership/MembershipVerificationWait";
 import { MembershipMint } from "@/components/membership/MembershipMint";
@@ -24,7 +26,7 @@ export default function MembershipPage() {
         center
         label="Membership"
         title="Your membership"
-        intro="Membership is an on-chain pass — an ERC-1155 token on Ethereum, valid for 360 days. Renewing mints a fresh term; you keep access as long as any token is unexpired."
+        intro="Nontransferable membership on Ethereum. New mints last 360 days; BIT renewal extends the same token and preserves its attached credentials."
       />
 
       <div style={{ display: "grid", gap: "1.5rem", gridTemplateColumns: "1fr", maxWidth: "640px", margin: "0 auto" }}>
@@ -61,8 +63,8 @@ export default function MembershipPage() {
               </thead>
               <tbody>
                 {tokens.map((t) => (
-                  <tr key={t.tokenId}>
-                    <td className="tabular">#{t.tokenId}</td>
+                  <tr key={`${t.version}:${t.tokenId}`}>
+                    <td className="tabular">#{t.tokenId} {t.version === "legacy" ? "(legacy)" : ""}</td>
                     <td>{fmtDate(t.expiresAt)}</td>
                     <td className="right">
                       <span
@@ -73,7 +75,7 @@ export default function MembershipPage() {
                             : { borderColor: "var(--color-secondary)", color: "var(--color-secondary-hover)", background: "#F0F6F2" }
                         }
                       >
-                        {t.isExpired ? "Expired" : "Active"}
+                        {t.revoked ? "Revoked" : t.isExpired ? "Expired" : "Active"}
                       </span>
                     </td>
                   </tr>
@@ -93,17 +95,20 @@ export default function MembershipPage() {
           </p>
         </div>
 
+        <MembershipCredentials tokens={tokens} onChanged={refetch} />
+
         {/* Renew */}
         <div className="card">
           <h2 className="text-title" style={{ marginBottom: "0.35rem" }}>
             {expiringSoon ? "Renew now" : "Renew membership"}
           </h2>
           <p style={{ fontSize: "0.875rem", color: "var(--color-ink-muted)", marginBottom: "1.1rem" }}>
-            Mint a fresh 360-day term at any time. Terms stack — renewing early extends your
-            furthest-out expiry.
+            Renew with BIT at the current daily price. A fresh ETH mint creates a separate token; its term does not stack onto another membership.
           </p>
+          <MembershipRenew />
+          <h3>Mint a new membership</h3>
           {pendingMint ? <MembershipVerificationWait receipt={pendingMint} checking={isChecking} error={error} onRetry={refetch} />
-            : <MembershipMint key={sessionRevision} mode="renew" onMinted={refetch} />}
+            : <MembershipMint key={sessionRevision} mode="join" onMinted={refetch} />}
         </div>
       </div>
     </div>

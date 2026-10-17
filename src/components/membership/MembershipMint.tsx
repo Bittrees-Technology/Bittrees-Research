@@ -1,6 +1,6 @@
 import { useMembershipStatus } from "@/hooks/membership/useMembershipStatus";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { formatEther, parseEther, type Abi } from "viem";
+import { useEffect, useRef, useState } from "react";
+import { formatEther, type Abi } from "viem";
 import { mainnet } from "wagmi/chains";
 import {
   useAccount,
@@ -21,13 +21,8 @@ interface Props {
   onMinted?: () => void;
 }
 
-/**
- * Join (mint) or Renew (re-mint) a Bittrees Research membership. Both call the
- * same on-chain action — mintMembership — which is payable in ETH; the minimum is
- * read live from the contract (mintPrice) and an optional donation rides on top.
- * Renewing mints a fresh term, whose length is the contract's expirationTimeframe.
- */
-export function MembershipMint({ mode = "join", onMinted }: Props) {
+/** Fresh mint only; renewal preserves the existing token and uses BIT. */
+export function MembershipMint({ onMinted }: Props) {
   const { address } = useAccount();
   const { confirmMint } = useMembershipStatus();
   const replacementHash = useRef<string | null>(null);
@@ -38,7 +33,6 @@ export function MembershipMint({ mode = "join", onMinted }: Props) {
   const onMainnet = chainId === mainnet.id;
   const { switchChain, isPending: switching } = useSwitchChain();
 
-  const [donation, setDonation] = useState("");
   const [confirmedHash, setConfirmedHash] = useState<string | null>(null);
 
   const { data: priceWei } = useReadContract({
@@ -56,14 +50,7 @@ export function MembershipMint({ mode = "join", onMinted }: Props) {
   const basePrice = (priceWei as bigint | undefined) ?? 0n;
   const termDays = termSec ? Math.round(Number(termSec as bigint) / 86400) : 360;
 
-  const donationWei = useMemo(() => {
-    try {
-      return donation ? parseEther(donation) : 0n;
-    } catch {
-      return 0n;
-    }
-  }, [donation]);
-  const total = basePrice + donationWei;
+  const total = basePrice;
 
   const { data: sim, error: simError } = useSimulateContract({
     address: MEMBERSHIP,
@@ -72,7 +59,7 @@ export function MembershipMint({ mode = "join", onMinted }: Props) {
     args: [address],
     value: total,
     chainId: mainnet.id,
-    query: { enabled: Boolean(address) && onMainnet },
+    query: { enabled: Boolean(address) && onMainnet && typeof priceWei === "bigint" },
   });
 
   const { writeContract, reset, data: hash, isPending: writing } = useWriteContract();
@@ -96,7 +83,7 @@ export function MembershipMint({ mode = "join", onMinted }: Props) {
     }
   }, [isSuccess, receipt, hash, onMinted]);
 
-  const verb = mode === "renew" ? "Renew" : "Join";
+  const verb = "Mint membership";
 
   if (replacementNotice) {
     return <section role="alert">
@@ -113,7 +100,7 @@ export function MembershipMint({ mode = "join", onMinted }: Props) {
           Transaction confirmed
         </p>
         <p style={{ fontSize: "0.875rem", color: "var(--color-ink-muted)" }}>
-          Your transaction is confirmed. Checking membership details against current ownership and expiry.
+          Your transaction is confirmed. Checking current membership validity.
         </p>
       </div>
     );
@@ -144,37 +131,10 @@ export function MembershipMint({ mode = "join", onMinted }: Props) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
-      <Row label="Minimum donation" value={`${formatEther(basePrice)} ETH`} />
-
-      <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "0.45rem 1rem", alignItems: "center", fontSize: "0.875rem" }}>
-        <span style={{ color: "var(--color-ink-muted)" }}>Add additional donation</span>
-        <span>
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            placeholder="0.00"
-            value={donation}
-            onChange={(e) => setDonation(e.target.value)}
-            style={{
-              width: "7rem",
-              padding: "0.3rem 0.5rem",
-              border: "1px solid var(--color-border)",
-              borderRadius: "2px",
-              fontFamily: "var(--font-mono)",
-              fontSize: "0.85rem",
-            }}
-          />{" "}
-          ETH
-        </span>
-      </div>
-
-      {mode === "renew" && (
-        <Row label="Extends membership by" value={`${termDays} days`} hint="set by the contract" />
-      )}
+      <Row label="Mint price" value={typeof priceWei === "bigint" ? `${formatEther(basePrice)} ETH` : "Loading…"} />
 
       <div style={{ borderTop: "1px solid var(--color-border-light)", paddingTop: "0.6rem" }}>
-        <Row label="Total contribution" value={`${formatEther(total)} ETH`} strong />
+        <Row label="Mint payment" value={`${formatEther(total)} ETH`} strong />
       </div>
 
       <p style={{ fontSize: "0.78rem", color: "var(--color-ink-dim)", margin: 0 }}>
