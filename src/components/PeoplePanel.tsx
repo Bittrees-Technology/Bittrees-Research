@@ -106,9 +106,9 @@ export function PeoplePanel({ onMessage, onBroadcast }: {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
-      <p className="text-label" style={{ margin: 0 }}>Search by role</p>
+      <p className="text-label" style={{ margin: 0 }}>Search historical labels</p><p style={{ ...dim, margin: 0 }}>These contact labels do not show current Research access. <a href="https://roles.bittrees.org/role-management?project=research">View current Research roles</a>.</p>
       <select value={roleFilter} onChange={(e) => { setRoleFilter(e.target.value); setBcastOpen(false); setBcastMsg(undefined); }} style={inputStyle}>
-        <option value="">Select a role…</option>
+        <option value="">Select a historical label…</option>
         <option value={SHAREHOLDER}>Shareholders (≥1 BGOV)</option>
         {roleOptions.map((o) => <option key={o.label} value={o.label}>{o.label}</option>)}
       </select>
@@ -117,7 +117,7 @@ export function PeoplePanel({ onMessage, onBroadcast }: {
         {needVp && vpLoading ? (
           <p style={{ ...dim, margin: "0.3rem 0" }}>Checking BGOV holdings…</p>
         ) : sortedShown.length === 0 ? (
-          <p style={{ ...dim, margin: "0.3rem 0" }}>{roleFilter === "" ? "Pick a role to list who holds it." : "No one found for that role."}</p>
+          <p style={{ ...dim, margin: "0.3rem 0" }}>{roleFilter === "" ? "Pick a historical label to find contacts." : "No contacts found for that historical label."}</p>
         ) : (
           sortedShown.map((addr) => (
             <PersonRow

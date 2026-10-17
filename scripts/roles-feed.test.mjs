@@ -26,3 +26,5 @@ test('permission reporting matches the existing server administration rules',asy
  assert.ok(server.includes('const SUPER_ADMIN = "0xe5350d96fc3161bf5c385843ec5ee24e8b465b2f";'));
  assert.ok(server.includes(research?'!hasRole(roles, signer, /^assistant$/i)':'!hasRole(roles, signer, /^(moderator|mod)$/i)'));
 });
+
+test('central authority feed does not republish historical labels as current grants',async()=>{for(const mode of ['root-policy','root-policy-auto']){const feed=await readFeed({env:{...env,REGISTRY_AUTHORITY_MODE:mode},fetcher:async()=>new Response(JSON.stringify({result:[JSON.stringify({['0x'+'a'.repeat(40)]:[{label:'Executive'}]}),'[]']}))});assert.deepEqual(feed.data.roles,{});assert.deepEqual(feed.data.permissions,{});assert.equal(verify(null,Buffer.from(JSON.stringify(feed.data)),keys.publicKey,Buffer.from(feed.signature,'base64')),true);}});
