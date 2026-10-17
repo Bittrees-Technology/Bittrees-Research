@@ -1,11 +1,14 @@
 import {parseAbi} from 'viem';
 export const MEMBERSHIP='0xcecd807193cf79b59e9c849b9cccba10dd6f8335';
-// Retired address is retained solely to reject old gate URLs.
+// Retired address identifies persisted room URLs, never a source of balances.
 export const LEGACY='0xc8121e650bd797d8b9dad00227a9a77ef603a84a';
 const abi=parseAbi(['function blockedWallets(address) view returns(bool)','function lastTokenId() view returns(uint256)','function isActiveMember(address,uint256) view returns(bool)']);
 /** Fresh evidence only. Explicit token IDs stay scoped to the requested contract. */
 export async function researchMembershipBalance(client,token,user,id) {
- if(token.toLowerCase()!==MEMBERSHIP)return 0n;
+ const address=token.toLowerCase();
+ // Preserve saved any-ID room URLs using only current-contract evidence.
+ // Explicit legacy IDs cannot be translated to new token identities.
+ if(address!==MEMBERSHIP && (address!==LEGACY || id!==undefined))return 0n;
  const blockNumber=await client.getBlockNumber();
  const read=(address,functionName,args=[])=>client.readContract({address,abi,functionName,args,blockNumber});
  if(await read(MEMBERSHIP,'blockedWallets',[user]))return 0n;

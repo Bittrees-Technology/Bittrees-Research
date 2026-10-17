@@ -8,7 +8,7 @@ Fresh ETH mints use the exact current mint price (initially zero), without the o
 
 New membership reads directly enumerate IDs and verify balance, `isActiveMember`, expiry and revocation at one block, with a deadline and session invalidation. This avoids NFT indexer lag. The bounded reader supports up to 10,000 lifetime minted IDs; exceeding it fails closed and requires an indexing upgrade. Reads refresh every 30 seconds and expire after 60 seconds. No legacy NFT discovery is performed.
 
-Only the current membership grants access. Legacy tokens are disregarded, including explicit legacy server gate rules; holders must mint a current membership. New room defaults use the current contract. No balances or credentials are migrated, and old tokens remain on-chain. Server RPC failures deny access.
+Only the current membership grants access. Legacy tokens are disregarded; holders must mint a current membership. New room defaults use the current contract. Persisted any-ID room URLs naming the old contract now check only current-contract membership; explicit legacy token-ID rules deny access because IDs are not migrated. No balances or credentials are migrated, and old tokens remain on-chain. Server RPC failures deny access.
 
 The membership page displays nested credentials using parent enumeration and current on-chain validity. Metadata is an external HTTPS link only, never a source of permissions. Holder burns require an explicit permanent-destruction confirmation and wallet approval. This release does not add an administrative issuance console: both Safe administrators can continue using TLD and the deployed ABI for issuance/revocation/pricing.
 
