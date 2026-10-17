@@ -183,9 +183,11 @@ async function evalRule(rule, user, roles) {
     if (rule.kind === "token") {
       if (!isAddr(rule.token)) return false;
       const token = getAddress(rule.token);
+      if (token.toLowerCase() === LEGACY) return false;
+      if (token.toLowerCase() === MEMBERSHIP && rule.standard !== "erc1155") return false;
       if (rule.standard === "erc1155") {
         let min; try { min = BigInt(rule.min || "1"); } catch { min = 1n; }
-        if ([MEMBERSHIP,LEGACY].includes(token.toLowerCase())) {
+        if (token.toLowerCase() === MEMBERSHIP) {
           const id=rule.tokenId === undefined || rule.tokenId === "" ? undefined : BigInt(rule.tokenId);
           return min > 0n && (await researchMembershipBalance(client,token,user,id)) >= min;
         }
@@ -280,7 +282,8 @@ export function createGateHandler({sharedAccess=ecosystemAccess,membershipBalanc
       }
       let minBig;
       try { minBig = BigInt(min); } catch { minBig = 1n; }
-      const isMembership = [MEMBERSHIP,LEGACY].includes(tokenRaw.toLowerCase());
+      if (tokenRaw.toLowerCase() === LEGACY) return res.status(403).json({ error: 'Legacy memberships are no longer accepted' });
+      const isMembership = tokenRaw.toLowerCase() === MEMBERSHIP;
       let bal;
       try { bal = isMembership
         ? await membershipBalance(getAddress(tokenRaw),getAddress(userRaw))

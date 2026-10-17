@@ -1,12 +1,8 @@
 import { BaseError, HttpRequestError, TimeoutError, createPublicClient, http, type Abi, type Address } from 'viem';
 import { mainnet } from 'viem/chains';
-import { ALCHEMY_API_KEY } from './alchemyConfig';
-import { discoverMembershipPage } from './membershipDiscovery';
 import membershipAbi from '@/lib/constants/membership.abi.json';
-import legacyAbi from '@/lib/constants/legacy-membership.abi.json';
 import type { MembershipToken } from './membershipVerification';
-export const LEGACY_MEMBERSHIP = '0xc8121e650bd797d8b9dad00227a9a77ef603a84a' as Address;
-import { boundedMembershipRead, verifiedMembershipTokens, MEMBERSHIP_UNAVAILABLE, MembershipReadError } from './membershipVerification';
+import { boundedMembershipRead, MEMBERSHIP_UNAVAILABLE, MembershipReadError } from './membershipVerification';
 
 function chainFailure(error: unknown) {
   const transport = error instanceof BaseError
@@ -51,33 +47,6 @@ export function readMembership(owner: Address, contract: Address, signal: AbortS
         if (balance > 0n) currentTokens.push({ tokenId: batchIds[i].toString(), version: 'v2', expiresAt: Number(expiry), isExpired: expiry <= BigInt(Math.floor(Date.now()/1000)), active, revoked });
       }
     }
-    // Legacy passes retain access, but cannot bypass the new wallet block above.
-    // A valid v2 pass does not depend on the legacy NFT indexer's availability.
-    if (currentTokens.some(t => t.active)) return currentTokens;
-    let pageKey: string | undefined;
-    const seen = new Set<string>(), ids = new Set<string>();
-    for (let page = 0; ; page++) {
-      check();
-      if (page >= 10) throw new Error(MEMBERSHIP_UNAVAILABLE);
-      const response = await discoverMembershipPage(ALCHEMY_API_KEY, owner, LEGACY_MEMBERSHIP, readSignal, pageKey);
-      check();
-      for (const id of response.ids) ids.add(id);
-      if (ids.size > 1_000) throw new Error(MEMBERSHIP_UNAVAILABLE);
-      if (response.pageKey === undefined || response.pageKey === null || response.pageKey === '') break;
-      if (typeof response.pageKey !== 'string' || response.pageKey.length > 4096 || seen.has(response.pageKey)) throw new Error(MEMBERSHIP_UNAVAILABLE);
-      pageKey = response.pageKey;
-      seen.add(pageKey);
-    }
-    if (!ids.size) return currentTokens;
-    const tokenIds = [...ids];
-    const contracts = tokenIds.flatMap(id => [
-      { address: LEGACY_MEMBERSHIP, abi: legacyAbi as Abi, functionName: 'balanceOf', args: [owner, BigInt(id)] },
-      { address: LEGACY_MEMBERSHIP, abi: legacyAbi as Abi, functionName: 'isExpired', args: [BigInt(id)] },
-      { address: LEGACY_MEMBERSHIP, abi: legacyAbi as Abi, functionName: 'expirationTimestamps', args: [BigInt(id)] },
-    ]);
-    const results = await chainRead(() => client.multicall({ contracts, blockNumber }));
-    // Multicall returns transport errors inside individual results by default.
-    for (const result of results) if (result.status === 'failure') throw chainFailure(result.error);
-    return [...currentTokens, ...verifiedMembershipTokens(tokenIds, results, Math.floor(Date.now() / 1000)).map(t => ({ ...t, version: 'legacy' as const }))];
+    return currentTokens;
   }, signal);
 }

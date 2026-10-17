@@ -8,11 +8,11 @@ export function MembersContent() {
                     <ul className="max-w-md space-y-1 text-gray-400 list-disc list-outside ms-4 dark:text-gray-400 ">
                         {/*<li className="p-2">Gift Membership</li>*/}
                         <li className="p-2">
-                            <a data-insights="navigate-etherscanio/token/0xc8121e650bd797d8b9dad00227a9a77ef603a84ac"
+                            <a data-insights="navigate-etherscanio/token/0xcecd807193cf79b59e9c849b9cccba10dd6f8335c"
                                 className="text-black no-underline hover:underline hover:text-green-700"
                                 target="_blank"
                                 rel="noreferrer"
-                                href="https://etherscan.io/token/0xc8121e650bd797d8b9dad00227a9a77ef603a84a#code"
+                                href="https://etherscan.io/token/0xcecd807193cf79b59e9c849b9cccba10dd6f8335#code"
                             >
                                 Membership Contract
                             </a>

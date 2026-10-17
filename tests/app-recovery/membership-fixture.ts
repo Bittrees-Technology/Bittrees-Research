@@ -9,7 +9,7 @@ const rpcOrigin = process.env.RESEARCH_MEMBERSHIP_RPC_ORIGIN || 'https://eth.mer
 const rpcUrl = new URL(rpcOrigin);
 if (rpcUrl.protocol !== 'https:' || rpcUrl.origin !== rpcOrigin) throw Error('Membership test RPC must be an explicit HTTPS origin without credentials or a path.');
 const abi = parseAbi(['function isActiveMember(address,uint256) view returns(bool)', 'function revokedMemberships(uint256) view returns(bool)', 'function bitPricePerDay() view returns(uint256)','function blockedWallets(address) view returns(bool)', 'function lastTokenId() view returns(uint256)', 'function balanceOf(address,uint256) view returns (uint256)', 'function isExpired(uint256) view returns (bool)', 'function expirationTimestamps(uint256) view returns (uint256)', 'function mintPrice() view returns (uint256)', 'function expirationTimeframe() view returns (uint256)', 'function mintMembership(address) payable returns (uint256)']);
-type Mode = 'v2-valid' | 'v2-revoked' | 'v2-blocked' | 'valid' | 'failed' | 'missing' | 'expired' | 'zero' | 'transferred' | 'empty' | 'loop' | 'hang' | 'expiring' | 'renewed' | 'transient' | 'unavailable' | 'denied' | 'rpc-transient' | 'call-transient';
+type Mode = 'legacy-only' | 'v2-valid' | 'v2-revoked' | 'v2-blocked' | 'valid' | 'failed' | 'missing' | 'expired' | 'zero' | 'transferred' | 'empty' | 'loop' | 'hang' | 'expiring' | 'renewed' | 'transient' | 'unavailable' | 'denied' | 'rpc-transient' | 'call-transient';
 export async function setup(browser: Browser, baseURL: string, initial: Mode, cached = false, clock = false, mint = false) {
   const context = await browser.newContext();
   const mintHash=`0x${'3'.repeat(64)}`;
@@ -17,7 +17,7 @@ export async function setup(browser: Browser, baseURL: string, initial: Mode, ca
   const expiry=Math.floor(Date.now()/1000)+3600;
   let receiptReady=false, receiptReads=0;
   const block=()=>receiptReady?'0x1000001':'0x1000000';
-  let mode = initial, nftReads = 0, calls = 0, rpcFailures = 0, release = () => {};
+  let mode = initial, nftReads = 0, checks = 0, calls = 0, rpcFailures = 0, release = () => {};
   const writes: string[] = [], balances: string[] = [];
   const held = new Promise<void>(resolve => { release = resolve; });
   await context.route('**/*', async route => {
@@ -36,6 +36,12 @@ export async function setup(browser: Browser, baseURL: string, initial: Mode, ca
     if (url.origin === rpcOrigin && request.method() === 'POST') {
       const input = request.postDataJSON();
       const requests = Array.isArray(input) ? input : [input];
+      if(requests.some(rpc=>rpc.method==='eth_blockNumber')) {
+        checks++;
+        if(mode==='unavailable' || (mode==='transient' && checks===1))return route.fulfill({status:503,body:'Temporary outage'});
+        if(mode==='denied')return route.fulfill({status:403,body:'secret provider details must not be displayed'});
+        if(mode==='hang')await held;
+      }
       const failBlock = mode === 'rpc-transient' && requests.some(rpc => rpc.method === 'eth_blockNumber');
       const failCall = mode === 'call-transient' && requests.some(rpc => {
         try {
@@ -64,7 +70,7 @@ export async function setup(browser: Browser, baseURL: string, initial: Mode, ca
         if(rpc.method==='eth_call' && rpc.params[0]?.to?.toLowerCase()===contract) {
           const read=decodeFunctionData({abi,data:rpc.params[0].data});
           if(read.functionName==='blockedWallets')return success(encodeFunctionResult({abi,functionName:'blockedWallets',result:mode==='v2-blocked'}));
-          if(read.functionName==='lastTokenId')return success(encodeFunctionResult({abi,functionName:'lastTokenId',result:mode.startsWith('v2-')?1n:0n}));
+          if(read.functionName==='lastTokenId')return success(encodeFunctionResult({abi,functionName:'lastTokenId',result:['empty','legacy-only'].includes(mode)?0n:mode==='loop'?10001n:mode==='renewed'?2n:1n}));
         }
         if(mint && rpc.method==='eth_call' && rpc.params[0]?.to?.toLowerCase()===contract) {
           const call=decodeFunctionData({abi,data:rpc.params[0].data});
@@ -85,11 +91,11 @@ export async function setup(browser: Browser, baseURL: string, initial: Mode, ca
         if(verification){calls++;expect(rpc.params[1]).toBe(block());}
         const returned = batch.map((item: any) => {
           const decoded = decodeFunctionData({ abi, data: item.callData });
-          if (decoded.functionName === 'balanceOf') { expect(decoded.args[0].toLowerCase()).toBe(owner); balances.push(decoded.args[0]); }
-          const value = decoded.functionName === 'isActiveMember' ? mode==='v2-valid' : decoded.functionName === 'revokedMemberships' ? mode==='v2-revoked' : decoded.functionName === 'bitPricePerDay' ? 1000000000000000000n : decoded.functionName === 'mintPrice' ? 1n : decoded.functionName === 'expirationTimeframe' ? 31104000n : decoded.functionName === 'balanceOf' ? (mode === 'transferred' ? 0n : 1n)
+          if (decoded.functionName === 'balanceOf') { if(decoded.args[0].toLowerCase()===owner)balances.push(decoded.args[0]); }
+          const value = decoded.functionName === 'isActiveMember' ? !['expired','zero','transferred','v2-revoked','v2-blocked'].includes(mode) && decoded.args?.[0]?.toLowerCase()===owner : decoded.functionName === 'revokedMemberships' ? mode==='v2-revoked' : decoded.functionName === 'bitPricePerDay' ? 1000000000000000000n : decoded.functionName === 'mintPrice' ? 1n : decoded.functionName === 'expirationTimeframe' ? 31104000n : decoded.functionName === 'balanceOf' ? (mode === 'transferred' || decoded.args?.[0]?.toLowerCase()!==owner ? 0n : 1n)
             : decoded.functionName === 'isExpired' ? mode === 'expired'
             : mode === 'zero' ? 0n : BigInt(mode==='expiring'?Math.floor(Date.now()/1000)+3:expiry);
-          return { success: !(mode === 'failed' && decoded.functionName === 'isExpired'), returnData: encodeFunctionResult({ abi, functionName: decoded.functionName, result: value } as any) };
+          return { success: !(mode === 'failed' && decoded.functionName === 'isActiveMember'), returnData: encodeFunctionResult({ abi, functionName: decoded.functionName, result: value } as any) };
         });
         if (mode === 'missing') returned.pop();
         return { jsonrpc: '2.0', id: rpc.id, result: encodeFunctionResult({ abi: multicall3Abi, functionName: 'aggregate3', result: returned }) };
@@ -139,5 +145,5 @@ export async function setup(browser: Browser, baseURL: string, initial: Mode, ca
   const connect = async () => { await page.getByRole('button', { name: 'Connect Wallet', exact: true }).first().click(); await page.getByRole('button', { name: /^MetaMask(?:\s|$)/ }).click(); };
   await page.goto('/chat'); await connect();
   return { page, context, connect, mintHash, confirmTransaction:()=>{receiptReady=true;}, setMode: (value: Mode) => { mode = value; }, release,
-    stats: () => ({ nftReads, calls, writes, balances, receiptReads, rpcFailures }), close: async () => { release(); expect(writes).toEqual([]); await context.close(); } };
+    stats: () => ({ nftReads, checks, calls, writes, balances, receiptReads, rpcFailures }), close: async () => { release(); expect(writes).toEqual([]); await context.close(); } };
 }

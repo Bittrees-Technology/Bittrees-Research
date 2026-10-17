@@ -1,4 +1,4 @@
-export interface MembershipToken { tokenId: string; expiresAt: number; isExpired: boolean; version?: "legacy" | "v2"; revoked?: boolean; blocked?: boolean; active?: boolean }
+export interface MembershipToken { tokenId: string; expiresAt: number; isExpired: boolean; version?: "v2"; revoked?: boolean; blocked?: boolean; active?: boolean }
 export const MEMBERSHIP_CHECK_TIMEOUT = 15_000;
 export const MEMBERSHIP_FRESHNESS = 60_000;
 export const MEMBERSHIP_REFRESH = 30_000;

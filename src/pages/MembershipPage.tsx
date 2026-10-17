@@ -64,7 +64,7 @@ export default function MembershipPage() {
               <tbody>
                 {tokens.map((t) => (
                   <tr key={`${t.version}:${t.tokenId}`}>
-                    <td className="tabular">#{t.tokenId} {t.version === "legacy" ? "(legacy)" : ""}</td>
+                    <td className="tabular">#{t.tokenId}</td>
                     <td>{fmtDate(t.expiresAt)}</td>
                     <td className="right">
                       <span

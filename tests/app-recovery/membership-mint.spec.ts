@@ -31,7 +31,7 @@ test('built app preserves a confirmed synthetic mint through delayed discovery, 
  } finally {await app.close();}
 });
 
-test('fresh-mint confirmation remains pending while only the old membership is discoverable',async({browser,baseURL})=>{
+test('fresh-mint confirmation remains pending while only an existing current-contract token is discoverable',async({browser,baseURL})=>{
  const app=await setup(browser,baseURL!,'valid',false,false,true);
  try {
   await expect(app.page.getByRole('heading',{name:'Members Chat',exact:true})).toBeVisible();
