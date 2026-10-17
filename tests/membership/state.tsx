@@ -51,11 +51,12 @@ export function usePublicClient(){return {
  simulateContract:async(request:any)=>{if((window as any).__giftHold)await new Promise(r=>(window as any).__giftRelease=r);return {request};},
  waitForTransactionReceipt:async({onReplaced}:any)=>{
  if(location.search!=='?gift')return {status:'success',logs:[]};
+ if((window as any).__giftReceiptHold)await new Promise(r=>{((window as any).__giftReceiptReleases??=[]).push(r);});
  const mode=(window as any).__giftReceipt;
  if(mode==='cancelled')onReplaced?.({reason:'cancelled'});
  return {status:mode==='reverted'?'reverted':'success',transactionHash:hash,logs:mode==='missing'?[]:[{
  address:'0xCecD807193Cf79B59e9C849b9CCCbA10DD6f8335',
- topics:encodeEventTopics({abi:parseAbi(['event MemberJoined(address indexed member,uint256 indexed tokenId,uint256 expiry)']),eventName:'MemberJoined',args:{member:mode==='wrong'?first:(window as any).__giftWrite.args[0],tokenId:9n}}),
+ topics:encodeEventTopics({abi:parseAbi(['event MemberJoined(address indexed member,uint256 indexed tokenId,uint256 expiry)']),eventName:'MemberJoined',args:{member:mode==='wrong'?first:((window as any).__giftWrite?.args[0]??JSON.parse(sessionStorage.getItem('research.gift-receipt.v1')!).recipient),tokenId:9n}}),
  data:encodeAbiParameters([{type:'uint256'}],[1800000000n]),
  }]};
  },

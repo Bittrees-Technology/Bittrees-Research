@@ -38,3 +38,16 @@ test('mobile gift review fits viewport',async({page})=>{
  await page.setViewportSize({width:390,height:844});await form(page);await page.getByRole('button',{name:'Review gift',exact:true}).click();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:'/tmp/research-gift-mobile.png',fullPage:true});
 });
+
+test('submitted gift survives wallet change and reload without enabling duplicate submission',async({page})=>{
+ await form(page);await page.evaluate(()=>(window as any).__giftReceiptHold=true);
+ await page.getByRole('button',{name:'Review gift',exact:true}).click();await page.getByRole('button',{name:'Confirm gift in wallet'}).click();
+ await expect(page.getByRole('heading',{name:'Gift submitted',exact:true})).toBeVisible();
+ await page.evaluate(()=>(window as any).__membershipFixture('switch'));
+ await expect(page.getByRole('status')).toContainText('0x1111111111111111111111111111111111111111');
+ await expect(page.getByRole('button',{name:'Review gift',exact:true})).toHaveCount(0);
+ await page.reload();await page.getByText('Gift a membership',{exact:true}).click();
+ await expect(page.getByRole('heading',{name:'Gift membership minted',exact:true})).toBeVisible();
+ await expect(page.getByRole('status')).toContainText(recipient);
+ expect(await page.evaluate(()=>(window as any).__giftWrite)).toBeUndefined();
+});

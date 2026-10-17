@@ -25,3 +25,5 @@ Roles `/role-management?project=research` displays credential-derived assignment
 ### Gift membership
 
 The Membership page includes **Gift a membership** inside the fresh-mint tile. The sender enters a nonzero Ethereum recipient address, reviews the current ETH mint price and term, then approves `mintMembership(recipient)` in their wallet. The sender need not hold a membership. The recipient receives a new nontransferable token directly; this does not renew an existing token or issue credentials. The flow checks price and term again before submission, simulates receipt eligibility, and only reports a gift after a successful receipt with a matching `MemberJoined` event from the current membership contract. Gifts never set the sender's membership-verification state. No email, claim link, or ENS resolution is involved.
+
+Submitted gift transaction hashes and their originating sender/recipient are retained in browser session storage across account changes, route remounts and reloads. Restored records are rechecked on-chain; they never grant membership access. Pending gifts block another submission until confirmation or explicit transaction-history review.

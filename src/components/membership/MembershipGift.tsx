@@ -2,6 +2,7 @@ import {useEffect, useRef, useState} from 'react';
 import {decodeEventLog, formatEther, getAddress, isAddress, parseAbi, zeroAddress, type Address} from 'viem';
 import {useAccount, useChainId, usePublicClient, useReadContract, useSwitchChain, useWriteContract} from 'wagmi';
 import {getContractAddress} from '@/lib/constants/contracts';
+import {saveGift,useGiftRecord} from '@/lib/membershipGiftJournal';
 import {useMembershipStatus} from '@/hooks/membership/useMembershipStatus';
 
 const membership=getContractAddress('membership',1);
@@ -19,10 +20,10 @@ export function MembershipGift(){
  const {sessionRevision}=useMembershipStatus();const {switchChain,isPending:switching}=useSwitchChain();
  const {writeContractAsync}=useWriteContract();
  const [recipient,setRecipient]=useState(''),[review,setReview]=useState<Review|null>(null),[busy,setBusy]=useState(false),[message,setMessage]=useState('');
- const [confirmed,setConfirmed]=useState<{recipient:string;id:string;expiry:number;hash:string}|null>(null);
+ const gift=useGiftRecord();
  const scope=JSON.stringify([address,chainId,sessionRevision,recipient]);const current=useRef(scope);current.current=scope;
- useEffect(()=>{setReview(null);setMessage('');setConfirmed(null);},[scope]);
- useEffect(()=>()=>{current.current='unmounted';},[]);
+ useEffect(()=>{setReview(null);setMessage('');},[scope]);
+ useEffect(()=>{current.current=scope;return()=>{current.current='unmounted';};},[]);
  const price=useReadContract({address:membership,abi,functionName:'mintPrice',chainId:1,query:{refetchInterval:15000}});
  const term=useReadContract({address:membership,abi,functionName:'expirationTimeframe',chainId:1});
  const target=recipient.trim();
@@ -39,34 +40,46 @@ export function MembershipGift(){
    if(latestPrice!==review.price||latestTerm!==review.term){setReview(null);setMessage('The mint price or term changed. Review the updated gift before continuing.');void price.refetch();void term.refetch();return;}
    const simulation=await client.simulateContract({address:membership,abi,functionName:'mintMembership',args:[review.recipient],value:review.price,account:address});check();
    setMessage('Confirm the gift in your wallet.');
-   const hash=await writeContractAsync({...simulation.request,chainId:1});check();
-   setMessage('Waiting for the gift transaction to confirm…');
-   let replaced=false;
-   const receipt=await client.waitForTransactionReceipt({hash,timeout:120000,onReplaced:({reason})=>{if(reason!=='repriced')replaced=true;}});check();
-   if(receipt.status!=='success'||replaced)throw Error('Gift not confirmed');
-   let gift:{id:string;expiry:number}|undefined;
-   for(const log of receipt.logs){
-    if(log.address.toLowerCase()!==membership.toLowerCase())continue;
-    try{const event=decodeEventLog({abi,data:log.data,topics:log.topics});
-     if(event.eventName==='MemberJoined'&&event.args.member.toLowerCase()===review.recipient.toLowerCase())gift={id:String(event.args.tokenId),expiry:Number(event.args.expiry)};
-    }catch{/* Ignore other contract events. */}
-   }
-   if(!gift)throw Error('No matching mint event');
-   setConfirmed({...gift,recipient:review.recipient,hash:receipt.transactionHash});setReview(null);setMessage('');
+   const hash=await writeContractAsync({...simulation.request,chainId:1});
+   // Keep the originating sender and recipient even if the wallet changes during approval.
+   saveGift({sender:address,recipient:review.recipient,hash,status:'pending'});
+   setReview(null);setMessage('');
   }catch{if(current.current===captured)setMessage('Gift was not confirmed. Check your wallet transaction history before retrying. The recipient may be blocked or unable to receive this token.');}
   finally{setBusy(false);}
  }
+ useEffect(()=>{
+  if(!gift||gift.status!=='pending'||!client)return;
+  let active=true,replaced=false;
+  void (async()=>{
+   try{
+    const receipt=await client.waitForTransactionReceipt({hash:gift.hash,timeout:120000,onReplaced:({reason})=>{if(reason!=='repriced')replaced=true;}});
+    if(!active)return;
+    if(receipt.status!=='success'||replaced)throw Error('Gift not confirmed');
+    let minted:{id:string;expiry:number}|undefined;
+    for(const log of receipt.logs){
+     if(log.address.toLowerCase()!==membership.toLowerCase())continue;
+     try{const event=decodeEventLog({abi,data:log.data,topics:log.topics});
+      if(event.eventName==='MemberJoined'&&event.args.member.toLowerCase()===gift.recipient.toLowerCase())minted={id:String(event.args.tokenId),expiry:Number(event.args.expiry)};
+     }catch{/* Ignore other contract events. */}
+    }
+    if(!minted)throw Error('No matching mint event');
+    saveGift({...gift,...minted,hash:receipt.transactionHash,status:'confirmed'});
+   }catch{if(active)saveGift({...gift,status:'unconfirmed'});}
+  })();
+  return()=>{active=false;};
+ },[gift,client]);
  return <details className="card-subtle" style={{marginTop:'1.5rem',padding:'1rem',borderTop:'1px solid var(--color-border)'}}>
   <summary style={{cursor:'pointer',fontWeight:700}}>Gift a membership</summary>
   <div style={{display:'grid',gap:'0.85rem',marginTop:'1rem'}}>
    <p>Mint a fresh membership directly to another wallet. You pay the mint price and Ethereum network fee; the recipient receives the token without needing to claim it.</p>
-   {!address?<p>Connect your wallet to gift a membership.</p>:chainId!==1?<button className="btn-primary" disabled={switching} onClick={()=>switchChain({chainId:1})}>Switch to Ethereum</button>:confirmed?<div role="status">
-    <h3>Gift membership minted</h3>
-    <p style={{overflowWrap:'anywhere'}}>Membership #{confirmed.id} was minted to {confirmed.recipient}.</p>
-    <p>Initial expiration: {new Date(confirmed.expiry*1000).toLocaleString()}. The recipient can connect that wallet to view their membership.</p>
-    <a href={`https://etherscan.io/tx/${confirmed.hash}`} target="_blank" rel="noreferrer">View gift transaction ↗</a>
-    <p><button onClick={()=>{setConfirmed(null);setRecipient('');}}>Gift another membership</button></p>
-   </div>:<>
+   {gift?<div role="status">
+    <h3>{gift.status==='confirmed'?'Gift membership minted':gift.status==='pending'?'Gift submitted':'Gift was not confirmed'}</h3>
+    <p style={{overflowWrap:'anywhere'}}>Sender: {gift.sender}<br/>Recipient: {gift.recipient}</p>
+    {gift.status==='confirmed'?<p>Membership #{gift.id}. Initial expiration: {new Date(gift.expiry!*1000).toLocaleString()}. The recipient can connect that wallet to view their membership.</p>:<p>{gift.status==='pending'?'Waiting for the submitted gift transaction. This remains tracked if you switch wallets.':'Check your wallet transaction history before sending another gift.'}</p>}
+    <a href={`https://etherscan.io/tx/${gift.hash}`} target="_blank" rel="noreferrer">View gift transaction ↗</a>
+    {gift.status==='unconfirmed'&&<p><button onClick={()=>saveGift({...gift,status:'pending'})}>Check gift transaction again</button></p>}
+    {gift.status!=='pending'&&<p><button onClick={()=>{saveGift(null);setRecipient('');setMessage('');}}> {gift.status==='confirmed'?'Gift another membership':'I checked the transaction — return to gifts'}</button></p>}
+   </div>:!address?<p>Connect your wallet to gift a membership.</p>:chainId!==1?<button className="btn-primary" disabled={switching} onClick={()=>switchChain({chainId:1})}>Switch to Ethereum</button>:<>
     <label htmlFor="gift-recipient">Recipient wallet address</label>
     <input id="gift-recipient" value={recipient} disabled={busy} onChange={e=>setRecipient(e.target.value)} placeholder="0x…" autoComplete="off" spellCheck={false} aria-describedby="gift-address-help" style={{width:'100%',boxSizing:'border-box',padding:'0.7rem',border:'1px solid var(--color-border)',background:'var(--color-bg)'}}/>
     <p id="gift-address-help">Use an Ethereum wallet address. Memberships cannot be transferred, so check the recipient carefully. ENS names are not accepted here.</p>
