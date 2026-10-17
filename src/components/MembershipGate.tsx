@@ -122,9 +122,16 @@ export function MembershipGate() {
                   ? "Extend your membership to return to the members area."
                   : "Membership is an on-chain pass (an ERC-1155 token on Ethereum) valid for 360 days."}
               </p>
-              {tokens.some(t => t.version === "v2") && <MembershipRenew />}
-              <h3>Mint a new membership</h3>
-              <MembershipMint key={sessionRevision} mode={mode} onMinted={refetch} />
+              {tokens.some(t => t.version === "v2" && !t.revoked && !t.blocked) && <section aria-label="Renew or extend membership" style={{marginBottom:'1.5rem',paddingBottom:'1.5rem',borderBottom:'1px solid var(--color-border)'}}>
+                <h3>Renew or extend membership</h3>
+                <p>Keep your token and attached credentials. Pay with BIT for the days you choose.</p>
+                <MembershipRenew />
+              </section>}
+              <section aria-label="Mint a fresh membership">
+                <h3>Mint a fresh membership</h3>
+                <p>Create a separate token with ETH at the current mint price. This does not extend an existing membership.</p>
+                <MembershipMint key={sessionRevision} mode="join" onMinted={refetch} />
+              </section>
             </>
           )}
         </div>

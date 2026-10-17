@@ -97,19 +97,22 @@ export default function MembershipPage() {
 
         <MembershipCredentials tokens={tokens} onChanged={refetch} />
 
-        {/* Renew */}
-        <div className="card">
+        {/* Existing-token renewal is separate from fresh minting. */}
+        {tokens.some(t=>t.version==="v2"&&!t.revoked&&!t.blocked) && <section className="card" aria-label="Renew or extend membership">
           <h2 className="text-title" style={{ marginBottom: "0.35rem" }}>
-            {expiringSoon ? "Renew now" : "Renew membership"}
+            Renew or extend membership
           </h2>
           <p style={{ fontSize: "0.875rem", color: "var(--color-ink-muted)", marginBottom: "1.1rem" }}>
-            Renew with BIT at the current daily price. A fresh ETH mint creates a separate token; its term does not stack onto another membership.
+            Keep your existing token and attached credentials. Pay with BIT for the number of days you choose.
           </p>
           <MembershipRenew />
-          <h3>Mint a new membership</h3>
+        </section>}
+        <section className="card" aria-label="Mint a fresh membership">
+          <h2 className="text-title">Mint a fresh membership</h2>
+          <p>Create a separate membership token with ETH at the current mint price. Its term does not extend any existing membership.</p>
           {pendingMint ? <MembershipVerificationWait receipt={pendingMint} checking={isChecking} error={error} onRetry={refetch} />
             : <MembershipMint key={sessionRevision} mode="join" onMinted={refetch} />}
-        </div>
+        </section>
       </div>
     </div>
   );
