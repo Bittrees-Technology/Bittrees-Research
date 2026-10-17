@@ -21,7 +21,6 @@ import PostPage from "./pages/PostPage";
 import Forum from "./pages/Forum";
 import ForumThread from "./pages/ForumThread";
 import Messenger from "./pages/Messenger";
-import ChatRecovery from "./pages/ChatRecovery";
 import StructurePage from "./pages/StructurePage";
 import MembershipPage from "./pages/MembershipPage";
 import Contributors from "./pages/Contributors";
@@ -37,8 +36,6 @@ const router = createBrowserRouter([
   // Email-first contributor access has its own authenticated API, separate from membership-gated research.
   {path:"/admin/contributors",element:<ContributorEntry/>},
   {path:"/contributors/apply",element:<ContributorEntry apply/>},
-  // Local wallet-owned recovery grants no access to member pages or messaging.
-  { path: "/chat-recovery", element: <ChatRecovery /> },
   {
     path: "/",
     element: <Layout />,

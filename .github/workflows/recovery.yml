@@ -1,4 +1,4 @@
-name: Messenger recovery checks
+name: Membership and messenger checks
 on:
   pull_request:
   push:
@@ -19,7 +19,6 @@ jobs:
       - run: yarn test:dependency-audit
       - run: yarn test:membership-unit
       - run: yarn test:push-unit
-      - run: yarn test:recovery-unit
       - run: node --test scripts/roles-feed.test.mjs
       - run: yarn build
       - run: node --test scripts/ens-profile.test.mjs
@@ -27,7 +26,6 @@ jobs:
       - run: npm run test:contributors
       - run: npm run test:contributors-browser
       - run: node scripts/ens-profile-browser.mjs
-      - run: yarn test:recovery-browser
       - run: yarn test:membership-browser
       - run: yarn test:app-recovery
       - run: yarn test:push-browser

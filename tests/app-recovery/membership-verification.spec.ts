@@ -2,15 +2,13 @@ import {test,expect,type Page} from '@playwright/test';
 import {setup} from './membership-fixture';
 const member = (page: Page) => page.getByRole('heading', { name: 'Members Chat', exact: true });
 for (const mode of ['failed', 'missing', 'expired', 'zero', 'transferred', 'loop'] as const) {
-  test(`membership denies ${mode} evidence and preserves recovery access`, async ({browser, baseURL}) => {
+  test(`membership denies ${mode} evidence`, async ({browser, baseURL}) => {
     const app = await setup(browser, baseURL!, mode);
     try {
       await expect(app.page.getByRole('heading', { name: /Membership verification unavailable|Your membership has expired|Join Bittrees Research/ })).toBeVisible({ timeout: 20000 });
       await expect(member(app.page)).toHaveCount(0);
       expect(app.stats().checks).toBeGreaterThan(0);
       if (mode !== 'loop') expect(app.stats().calls).toBeGreaterThan(0);
-      await app.page.getByRole('link', { name: 'Recover local data for Chat', exact: true }).click();
-      await expect(app.page.getByRole('button', { name: 'Review export', exact: true })).toBeEnabled();
     } finally { await app.close(); }
   });
 }

@@ -49,8 +49,6 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test:recovery-unit": "node --test tests/unit/chatRecoveryExport.node.ts",
-    "test:recovery-browser": "playwright test -c playwright.recovery.config.ts",
     "test:app-recovery": "playwright test -c playwright.app-recovery.config.ts",
     "postinstall": "node scripts/apply-dependency-patches.mjs",
     "prebuild": "node scripts/apply-dependency-patches.mjs",

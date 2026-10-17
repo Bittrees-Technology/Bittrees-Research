@@ -1,4 +1,4 @@
-import { Link, Outlet } from "react-router";
+import { Outlet } from "react-router";
 import { useAccount } from "wagmi";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
@@ -71,7 +71,6 @@ function FullScreenLoading() {
       <p style={{ fontSize: "0.875rem", color: "var(--color-ink-muted)" }}>
         Verifying membership&hellip;
       </p>
-      <Link to="/chat-recovery">Recover local data for Chat</Link>
     </div>
   );
 }
