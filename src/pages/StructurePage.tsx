@@ -25,7 +25,7 @@ export default function StructurePage() {
             const inner = (
               <>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <span className="text-label">{arm.here ? "You are here" : "Sister"}</span>
+                  <span className="text-label">{arm.here ? "You are here" : "Partner"}</span>
                   {arm.here && <span className="badge badge-member">Research</span>}
                 </div>
                 <h3 style={{ fontSize: "1.1rem", margin: "0.35rem 0 0.3rem" }}>{arm.name}</h3>
