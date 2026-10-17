@@ -1,3 +1,4 @@
+import { MembershipGift } from "@/components/membership/MembershipGift";
 import { MembershipRenew } from "@/components/membership/MembershipRenew";
 import { Link } from "react-router";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
@@ -131,6 +132,7 @@ export function MembershipGate() {
                 <h3>Mint a fresh membership</h3>
                 <p>Create a separate token with ETH at the current mint price. This does not extend an existing membership.</p>
                 <MembershipMint key={sessionRevision} mode="join" onMinted={refetch} />
+                <MembershipGift />
               </section>
             </>
           )}
