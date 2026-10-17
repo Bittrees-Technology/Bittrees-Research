@@ -25,6 +25,9 @@ test('legacy-only holdings never grant access or trigger legacy discovery',async
 test('new holders see only fresh minting; existing holders get a separate renewal flow',async({browser,baseURL})=>{
  const empty=await setup(browser,baseURL!,'empty',false,false,true);try{
   await expect(empty.page.getByRole('region',{name:'Mint a fresh membership'})).toBeVisible();
+  const fresh=empty.page.getByRole('region',{name:'Mint a fresh membership'});
+  await fresh.getByText('Gift a membership',{exact:true}).click();
+  await expect(fresh.getByLabel('Recipient wallet address')).toBeVisible();
   await expect(empty.page.getByRole('region',{name:'Renew or extend membership'})).toHaveCount(0);
  }finally{await empty.close();}
  const member=await setup(browser,baseURL!,'v2-valid',false,false,true);try{
