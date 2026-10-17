@@ -1,4 +1,4 @@
-import { encodeFunctionData, getAddress, isAddress, keccak256, parseAbi, toBytes, type Address, type PublicClient } from 'viem';
+import { decodeEventLog, decodeFunctionData, encodeFunctionData, getAddress, isAddress, keccak256, parseAbi, toBytes, type Address, type PublicClient } from 'viem';
 import deployment from './constants/research-deployment.json' with { type: 'json' };
 
 export const MEMBERSHIP = deployment.addresses.proxy as Address;
@@ -15,6 +15,8 @@ export const credentialManagementAbi = parseAbi([
   'function isCredentialValid(uint256) view returns(bool)', 'function burnedCredentials(uint256) view returns(bool)',
   'function issueCredential(address,uint256,bytes32,string,uint64) returns(uint256)',
   'function setCredentialRevoked(uint256,bool)',
+  'event CredentialIssued(uint256 indexed credentialId,address indexed member,uint256 indexed membershipTokenId,bytes32 credentialType,string metadataURI,uint64 validUntil,address administrator)',
+  'event CredentialRevocationUpdated(uint256 indexed credentialId,bool revoked,address indexed administrator)',
 ]);
 const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 const assert = (ok: unknown, message = 'Research contract verification unavailable.') => { if (!ok) throw Error(message); };
@@ -99,4 +101,22 @@ export async function prepareCredential(client:PublicClient,action:CredentialAct
 }
 export function safeCredentialBatch(plan:CredentialPlan) {
   return {version:'1.0',chainId:'1',createdAt:plan.checkedAt,meta:{name:plan.summary,description:'Research membership credential. Roles derives eligibility only after on-chain confirmation and current verification.',txBuilderVersion:'1.18.0',createdFromSafeAddress:plan.authority},transactions:[{to:plan.to,value:'0',data:plan.data}]};
+}
+
+/** A Safe may emit ExecutionFailure while its outer transaction still succeeds. */
+export function credentialReceiptMatches(plan:CredentialPlan,receipt:{status:string;logs:readonly {address:string;data:`0x${string}`;topics:readonly `0x${string}`[]}[]}) {
+ if(receipt.status!=='success')return false;
+ const call=decodeFunctionData({abi:credentialManagementAbi,data:plan.data});
+ return receipt.logs.some(log=>{
+  if(!same(log.address,CREDENTIALS))return false;
+  try{
+   const event=decodeEventLog({abi:credentialManagementAbi,data:log.data,topics:log.topics as [`0x${string}`,...`0x${string}`[]]});
+   if(call.functionName==='issueCredential'&&event.eventName==='CredentialIssued'){
+    const [member,parent,type,uri,expiry]=call.args;const e=event.args;
+    return same(e.administrator,plan.authority)&&same(e.member,member)&&e.membershipTokenId===parent&&e.credentialType===type&&e.metadataURI===uri&&e.validUntil===expiry;
+   }
+   if(call.functionName==='setCredentialRevoked'&&event.eventName==='CredentialRevocationUpdated')return event.args.credentialId===call.args[0]&&event.args.revoked===call.args[1]&&same(event.args.administrator,plan.authority);
+  }catch{return false;}
+  return false;
+ });
 }

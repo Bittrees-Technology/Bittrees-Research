@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {decodeFunctionData} from 'viem';
-import {credentialCall,credentialManagementAbi,RESEARCHER_TYPE,CREDENTIALS,AUTHORITIES,safeCredentialBatch,prepareCredential} from '../src/lib/researchCredentialManagement.ts';
+import {decodeFunctionData,encodeEventTopics,encodeAbiParameters,parseAbiParameters} from 'viem';
+import {credentialCall,credentialManagementAbi,RESEARCHER_TYPE,CREDENTIALS,AUTHORITIES,safeCredentialBatch,prepareCredential,credentialReceiptMatches} from '../src/lib/researchCredentialManagement.ts';
 const member='0x1111111111111111111111111111111111111111';
 const input={kind:'issue',member,parentId:'7',metadataURI:'https://research.bittrees.org/credentials/researcher',validUntil:''};
 test('issuance encodes only the approved Researcher type and selected parent',()=>{
@@ -27,4 +27,20 @@ test('preparation rejects an unauthorized authority before any chain or wallet a
 test('wrong chain or unavailable chain cannot produce a transaction plan',async()=>{
  await assert.rejects(prepareCredential({getChainId:async()=>8453},input,AUTHORITIES[0]),/verification unavailable/);
  await assert.rejects(prepareCredential({getChainId:async()=>{throw Error('unavailable');}},input,AUTHORITIES[0]));
+});
+
+test('Safe success alone cannot confirm a credential operation',()=>{
+ const plan={to:CREDENTIALS,data:credentialCall({kind:'revoke',member,credentialId:'9'}).data,authority:AUTHORITIES[0]};
+ const event={address:CREDENTIALS,data:encodeAbiParameters(parseAbiParameters('bool'),[true]),topics:encodeEventTopics({abi:credentialManagementAbi,eventName:'CredentialRevocationUpdated',args:{credentialId:9n,administrator:AUTHORITIES[0]}})};
+ assert.equal(credentialReceiptMatches(plan,{status:'success',logs:[]}),false);
+ assert.equal(credentialReceiptMatches(plan,{status:'reverted',logs:[event]}),false);
+ assert.equal(credentialReceiptMatches(plan,{status:'success',logs:[{...event,address:member}]}),false);
+ assert.equal(credentialReceiptMatches(plan,{status:'success',logs:[event]}),true);
+});
+test('issuance confirmation binds the exact member, parent, type, metadata and Safe',()=>{
+ const plan={to:CREDENTIALS,data:credentialCall(input).data,authority:AUTHORITIES[0]};
+ const event={address:CREDENTIALS,data:encodeAbiParameters(parseAbiParameters('bytes32,string,uint64,address'),[RESEARCHER_TYPE,input.metadataURI,0n,AUTHORITIES[0]]),topics:encodeEventTopics({abi:credentialManagementAbi,eventName:'CredentialIssued',args:{credentialId:10n,member,membershipTokenId:7n}})};
+ assert.equal(credentialReceiptMatches(plan,{status:'success',logs:[event]}),true);
+ assert.equal(credentialReceiptMatches({...plan,data:credentialCall({...input,parentId:'8'}).data},{status:'success',logs:[event]}),false);
+ assert.equal(credentialReceiptMatches({...plan,authority:AUTHORITIES[1]},{status:'success',logs:[event]}),false);
 });

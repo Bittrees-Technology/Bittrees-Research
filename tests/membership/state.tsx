@@ -8,6 +8,7 @@ const listeners = new Set<() => void>();
 const set = (update: Partial<typeof state>) => { state = {...state, ...update, version: state.version + 1}; receipts.observe(); listeners.forEach(fn => fn()); };
 (window as any).__membershipFixture = (change: string) => {
   if (change === 'active-v2') set({tokens:[{tokenId:'7',version:'v2',expiresAt:1793448000,isExpired:false}]});
+  if (change === 'safe') set({address:'0x2F8f86e6E1Ff118861BEB7E583DE90f0449A264f',revision:state.revision+1});
   if (change === 'v2') set({tokens:[{tokenId:'7',version:'v2',expiresAt:1,isExpired:true}]});
   if (change === 'receipt' || change === 'late_receipt') set({receipt:'success'});
   if (['reverted','cancelled','repriced'].includes(change)) set({receipt:change});
@@ -47,7 +48,7 @@ export function useMembershipStatus() {
 export function usePublicClient(){return {
  readContract:async()=>0n,
  simulateContract:async(request:any)=>({request}),
- waitForTransactionReceipt:async()=>({status:'success'}),
+ waitForTransactionReceipt:async()=>({status:'success',logs:[]}),
 };}
 
-export function useSendTransaction(){return {sendTransactionAsync:async()=>{throw Error('Synthetic signer cannot execute a Safe transaction');}};}
+export function useSendTransaction(){return {sendTransactionAsync:async()=>{if(state.address==='0x2F8f86e6E1Ff118861BEB7E583DE90f0449A264f')return hash;throw Error('Synthetic signer cannot execute a Safe transaction');}};}

@@ -24,3 +24,11 @@ test('existing credential revocation prepares the existing ID and exposes Roles 
  await expect(page.getByRole('region',{name:'Prepared credential transaction'})).toContainText('Revoke Researcher credential #9');
  await expect(page.getByRole('link',{name:'Manage and verify roles in Roles ↗'})).toHaveAttribute('href','https://roles.bittrees.org/role-management?project=research');
 });
+
+test('an outer Safe receipt without the credential event is not shown as completion',async({page})=>{
+ await form(page);await page.evaluate(()=>(window as any).__membershipFixture('safe'));
+ await page.getByRole('button',{name:'Prepare credential issuance'}).click();
+ await page.getByRole('button',{name:'Submit with connected Safe'}).click();
+ await expect(page.getByRole('status')).toContainText('Execution was not confirmed');
+ await expect(page.getByText(/Transaction confirmed. Current chain/)).toHaveCount(0);
+});

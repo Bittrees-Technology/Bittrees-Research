@@ -3,7 +3,7 @@ import {useQuery,useQueryClient} from '@tanstack/react-query';
 import {useAccount,useChainId,usePublicClient,useSendTransaction} from 'wagmi';
 import {isAddress,type Address} from 'viem';
 import {useMembershipStatus} from '@/hooks/membership/useMembershipStatus';
-import {AUTHORITIES,prepareCredential,readManagedCredentials,safeCredentialBatch,type CredentialAction,type CredentialPlan} from '@/lib/researchCredentialManagement';
+import {AUTHORITIES,credentialReceiptMatches,prepareCredential,readManagedCredentials,safeCredentialBatch,type CredentialAction,type CredentialPlan} from '@/lib/researchCredentialManagement';
 
 /** Preparing a call grants nothing. Only the authorized Safe can execute it. */
 export function ResearchCredentialRoles() {
@@ -31,8 +31,8 @@ export function ResearchCredentialRoles() {
    if(fresh.data!==plan.data)throw Error('Transaction changed');
    const tx=await sendTransactionAsync({to:fresh.to,data:fresh.data,value:0n,chainId:1});if(current.current!==captured)return;
    setHash(tx);setMessage('Waiting for the Safe transaction to confirm.');
-   const receipt=await client.waitForTransactionReceipt({hash:tx});if(current.current!==captured)return;
-   if(receipt.status!=='success')throw Error('Transaction reverted');
+   const receipt=await client.waitForTransactionReceipt({hash:tx,timeout:120000});if(current.current!==captured)return;
+   if(!credentialReceiptMatches(fresh,receipt))throw Error('Credential execution was not confirmed');
    setPlan(null);setAction(null);await query.refetch();
    await Promise.all([qc.invalidateQueries({queryKey:['controller-authority']}),qc.invalidateQueries({queryKey:['community']}),qc.invalidateQueries({queryKey:['research-credentials']})]);
    setMessage('Transaction confirmed. Current chain records refreshed below. Open Roles and refresh its credential-derived assignments to verify effective access.');
