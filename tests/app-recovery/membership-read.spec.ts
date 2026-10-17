@@ -13,7 +13,8 @@ test('retired recovery URL has no tool or navigation link',async({browser,baseUR
  const app=await setup(browser,baseURL!,'empty');try{
   await expect(app.page.getByRole('heading',{name:'Join Bittrees Research',exact:true})).toBeVisible();
   await expect(app.page.getByRole('link',{name:'Recover local data for Chat'})).toHaveCount(0);
-  await expect(app.page.getByRole('link',{name:'Apply as a contributor'})).toBeVisible();
+  await expect(app.page.getByRole('link',{name:'Apply as a contributor'})).toHaveCount(0);
+  await expect(app.page.getByText('Contributor applications open after your membership is active.')).toBeVisible();
   await app.page.goto('/chat-recovery');
   await expect(app.page.getByRole('heading',{name:'Join Bittrees Research',exact:true})).toBeVisible();
   await expect(app.page.getByRole('button',{name:'Review export'})).toHaveCount(0);
