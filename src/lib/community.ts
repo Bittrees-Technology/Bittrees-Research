@@ -55,8 +55,8 @@ export function useRoles(): { data: RolesMap | undefined } {
 export function useUserRoles(address?: string): Role[] {
   const { data } = useRoles();
   const shared=useAuthorityAccess(address);
-  if (!address || shared.isError) return [];
-  if(shared.data?.configured)return shared.data.roles||[];
+  if (!address || shared.isError || !shared.data) return [];
+  if(shared.data.configured)return Number.isFinite(shared.data.expiresAt) && shared.data.expiresAt! > Date.now() ? shared.data.roles||[] : [];
   return data?.[address.toLowerCase()] ?? [];
 }
 
