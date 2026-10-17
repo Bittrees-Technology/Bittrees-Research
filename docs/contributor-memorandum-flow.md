@@ -24,7 +24,7 @@ Publishing a reviewer public encryption key is a separate optional control for f
 
 ## Research application eligibility
 
-`/contribute` is the only application form. `/contributors/apply` redirects there; it no longer bypasses the shared membership gate. All five requested roles are offered: Researcher, Contributor, Assistant, Steward, and Executive.
+`/contribute` is the only application form. `/contributors/apply` redirects there; both URLs use the same current-membership check. The guarded form stays mounted during the wallet network switch so input and submission feedback are retained. All five requested roles are offered: Researcher, Contributor, Assistant, Steward, and Executive.
 
 The form requires an active membership in the current Ethereum Research contract and performs a fresh server check before submission. The server also checks the verified Base attester's current membership before either applicant or reviewer import. Expired, revoked, burned, blocked and legacy-only memberships do not qualify; unavailable chain evidence stops admission. Existing saved applications and memoranda remain accessible through verified wallet sign-in.
 

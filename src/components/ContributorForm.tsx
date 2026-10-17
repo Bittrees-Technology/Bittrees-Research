@@ -122,7 +122,7 @@ export function ContributorForm() {
   return (
     <div className="contributor-application">
       <header style={{ borderBottom: "1px solid var(--color-border)", paddingBottom: "1.25rem", marginBottom: "1.5rem" }}>
-        <p><Link to="/admin/contributors">View my application and memorandum</Link></p>
+        <p><Link to="/">Research home</Link> · <Link to="/admin/contributors">View my application and memorandum</Link></p>
         <h2 className="text-display" style={{ fontSize: "1.6rem", margin: "0.3rem 0 0.5rem" }}>Apply to contribute</h2>
         <p style={{ fontFamily: "var(--font-sans)", fontSize: "0.9375rem", color: "var(--color-ink-muted)", lineHeight: 1.6, margin: 0 }}>
           An active Research membership on Ethereum is required to apply. Use that wallet to submit your application on Base; your answers are encrypted for you and the designated reviewers.

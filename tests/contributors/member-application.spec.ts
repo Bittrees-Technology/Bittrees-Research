@@ -14,12 +14,16 @@ for(const state of ['valid','expired','v2-revoked','v2-blocked','legacy-only','u
    await page.getByRole('textbox',{name:'What would you like to contribute? *',exact:true}).fill('Research strategy');
    await page.getByRole('button',{name:'EMEA',exact:true}).click();
    await page.getByRole('textbox',{name:'How did you learn about Bittrees Research? *',exact:true}).fill('Website');
+   await page.evaluate(()=>(window as any).__membershipChange('chain'));
+   await expect(page.getByRole('textbox',{name:'Name or handle *',exact:true})).toHaveValue('Executive applicant');
+   await expect(page.getByRole('button',{name:'Executive',exact:true})).toHaveAttribute('aria-pressed','true');
    await page.route('**/api/gate/token/**',r=>r.fulfill({status:403,json:{access:false}}));
    await page.getByRole('button',{name:'Submit application',exact:true}).click();
    await expect(page.getByRole('alert')).toContainText('An active Research membership is required');
    expect(f.stats().writes).toEqual([]);
   }else{
-   await expect(page.getByText('Members only',{exact:true})).toBeVisible();
+   await expect(page.getByRole('heading',{name:'Your contribution',exact:true})).toHaveCount(0);
+   await expect(page.getByRole('link',{name:'Manage membership',exact:true})).toBeVisible();
    await expect(page.getByRole('button',{name:'Submit application',exact:true})).toHaveCount(0);
   }
  }finally{await f.close();}
