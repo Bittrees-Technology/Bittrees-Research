@@ -218,7 +218,7 @@ async function evalRule(rule, user, roles) {
   return false;
 }
 
-export function createGateHandler({sharedAccess=ecosystemAccess}={}){return async function handler(req, res) {
+export function createGateHandler({sharedAccess=ecosystemAccess,membershipBalance=(token,user)=>researchMembershipBalance(client,token,user)}={}){return async function handler(req, res) {
   res.setHeader("access-control-allow-origin", "*");
   res.setHeader("cache-control", "no-store");
   try {
@@ -280,8 +280,13 @@ export function createGateHandler({sharedAccess=ecosystemAccess}={}){return asyn
       }
       let minBig;
       try { minBig = BigInt(min); } catch { minBig = 1n; }
-      const bal = await tokenBalance(getAddress(tokenRaw), getAddress(userRaw));
-      const ok = bal >= minBig;
+      const isMembership = [MEMBERSHIP,LEGACY].includes(tokenRaw.toLowerCase());
+      let bal;
+      try { bal = isMembership
+        ? await membershipBalance(getAddress(tokenRaw),getAddress(userRaw))
+        : await tokenBalance(getAddress(tokenRaw),getAddress(userRaw));
+      } catch { return res.status(503).json({error:"Membership verification unavailable"}); }
+      const ok = (!isMembership || minBig > 0n) && bal >= minBig;
       res.status(ok ? 200 : 403).json({ access: ok, balance: bal.toString(), min });
       return;
     }
