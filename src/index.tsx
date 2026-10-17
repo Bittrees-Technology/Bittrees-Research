@@ -30,18 +30,19 @@ import { MintBITPage } from "./pages/membersPages/MintBITPage.tsx";
 import VisionStatementPage from "./pages/VisionStatementPage.tsx";
 import CodeOfEthicsPage from "./pages/CodeOfEthicsPage.tsx";
 
-const ContributorEntry=({apply=false}:{apply?:boolean})=><main style={{maxWidth:1140,margin:"0 auto",padding:"32px 24px"}}><Contributors apply={apply}/></main>;
+const ContributorEntry=()=> <main style={{maxWidth:1140,margin:"0 auto",padding:"32px 24px"}}><Contributors/></main>;
 
 const router = createBrowserRouter([
-  // Email-first contributor access has its own authenticated API, separate from membership-gated research.
+  // Existing application records retain wallet-authenticated access. New applications require membership.
   {path:"/admin/contributors",element:<ContributorEntry/>},
-  {path:"/contributors/apply",element:<ContributorEntry apply/>},
+  {path:"/contributors/apply",element:<Navigate to="/contribute" replace/>},
+  // Keep the guarded form mounted during its Ethereum-to-Base wallet switch.
+  {path:ROUTES.contribute,element:<main style={{maxWidth:1140,margin:"0 auto",padding:"32px 24px"}}><Contribute/></main>},
   {
     path: "/",
     element: <Layout />,
     children: [
       { index: true, element: <Home /> },
-      { path: ROUTES.contribute.slice(1), element: <Contribute /> },
       { path: "research", element: <ResearchPage /> },
       { path: "research/:slug", element: <PostPage /> },
       { path: "forum", element: <Forum /> },

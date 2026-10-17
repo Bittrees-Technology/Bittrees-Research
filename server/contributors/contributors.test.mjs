@@ -202,3 +202,14 @@ test('new applications can be decided in one step while Associate recommendation
  const recommended=core.transition(initial,{...partner,id:'associate',decide:[],issue:false},app.id,change);assert.equal(recommended.applications[0].state,'pending_authority');
  assert.throws(()=>core.transition(initial,applicant,app.id,change),/Reviewer permission/);
 });
+
+test('Research applicant and reviewer import paths require the applicant membership; Executive requests grant nothing',async()=>{
+ for(const action of ['import_base','import_base_review']){
+  const mem=memory(),owner='0x'+'4'.repeat(40),staff='0x'+'3'.repeat(40),uid='0x'+'5'.repeat(64);let allowed=false,checked=[];
+  const handler=createContributorHandler('research',{env:{CONTRIBUTORS_ENABLED:'1',CONTRIBUTOR_IDENTITY_SECRET:secret,CONTRIBUTOR_STORAGE_SECRET:secret},command:mem.command,verifyWallet:async()=>true,actorFor:async s=>({...applicant,id:s.identity,wallet:s.wallet,review:action==='import_base_review'?['research']:[],authorityExpiresAt:Date.now()+10000}),baseReader:async()=>({application:{...interest,email:'',requestedRoles:['Executive'],wallet:owner},source:{uid,attester:owner,chainId:8453}}),membershipCheck:async wallet=>{checked.push(wallet);if(allowed==='outage')throw Object.assign(Error('Membership verification unavailable'),{status:503});if(!allowed)throw Object.assign(Error('Active membership required'),{status:403});}});
+  const request=(body={},headers={})=>req(body,{...headers,origin:'https://research.bittrees.org'});
+  let r=response();await handler(request({action:'wallet_login_start',address:action==='import_base'?owner:staff}),r);const challenge=r.body.challenge,binding=r.headers['Set-Cookie'].split(';')[0];r=response();await handler(request({action:'wallet_login_finish',challenge,signature:'valid'},{cookie:binding}),r);const cookie=r.headers['Set-Cookie'][0].split(';')[0];r=response();await handler({...request({}, {cookie}),method:'GET'},r);const headers={cookie,'x-contributor-csrf':r.body.session.csrf};
+  for(const state of [false,'outage',true]){allowed=state;r=response();await handler(request({action,uid,contentKey:'6'.repeat(64)},headers),r);assert.equal(r.code,state===true?200:state==='outage'?503:403,JSON.stringify(r.body));}
+  assert.deepEqual(checked,[owner,owner,owner]);assert.deepEqual(r.body.applications[0].requestedRoles,['Executive']);assert.equal(r.body.applications[0].credential,null);assert.equal(r.body.applications[0].capabilityGrant,null);
+ }
+});
