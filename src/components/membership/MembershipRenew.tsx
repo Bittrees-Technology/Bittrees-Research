@@ -17,7 +17,7 @@ export function MembershipRenew() {
   const duration=Number(days); const valid=/^\d+$/.test(days)&&Number.isSafeInteger(duration)&&duration>0&&duration<=3650;
   const { data: rate, refetch: refreshRate } = useReadContract({ address:membership,abi:membershipAbi as Abi,functionName:'bitPricePerDay',chainId:1,query:{refetchInterval:15000} });
   const cost=typeof rate==='bigint'&&valid?rate*BigInt(duration):undefined;
-  if(!eligible.length)return <p>BIT renewal is available for new memberships. Legacy holders can mint a new membership below; existing credentials do not move between tokens.</p>;
+  if(!eligible.length)return <p>Mint a current Research membership below to use BIT renewals. Previous membership tokens no longer grant access; credentials do not move between tokens.</p>;
   async function renew(){
     if(!client||!address||!tokenId||cost===undefined||busy)return;
     const captured=scope;const max=cost;const check=()=>{if(current.current!==captured)throw Error('Wallet session changed. Review your transactions before continuing.');};

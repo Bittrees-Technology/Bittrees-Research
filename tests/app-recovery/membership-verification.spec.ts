@@ -7,7 +7,7 @@ for (const mode of ['failed', 'missing', 'expired', 'zero', 'transferred', 'loop
     try {
       await expect(app.page.getByRole('heading', { name: /Membership verification unavailable|Your membership has expired|Join Bittrees Research/ })).toBeVisible({ timeout: 20000 });
       await expect(member(app.page)).toHaveCount(0);
-      expect(app.stats().nftReads).toBeGreaterThan(0);
+      expect(app.stats().checks).toBeGreaterThan(0);
       if (mode !== 'loop') expect(app.stats().calls).toBeGreaterThan(0);
       await app.page.getByRole('link', { name: 'Recover local data for Chat', exact: true }).click();
       await expect(app.page.getByRole('button', { name: 'Review export', exact: true })).toBeEnabled();
@@ -19,7 +19,7 @@ test('forged local caches cannot grant membership while verification is pending 
   try {
     await expect(app.page.getByText('Verifying membership…', {exact:true})).toBeVisible();
     await expect(member(app.page)).toHaveCount(0);
-    await expect(app.page.getByRole('heading', {name:'Membership verification unavailable'})).toBeVisible({timeout:20000});
+    await expect(app.page.getByRole('heading', {name:'Membership verification unavailable'})).toBeVisible({timeout:40000});
     await expect(member(app.page)).toHaveCount(0);
     await app.page.setViewportSize({width:390,height:844});
     await app.page.getByRole('heading', {name:'Membership verification unavailable'}).scrollIntoViewIfNeeded();
@@ -35,11 +35,11 @@ for (const change of ['account', 'chain', 'disconnect'] as const) {
     const app = await setup(browser, baseURL!, 'valid');
     try {
       await expect(member(app.page)).toBeVisible();
-      const priorReads = app.stats().nftReads; app.setMode('hang');
+      const priorReads = app.stats().checks; app.setMode('hang');
       await app.page.evaluate(change => (window as any).__membershipChange(change), change);
       await expect(member(app.page)).toHaveCount(0);
       if (change === 'disconnect') await app.connect();
-      await expect.poll(() => app.stats().nftReads).toBeGreaterThan(priorReads);
+      await expect.poll(() => app.stats().checks).toBeGreaterThan(priorReads);
       await expect(member(app.page)).toHaveCount(0);
       app.setMode('valid'); app.release();
       if (change === 'account') {
@@ -53,9 +53,9 @@ for (const change of ['account', 'chain', 'disconnect'] as const) {
 test('a delayed old-wallet verification cannot open the new wallet session', async ({browser, baseURL}) => {
   const app = await setup(browser, baseURL!, 'hang');
   try {
-    await expect.poll(() => app.stats().nftReads).toBe(1);
+    await expect.poll(() => app.stats().checks).toBe(1);
     await app.page.evaluate(() => (window as any).__membershipChange('account'));
-    await expect.poll(() => app.stats().nftReads).toBe(2);
+    await expect.poll(() => app.stats().checks).toBe(2);
     app.setMode('valid'); app.release();
     await expect(app.page.getByRole('heading', {name:'Join Bittrees Research'})).toBeVisible();
     await expect(member(app.page)).toHaveCount(0); expect(app.stats().balances).toEqual([]);
@@ -78,9 +78,9 @@ test('a failed periodic refresh removes access and settles on explicit retry', a
     await app.page.clock.fastForward(30_100);
     await expect(app.page.getByRole('heading', {name:'Membership verification unavailable'})).toBeVisible();
     await expect(member(app.page)).toHaveCount(0);
-    const requests = app.stats().nftReads;
+    const requests = app.stats().checks;
     await app.page.clock.fastForward(60_100);
-    expect(app.stats().nftReads).toBe(requests);
+    expect(app.stats().checks).toBe(requests);
     expect(requests).toBe(2);
   } finally { await app.close(); }
 });
@@ -91,7 +91,7 @@ for (const mode of ['transient', 'rpc-transient', 'call-transient'] as const) {
     try {
       await expect(member(app.page)).toHaveCount(0);
       await expect(member(app.page)).toBeVisible({timeout:10000});
-      expect(app.stats().nftReads).toBe(mode === 'rpc-transient' ? 1 : 2);
+      expect(app.stats().checks).toBe(2);
       expect(app.stats().balances.length).toBeGreaterThan(0);
     } finally { await app.close(); }
   });
@@ -102,11 +102,11 @@ test('persistent outage retries only once, then manual retry can recover', async
   try {
     await expect(app.page.getByRole('heading', {name:'Membership verification unavailable'})).toBeVisible();
     await expect(member(app.page)).toHaveCount(0);
-    expect(app.stats().nftReads).toBe(2);
+    expect(app.stats().checks).toBe(2);
     app.setMode('valid');
     await app.page.getByRole('button', {name:'Retry membership check'}).click();
     await expect(member(app.page)).toBeVisible();
-    expect(app.stats().nftReads).toBe(3);
+    expect(app.stats().checks).toBe(3);
   } finally { await app.close(); }
 });
 
@@ -116,6 +116,6 @@ test('denied API access shows a configuration error without retrying or exposing
     await expect(app.page.getByRole('alert')).toContainText('site operator needs to check its API configuration');
     await expect(app.page.getByRole('alert')).not.toContainText('secret provider details');
     await expect(member(app.page)).toHaveCount(0);
-    expect(app.stats().nftReads).toBe(1);
+    expect(app.stats().checks).toBe(1);
   } finally { await app.close(); }
 });

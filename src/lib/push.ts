@@ -17,7 +17,7 @@ import type { Address } from "viem";
  */
 
 // Research's on-chain gates (Ethereum mainnet).
-const MEMBERSHIP_TOKEN = "0xc8121e650bd797d8b9dad00227a9a77ef603a84a" as Address;
+const MEMBERSHIP_TOKEN = "0xcecd807193cf79b59e9c849b9cccba10dd6f8335" as Address;
 const BNOTE_TOKEN = "0xf1AAfFc982B5F553a730a9eC134715a547f1fe80" as Address;
 const BIT_TOKEN = "0x57A447E4d5e18A9423408C365963A73F08B9d18C" as Address;
 

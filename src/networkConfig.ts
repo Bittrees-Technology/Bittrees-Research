@@ -12,8 +12,7 @@ export const getChainConfig = (enableTestnets: boolean) => {
 
 // Membership contract addresses by network
 export const MEMBERSHIP_CONTRACTS = {
-    [mainnet.id]: "0xc8121e650bd797d8b9dad00227a9a77ef603a84a",
-    [sepolia.id]: "0xc8121e650bd797d8b9dad00227a9a77ef603a84a", // Update when deployed
+    [mainnet.id]: "0xcecd807193cf79b59e9c849b9cccba10dd6f8335",
 } as const;
 
 // Determine which network to check for membership based on current network

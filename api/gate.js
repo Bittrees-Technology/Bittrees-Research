@@ -170,7 +170,7 @@ async function ensResolve(name) {
 }
 
 /** Evaluate a single access rule for `user` (checksummed). `roles` = the registry map. */
-async function evalRule(rule, user, roles) {
+async function evalRule(rule, user, roles, membershipBalance) {
   const u = user.toLowerCase();
   try {
     if (rule.kind === "role") return hasAssignedRole(roles || {}, u, rule.role);
@@ -183,11 +183,12 @@ async function evalRule(rule, user, roles) {
     if (rule.kind === "token") {
       if (!isAddr(rule.token)) return false;
       const token = getAddress(rule.token);
+      if ([MEMBERSHIP,LEGACY].includes(token.toLowerCase()) && rule.standard !== "erc1155") return false;
       if (rule.standard === "erc1155") {
         let min; try { min = BigInt(rule.min || "1"); } catch { min = 1n; }
         if ([MEMBERSHIP,LEGACY].includes(token.toLowerCase())) {
           const id=rule.tokenId === undefined || rule.tokenId === "" ? undefined : BigInt(rule.tokenId);
-          return min > 0n && (await researchMembershipBalance(client,token,user,id)) >= min;
+          return min > 0n && (await membershipBalance(token,user,id)) >= min;
         }
         if (rule.tokenId === undefined || rule.tokenId === "") {
           return (await tokenBalance1155Any(token, user)) >= min; // any token id
@@ -218,7 +219,7 @@ async function evalRule(rule, user, roles) {
   return false;
 }
 
-export function createGateHandler({sharedAccess=ecosystemAccess,membershipBalance=(token,user)=>researchMembershipBalance(client,token,user)}={}){return async function handler(req, res) {
+export function createGateHandler({sharedAccess=ecosystemAccess,membershipBalance=(token,user,id)=>researchMembershipBalance(client,token,user,id)}={}){return async function handler(req, res) {
   res.setHeader("access-control-allow-origin", "*");
   res.setHeader("cache-control", "no-store");
   try {
@@ -263,7 +264,7 @@ export function createGateHandler({sharedAccess=ecosystemAccess,membershipBalanc
       if (rules.length === 0) { res.status(403).json({ access: false }); return; }
       // Load the roles registry once if any rule is role-gated.
       const roles = rules.some((r) => r?.kind === "role") ? await readRoles(user,sharedAccess,rules) : {};
-      const results = await Promise.all(rules.map((r) => evalRule(r, user, roles)));
+      const results = await Promise.all(rules.map((r) => evalRule(r, user, roles, membershipBalance)));
       const ok = combine === "all" ? results.every(Boolean) : results.some(Boolean);
       res.status(ok ? 200 : 403).json({ access: ok, combine, rules: rules.length });
       return;
@@ -281,6 +282,7 @@ export function createGateHandler({sharedAccess=ecosystemAccess,membershipBalanc
       let minBig;
       try { minBig = BigInt(min); } catch { minBig = 1n; }
       const isMembership = [MEMBERSHIP,LEGACY].includes(tokenRaw.toLowerCase());
+      if (isMembership && parts[gi + 2] !== 'erc1155') return res.status(403).json({access:false});
       let bal;
       try { bal = isMembership
         ? await membershipBalance(getAddress(tokenRaw),getAddress(userRaw))

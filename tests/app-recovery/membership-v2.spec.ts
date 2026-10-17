@@ -13,3 +13,11 @@ for(const mode of ['v2-revoked','v2-blocked'] as const)test(`${mode} denies acce
   await expect(app.page.getByRole('heading',{name:'Members Chat',exact:true})).toHaveCount(0);
  }finally{await app.close();}
 });
+
+test('legacy-only holdings never grant access or trigger legacy discovery',async({browser,baseURL})=>{
+ const app=await setup(browser,baseURL!,'legacy-only');try{
+  await expect(app.page.getByRole('heading',{name:'Join Bittrees Research',exact:true})).toBeVisible();
+  await expect(app.page.getByRole('heading',{name:'Members Chat',exact:true})).toHaveCount(0);
+  expect(app.stats().checks).toBeGreaterThan(0);expect(app.stats().nftReads).toBe(0);
+ }finally{await app.close();}
+});
