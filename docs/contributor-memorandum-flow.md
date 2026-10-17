@@ -21,3 +21,11 @@ The admin console's Contributor applications tab embeds this same workspace. It 
 Authorized reviewers can unlock a Base application addressed to their verified wallet and add it to the private review queue. The server verifies the finalized attestation, project, encryption recipient and decryption before importing. Applicant ownership is derived from the original attester, using the existing verified account when available; the reviewer is recorded as the importer, never as the applicant. Import is idempotent by attestation UID and does not approve, issue or link an unrelated wallet. The applicant retains acknowledgment authority. Existing unmapped-account conflicts require reconciliation instead of creating duplicate contributor identities.
 
 Publishing a reviewer public encryption key is a separate optional control for future applications. It preserves the existing application-access permission checks and cannot decrypt older ciphertext or confer contributor-review authority.
+
+## Research application eligibility
+
+`/contribute` is the only application form. `/contributors/apply` redirects there; it no longer bypasses the shared membership gate. All five requested roles are offered: Researcher, Contributor, Assistant, Steward, and Executive.
+
+The form requires an active membership in the current Ethereum Research contract and performs a fresh server check before submission. The server also checks the verified Base attester's current membership before either applicant or reviewer import. Expired, revoked, burned, blocked and legacy-only memberships do not qualify; unavailable chain evidence stops admission. Existing saved applications and memoranda remain accessible through verified wallet sign-in.
+
+Base EAS is public and cannot enforce Ethereum membership itself. External attestations can exist, but Research does not admit them without its membership check. Requested roles are application interests only. Acceptance neither mints credentials nor grants Roles permissions. Executive credentials remain issuable only by the primary authorities under the existing V3 contract; no contract or authority changes are made by this flow.

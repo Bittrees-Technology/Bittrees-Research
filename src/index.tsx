@@ -30,12 +30,12 @@ import { MintBITPage } from "./pages/membersPages/MintBITPage.tsx";
 import VisionStatementPage from "./pages/VisionStatementPage.tsx";
 import CodeOfEthicsPage from "./pages/CodeOfEthicsPage.tsx";
 
-const ContributorEntry=({apply=false}:{apply?:boolean})=><main style={{maxWidth:1140,margin:"0 auto",padding:"32px 24px"}}><Contributors apply={apply}/></main>;
+const ContributorEntry=()=> <main style={{maxWidth:1140,margin:"0 auto",padding:"32px 24px"}}><Contributors/></main>;
 
 const router = createBrowserRouter([
-  // Email-first contributor access has its own authenticated API, separate from membership-gated research.
+  // Existing application records retain wallet-authenticated access. New applications require membership.
   {path:"/admin/contributors",element:<ContributorEntry/>},
-  {path:"/contributors/apply",element:<ContributorEntry apply/>},
+  {path:"/contributors/apply",element:<Navigate to="/contribute" replace/>},
   {
     path: "/",
     element: <Layout />,

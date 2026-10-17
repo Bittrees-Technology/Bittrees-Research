@@ -1,3 +1,4 @@
+import {requireApplicantMembership} from './membership.mjs';
 import {readBaseApplication} from './base-application.mjs';
 import {createHash,createHmac,randomUUID} from 'node:crypto';
 import {chainContext,prepareConsent,acceptConsent,prepareExecution,reconcile,refreshCredential,expireBootstrap,verifyExpiredMemoConsent} from './chain.mjs';
@@ -8,7 +9,7 @@ import {contributorService} from './core.mjs';
 import {privateCodec,contributorStore} from './storage.mjs';
 import {contributorActor} from './authority.mjs';
 import {contributorAuth} from './auth.mjs';
-export function createContributorHandler(project,{env=process.env,command=redisCommand,actorFor=contributorActor,verifyWallet,send,baseReader=readBaseApplication}={}){
+export function createContributorHandler(project,{env=process.env,command=redisCommand,actorFor=contributorActor,verifyWallet,send,baseReader=readBaseApplication,membershipCheck=requireApplicantMembership}={}){
  const origin=`https://${project==='gov'?'gov':'research'}.bittrees.org`;
  return async(req,res)=>{
  res.setHeader('Cache-Control','no-store');res.setHeader('Referrer-Policy','no-referrer');res.setHeader('X-Content-Type-Options','nosniff');
@@ -59,6 +60,7 @@ export function createContributorHandler(project,{env=process.env,command=redisC
    if(!actor.review.includes(lane)||!session.wallet) return res.status(403).json({error:'A verified contributor reviewer wallet is required.'});
    const verified=await baseReader(project,session,body,undefined,{reviewer:true});
    const wallet=verified.source.attester.toLowerCase();
+   if(project==='research')await membershipCheck(wallet,{env});
    const next=await store.mutate(async s=>{
     if(actor.authorityExpiresAt<=Date.now())throw Object.assign(Error('Authority expired. Retry.'),{status:503});
     const linked=s.applications.find(a=>a.wallet===wallet&&a.walletVerification==='verified');
@@ -69,6 +71,7 @@ export function createContributorHandler(project,{env=process.env,command=redisC
   }
   if(body.action==='import_base'){
    const verified=await baseReader(project,session,body);
+   if(project==='research')await membershipCheck(verified.source.attester,{env});
    const next=await store.mutate(async s=>{if(actor.authorityExpiresAt<=Date.now())throw Object.assign(Error('Authority expired. Retry.'),{status:503});return service.importBase(s,actor,project,verified);});
    return res.status(200).json(service.view(next,actor,project));
   }

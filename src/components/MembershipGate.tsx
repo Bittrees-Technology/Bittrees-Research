@@ -1,6 +1,5 @@
 import { MembershipGift } from "@/components/membership/MembershipGift";
 import { MembershipRenew } from "@/components/membership/MembershipRenew";
-import { Link } from "react-router";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useAccount } from "wagmi";
 import { BittreesMark } from "@/components/Brand";
@@ -137,7 +136,7 @@ export function MembershipGate() {
             </>
           )}
         </div>
-        <p style={{ marginTop: "1.5rem" }}><Link to="/contributors/apply">Apply as a contributor</Link>
+        <p style={{ marginTop: "1.5rem" }}><span>Contributor applications open after your membership is active.</span>
         </p>
       </main>
 

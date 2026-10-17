@@ -1,11 +1,13 @@
 import {RESEARCH_ROLE_NAMES} from '../../shared/research-role-credentials.mjs';
 import {Link} from 'react-router';
 import '../pages/contributor-application.css';
+import {useMembershipStatus} from "@/hooks/membership/useMembershipStatus";
+import {verifyContributorMembership} from "@/lib/contributorMembership";
 import { useState } from "react";
 import { useAccount, useChainId, useSwitchChain, useWalletClient } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { base } from "viem/chains";
-import { getWalletClient } from "@wagmi/core";
+import { getAccount, getWalletClient } from "@wagmi/core";
 import { wagmiConfig } from "@/lib/wagmi";
 import { publishPost, CONTRIB_COMMUNITY, useSchemaRegistered } from "@/lib/forum";
 import { fetchCommunity, currentReviewers } from "@/lib/community";
@@ -36,6 +38,7 @@ function humanError(e: unknown): string {
 
 export function ContributorForm() {
   const { address, isConnected } = useAccount();
+  const membership = useMembershipStatus();
   const chainId = useChainId();
   const { switchChainAsync } = useSwitchChain();
   const { data: walletClient } = useWalletClient();
@@ -56,6 +59,7 @@ export function ContributorForm() {
   const [txHash, setTxHash] = useState<Hash>();
 
   const canSubmit =
+    membership.hasValidMembership && !membership.error &&
     name.trim().length > 0 &&
     roles.length > 0 &&
     specialty.trim().length > 0 &&
@@ -67,11 +71,16 @@ export function ContributorForm() {
     setStatus("posting");
     setError(undefined);
     try {
+      const connector = getAccount(wagmiConfig).connector?.uid;
+      const checkWallet = (requireBase=false) => { const a=getAccount(wagmiConfig); if(a.status!=="connected"||a.address?.toLowerCase()!==address.toLowerCase()||a.connector?.uid!==connector||(requireBase&&a.chainId!==base.id))throw Error("Wallet changed. Return to the application and try again."); };
+      await verifyContributorMembership(address);
+      checkWallet();
       let wc = walletClient;
       if (chainId !== base.id) {
         await switchChainAsync({ chainId: base.id });
-        wc = (await getWalletClient(wagmiConfig, { chainId: base.id })) ?? walletClient;
+        wc = await getWalletClient(wagmiConfig, { chainId: base.id });
       }
+      checkWallet();
       const app: Application = {
         name: name.trim(),
         roles,
@@ -93,6 +102,8 @@ export function ContributorForm() {
         .map((r) => ({ addr: r.addr, pub: pubKeyFromHex(r.hex) }));
       const recipients = [{ addr: address.toLowerCase(), pub: publicKey }, ...reviewers];
       const envelope = encryptApplication(JSON.stringify(app), recipients);
+      await verifyContributorMembership(address);
+      checkWallet(true);
       const hash = await publishPost({
         walletClient: wc,
         account: address,
@@ -114,7 +125,7 @@ export function ContributorForm() {
         <p><Link to="/admin/contributors">View my application and memorandum</Link></p>
         <h2 className="text-display" style={{ fontSize: "1.6rem", margin: "0.3rem 0 0.5rem" }}>Apply to contribute</h2>
         <p style={{ fontFamily: "var(--font-sans)", fontSize: "0.9375rem", color: "var(--color-ink-muted)", lineHeight: 1.6, margin: 0 }}>
-          Tell us what you would like to research or contribute. Submit with your wallet on Base; your answers are encrypted for you and the designated reviewers.
+          An active Research membership on Ethereum is required to apply. Use that wallet to submit your application on Base; your answers are encrypted for you and the designated reviewers.
         </p>
       </header>
 
@@ -138,6 +149,8 @@ export function ContributorForm() {
           <p style={{ ...dim, margin: 0 }}>Connect a wallet to apply.</p>
           <ConnectButton chainStatus="none" showBalance={false} />
         </div>
+      ) : !membership.hasValidMembership || membership.error ? (
+        <div className="card"><p>{membership.error?"Membership verification unavailable. Retry before applying.":membership.isLoading?"Verifying current membership…":"An active Research membership is required to apply."}</p><button onClick={membership.refetch}>Retry membership check</button><Link to="/membership">Manage membership</Link></div>
       ) : (
         <div className="application-form"><p className="application-wallet">Applying with {address?.slice(0,6)}…{address?.slice(-4)}. This wallet will own your application.</p><h3>Your contribution</h3>
           <Field label="Name or handle" required>
@@ -147,6 +160,8 @@ export function ContributorForm() {
           <Field label="Roles of interest" required>
             <ChipMultiSelect options={APPLY_ROLES} value={roles} onChange={setRoles} />
           </Field>
+
+          <p style={dim}>Applying requests a role; it does not grant a credential or permissions. Only the primary admin authorities can issue an Executive credential, and its holder must have an active membership.</p>
 
           <Field label="What would you like to contribute?" required>
             <textarea value={specialty} onChange={(e) => setSpecialty(e.target.value)} rows={5} placeholder="A few sentences on your specialty and what you'd contribute." style={{ ...inputStyle, resize: "vertical", lineHeight: 1.6 }} />

@@ -13,6 +13,7 @@ export function ChipMultiSelect({ options, value, onChange }: { options: readonl
           <button
             key={o}
             type="button"
+            aria-label={o}
             aria-pressed={on}
             onClick={() => toggle(o)}
             style={{
