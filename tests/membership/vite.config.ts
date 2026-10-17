@@ -4,6 +4,7 @@ import tailwindcss from '@tailwindcss/vite';
 import { fileURLToPath } from 'node:url';
 const path = (name: string) => fileURLToPath(new URL(name, import.meta.url));
 export default defineConfig({ root: path('.'), plugins: [react(), tailwindcss()], resolve: { alias: [
+  { find: '@/lib/researchCredentialManagement', replacement: path('./credential-management.ts') },
   { find: /^wagmi$/, replacement: path('./state.tsx') },
   { find: '@rainbow-me/rainbowkit', replacement: path('./state.tsx') },
   { find: '@/hooks/membership/useMembershipStatus', replacement: path('./state.tsx') },
