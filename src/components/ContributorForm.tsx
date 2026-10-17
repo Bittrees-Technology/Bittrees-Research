@@ -1,3 +1,4 @@
+import {RESEARCH_ROLE_NAMES} from '../../shared/research-role-credentials.mjs';
 import {Link} from 'react-router';
 import '../pages/contributor-application.css';
 import { useState } from "react";
@@ -19,7 +20,7 @@ import type { Hash } from "viem";
  * Mirrors the gov contributor flow.
  */
 
-const APPLY_ROLES = ["Researcher", "Contributor", "Assistant", "Steward"] as const;
+const APPLY_ROLES = RESEARCH_ROLE_NAMES;
 const REGIONS = ["EMEA", "APAC", "LATAM", "NORAM"] as const;
 const LANGUAGES = [
   "English", "Mandarin Chinese", "Hindi", "Spanish", "French", "Standard Arabic", "Bengali",

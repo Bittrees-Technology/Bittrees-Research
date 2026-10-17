@@ -44,3 +44,22 @@ test('issuance confirmation binds the exact member, parent, type, metadata and S
  assert.equal(credentialReceiptMatches({...plan,data:credentialCall({...input,parentId:'8'}).data},{status:'success',logs:[event]}),false);
  assert.equal(credentialReceiptMatches({...plan,authority:AUTHORITIES[1]},{status:'success',logs:[event]}),false);
 });
+
+test('custom types are encoded explicitly without implying a Roles mapping',()=>{
+ const type='0x'+'12'.repeat(32);const decoded=decodeFunctionData({abi:credentialManagementAbi,data:credentialCall({...input,credentialType:type}).data});assert.equal(decoded.args[2],type);
+ for(const type of ['role.admin','0x'+'00'.repeat(32)])assert.throws(()=>credentialCall({...input,credentialType:type}));
+});
+
+test('five application roles have distinct matching credential types and metadata',async()=>{
+ const {BUILTIN_ROLE_CREDENTIALS,RESEARCH_ROLE_NAMES}=await import('../shared/research-role-credentials.mjs');
+ const {RESEARCH_ROLES,normalizeInterest}=await import('../server/contributors/interest.mjs');
+ const {readFile}=await import('node:fs/promises');
+ assert.deepEqual(RESEARCH_ROLE_NAMES,['Researcher','Contributor','Assistant','Steward','Executive']);assert.deepEqual(RESEARCH_ROLES,RESEARCH_ROLE_NAMES);
+ assert.equal(new Set(BUILTIN_ROLE_CREDENTIALS.map(d=>d.credentialType)).size,5);
+ for(const d of BUILTIN_ROLE_CREDENTIALS){
+  const metadata=JSON.parse(await readFile(new URL('../public/credentials/'+d.label.toLowerCase()+'.json',import.meta.url)));
+  assert.equal(metadata.attributes[0].value,d.identifier);
+  const call=decodeFunctionData({abi:credentialManagementAbi,data:credentialCall({...input,credentialType:d.credentialType,metadataURI:d.metadataURI}).data});assert.equal(call.args[2],d.credentialType);
+ }
+ const app=normalizeInterest({name:'Test',email:'test@example.org',expertise:['Research'],requestedRoles:['Executive'],specialty:'Governance',region:['EMEA'],heardFrom:'Website'},'research',{wallet:null});assert.deepEqual(app.requestedRoles,['Executive']);assert.equal(app.credential,undefined);
+});

@@ -84,3 +84,11 @@ test('application sheet loads older encrypted applications beyond the first inde
  await page.route('**/graphql',r=>{const body=r.request().postDataJSON();if(!body.query.includes('query Topics('))return r.fulfill({json:{data:{attestations:[]}}});const skip=body.variables.skip||0;seen.push(skip);const count=skip===0?100:1;return r.fulfill({json:{data:{attestations:Array.from({length:count},(_,i)=>({id:'0x'+(skip+i+1).toString(16).padStart(64,'0'),attester:wallet,refUID:'0x'+'0'.repeat(64),schemaId:body.variables.schemaId,expirationTime:0,revocationTime:0,time:1700000000-i,decodedDataJson:JSON.stringify([{name:'community',value:{value:body.variables.community}},{name:'body',value:{value:'{}'}}])}))}}});});
  await page.route('**/api/contributors',r=>r.fulfill({json:r.request().method()==='GET'?{session:{wallet,csrf:'test'}}:{applications:[],persona:{id:'partner',canReview:true,canDecide:true}}}));await page.goto('/admin/contributors');await expect(page.getByRole('region',{name:'Application list',exact:true}).locator('tbody tr')).toHaveCount(101);expect(seen).toContain(100);await expect(page.getByRole('button',{name:'Unlock application',exact:true})).toHaveCount(101);
 });
+
+test('Research applications offer five requested roles including Executive',async({browser,baseURL})=>{
+ const app=await setup(browser,baseURL!,'v2-valid');try{
+  await app.page.goto('/contributors/apply');await app.connect();
+  for(const role of ['Researcher','Contributor','Assistant','Steward','Executive'])await expect(app.page.locator('button').filter({hasText:new RegExp('^'+role+'$')})).toBeVisible();
+  await app.page.locator('button').filter({hasText:/^Executive$/}).click();await expect(app.page.locator('button').filter({hasText:/^Executive$/})).toHaveAttribute('aria-pressed','true');
+ }finally{await app.close();}
+});

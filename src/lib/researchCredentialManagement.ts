@@ -21,7 +21,7 @@ export const credentialManagementAbi = parseAbi([
 const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 const assert = (ok: unknown, message = 'Research contract verification unavailable.') => { if (!ok) throw Error(message); };
 export type CredentialRecord = { id: string; member: Address; parentId: string; type: string; uri: string; expiresAt: string; revoked: boolean; burned: boolean; valid: boolean; role: string | null };
-export type CredentialAction = { kind: 'issue'; member: string; parentId: string; metadataURI: string; validUntil: string } | { kind: 'revoke' | 'restore'; member: string; credentialId: string };
+export type CredentialAction = { kind: 'issue'; credentialType?: `0x${string}`; member: string; parentId: string; metadataURI: string; validUntil: string } | { kind: 'revoke' | 'restore'; member: string; credentialId: string; credentialType?: `0x${string}` };
 export type CredentialPlan = { to: Address; data: `0x${string}`; value: '0'; operation: 0; authority: Address; summary: string; checkedAt: number; blockNumber: string };
 
 /** Pin both proxies, implementations and upgrade owners before preparing authority calls. */
@@ -69,6 +69,8 @@ export async function readManagedCredentials(client:PublicClient,member:string) 
 
 export function credentialCall(action:CredentialAction,now=Date.now()) {
   assert(isAddress(action.member),'Enter an Ethereum wallet address.');const member=getAddress(action.member);
+  const type=action.credentialType??RESEARCHER_TYPE;
+  assert(/^0x[0-9a-fA-F]{64}$/.test(type)&&!/^0x0{64}$/.test(type),'Choose a valid credential type.');
   const id=action.kind==='issue'?action.parentId:action.credentialId;
   assert(/^[1-9]\d{0,77}$/.test(id)&&BigInt(id)<2n**256n,'Enter a positive token ID.');
   if(action.kind==='issue') {
@@ -78,9 +80,9 @@ export function credentialCall(action:CredentialAction,now=Date.now()) {
     assert(Number.isSafeInteger(parsed),'Enter a valid credential expiry.');
     const expiry=BigInt(parsed);
     assert(expiry===0n||(expiry>BigInt(Math.floor(now/1000))&&expiry<2n**64n),'Credential expiry must be in the future.');
-    return {member,id:BigInt(id),data:encodeFunctionData({abi:credentialManagementAbi,functionName:'issueCredential',args:[member,BigInt(id),RESEARCHER_TYPE,action.metadataURI,expiry]}),summary:`Issue Researcher credential to ${member}, membership #${id}`};
+    return {member,id:BigInt(id),data:encodeFunctionData({abi:credentialManagementAbi,functionName:'issueCredential',args:[member,BigInt(id),type,action.metadataURI,expiry]}),summary:`Issue ${type===RESEARCHER_TYPE?'Researcher':type} credential to ${member}, membership #${id}`};
   }
-  return {member,id:BigInt(id),data:encodeFunctionData({abi:credentialManagementAbi,functionName:'setCredentialRevoked',args:[BigInt(id),action.kind==='revoke']}),summary:`${action.kind==='revoke'?'Revoke':'Restore'} Researcher credential #${id} for ${member}`};
+  return {member,id:BigInt(id),data:encodeFunctionData({abi:credentialManagementAbi,functionName:'setCredentialRevoked',args:[BigInt(id),action.kind==='revoke']}),summary:`${action.kind==='revoke'?'Revoke':'Restore'} credential #${id} for ${member}`};
 }
 
 export async function prepareCredential(client:PublicClient,action:CredentialAction,authority:Address):Promise<CredentialPlan> {
@@ -89,10 +91,10 @@ export async function prepareCredential(client:PublicClient,action:CredentialAct
   if(action.kind==='issue') {
     assert(await client.readContract({address:MEMBERSHIP,abi:credentialManagementAbi,functionName:'isActiveMember',args:[call.member,call.id],blockNumber:block.number}),'The wallet must actively hold this membership.');
     const existing=await readManagedCredentials(client,call.member);
-    assert(!existing.records.some(r=>r.type===RESEARCHER_TYPE&&r.valid),'This wallet already has a valid Researcher credential.');
+    assert(!existing.records.some(r=>r.type===(action.credentialType??RESEARCHER_TYPE)&&r.valid),'This wallet already has a valid credential of this type.');
   } else {
     const r=await client.readContract({address:CREDENTIALS,abi:credentialManagementAbi,functionName:'credentials',args:[call.id],blockNumber:block.number});
-    assert(same(r[0],call.member)&&r[2]===RESEARCHER_TYPE,'This credential does not match the selected wallet and role.');
+    assert(same(r[0],call.member)&&r[2]===(action.credentialType??RESEARCHER_TYPE),'This credential does not match the selected wallet and role.');
     if(action.kind==='restore')assert(await client.readContract({address:MEMBERSHIP,abi:credentialManagementAbi,functionName:'isActiveMember',args:[call.member,r[1]],blockNumber:block.number}),'Restore requires an active parent membership.');
   }
   await client.call({account:authority,to:CREDENTIALS,data:call.data,blockNumber:block.number});

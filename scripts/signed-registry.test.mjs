@@ -41,3 +41,17 @@ test('automatic enrollment preserves legacy only before first policy and never f
 });
 
 test('enrolled shared role writes redirect to Roles even for an administrator',async()=>{const f=fixture(),body=await envelope('/api/community',{assignRole:{target,label:'Partner'}},0);const r=await call(community,f,body,'POST',async()=>({configured:true,centralized:true,allowed:true,expiresAt:new Date(Date.now()+5000).toISOString()}));assert.equal(r.code,409);assert.equal(f.revision,0);assert.match(r.body.error,/roles.bittrees.org/);});
+
+test('credential definitions require current authority and never create role assignments',async()=>{
+ const f=fixture(),definition={label:'Editor',identifier:'research.role.editor.v1',metadataURI:'https://example.org/editor.json'};
+ const allow=async()=>({allowed:true,configured:true,centralized:true,expiresAt:new Date(Date.now()+60000).toISOString()});
+ const body=await envelope('/api/community',{createCredentialDefinition:definition},0);
+ assert.equal((await call(community,f,body)).code,403);
+ const result=await call(community,f,body,'POST',allow);assert.equal(result.code,200,JSON.stringify(result.body));
+ assert.equal(JSON.parse(f.db.get('bittrees:research:credentialdefs'))[0].identifier,definition.identifier);
+ assert.equal(JSON.parse(f.db.get('bittrees:research:roles'))[target],undefined);
+ assert.equal((await call(community,f,await envelope('/api/community',{createCredentialDefinition:definition},1),'POST',allow)).code,409);
+ for(const patch of [{identifier:'research.role.researcher.v1'},{metadataURI:'http://example.org'},{identifier:'role.admin'},{metadataURI:'https://user:pass@example.org'}]){
+  assert.ok([400,409].includes((await call(community,f,await envelope('/api/community',{createCredentialDefinition:{...definition,label:'Other',...patch}},1),'POST',allow)).code));
+ }
+});

@@ -1,6 +1,7 @@
+import {RESEARCH_ROLE_NAMES} from '../../shared/research-role-credentials.mjs';
 export const SITES={gov:{lane:'inc-ops-governance',name:'Bittrees Governance',host:'gov.bittrees.org'},research:{lane:'research',name:'Bittrees Research',host:'research.bittrees.org'}};
 export const EXPERTISE=['Business','Technology','Community','Research'];
-export const RESEARCH_ROLES=['Researcher','Contributor','Assistant','Steward'];
+export const RESEARCH_ROLES=RESEARCH_ROLE_NAMES;
 const fail=m=>{throw Object.assign(Error(m),{status:400})};
 const string=(x,name,max=2000,required=false)=>{if(x===undefined||x===null)x='';if(typeof x!=='string'||x.length>max||(required&&!x.trim()))fail(`Check ${name}.`);return x.trim()};
 const list=(x,name,allowed,required=false)=>{if(x===undefined)x=[];if(!Array.isArray(x)||x.length>20||x.some(v=>typeof v!=='string'||!v.trim()||v.length>100||(allowed&&!allowed.includes(v)))||(required&&!x.length))fail(`Check ${name}.`);return [...new Set(x.map(v=>v.trim()))]};
