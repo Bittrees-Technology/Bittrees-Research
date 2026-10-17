@@ -1,3 +1,4 @@
+import { MembershipGift } from "@/components/membership/MembershipGift";
 import { MembershipRenew } from "@/components/membership/MembershipRenew";
 import { MembershipCredentials } from "@/components/membership/MembershipCredentials";
 import { PageHeader } from "@/components/PageHeader";
@@ -112,6 +113,7 @@ export default function MembershipPage() {
           <p>Create a separate membership token with ETH at the current mint price. Its term does not extend any existing membership.</p>
           {pendingMint ? <MembershipVerificationWait receipt={pendingMint} checking={isChecking} error={error} onRetry={refetch} />
             : <MembershipMint key={sessionRevision} mode="join" onMinted={refetch} />}
+          <MembershipGift />
         </section>
       </div>
     </div>
