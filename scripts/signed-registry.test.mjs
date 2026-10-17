@@ -55,3 +55,15 @@ test('credential definitions require current authority and never create role ass
   assert.ok([400,409].includes((await call(community,f,await envelope('/api/community',{createCredentialDefinition:{...definition,label:'Other',...patch}},1),'POST',allow)).code));
  }
 });
+
+test('definition creation and moderation use separate bounded authority actions',async()=>{
+ const definition={label:'Editor',identifier:'research.role.editor.v1',metadataURI:'https://example.org/editor.json'};
+ for(const action of ['research.credentials.define','research.credentials.assign','community.moderation.manage']){
+  const f=fixture();const authority=async(_actor,requested)=>({configured:true,centralized:true,allowed:requested===action,expiresAt:new Date(Date.now()+10000).toISOString()});
+  const r=await call(community,f,await envelope('/api/community',{createCredentialDefinition:definition},0),'POST',authority);
+  assert.equal(r.code,action==='research.credentials.define'?200:403,JSON.stringify(r.body));
+  const revision=f.revision;
+  const grant=await call(community,f,await envelope('/api/community',{assignRole:{target,label:'Executive'}},revision),'POST',authority);
+  assert.equal(grant.code,409);assert.match(grant.body.error,/roles.bittrees.org/);assert.equal(f.revision,revision);
+ }
+});

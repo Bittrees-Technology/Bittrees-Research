@@ -52,3 +52,47 @@ test('five built-in definitions are available and unrelated credentials have no 
  await page.evaluate(()=>(window as any).__unknownCredential=true);await page.getByLabel('Member wallet').fill('0x1111111111111111111111111111111111111111');
  await expect(page.getByText(/Read at block 100/)).toBeVisible();await expect(page.getByRole('button',{name:'Prepare revocation'})).toHaveCount(0);
 });
+
+test('Steward can create definitions without assignment controls',async({page})=>{
+ await page.goto('/?manage#steward');await expect(page.getByRole('form',{name:'Create a role credential'})).toBeVisible();
+ await expect(page.getByRole('button',{name:'Assign a role credential',exact:true})).toHaveCount(0);
+ await expect(page.getByLabel('Member wallet')).toHaveCount(0);
+});
+test('Executive gets direct issuance with an active proof and no admin controls',async({page})=>{
+ await page.goto('/?manage#executive');await expect(page.getByLabel('Your Executive credential')).toHaveValue('12');
+ await expect(page.getByRole('button',{name:'Create a role credential',exact:true})).toHaveCount(0);
+ await expect(page.getByRole('combobox',{name:'Role credential',exact:true}).locator('option[value="research.role.executive.v1"]')).toHaveJSProperty('disabled',true);
+ await page.getByLabel('Member wallet').fill('0x2222222222222222222222222222222222222222');await page.getByLabel('Active membership token ID').fill('8');
+ await expect(page.getByRole('button',{name:'Prepare revocation'})).toHaveCount(0);
+ await page.getByRole('button',{name:'Prepare credential issuance'}).click();
+ await expect(page.getByRole('heading',{name:'Review direct issuance'})).toBeVisible();
+ await expect(page.getByRole('button',{name:'Issue credential with my wallet'})).toBeVisible();
+ await expect(page.getByRole('button',{name:'Download Safe transaction'})).toHaveCount(0);
+ await page.evaluate(()=>(window as any).__executiveInactive=true);
+ await page.getByRole('button',{name:'Issue credential with my wallet'}).click();
+ await expect(page.getByRole('status')).toContainText('Execution was not confirmed');
+});
+test('loss of Executive authority clears the reviewed plan and disables issuance',async({page})=>{
+ await page.goto('/?manage#executive');await expect(page.getByLabel('Your Executive credential')).toHaveValue('12');
+ await page.getByLabel('Member wallet').fill('0x2222222222222222222222222222222222222222');await page.getByLabel('Active membership token ID').fill('8');
+ await page.getByRole('button',{name:'Prepare credential issuance'}).click();await expect(page.getByRole('heading',{name:'Review direct issuance'})).toBeVisible();
+ await page.evaluate(()=>(window as any).__executiveInactive=true);await page.getByRole('button',{name:'Refresh Executive authority'}).click();
+ await expect(page.getByRole('region',{name:'Prepared credential transaction'})).toHaveCount(0);
+ await expect(page.getByRole('button',{name:'Prepare credential issuance'})).toBeDisabled();
+ await expect(page.getByText(/No active Executive credential found/)).toBeVisible();
+});
+test('direct issuance plan is discarded on network or wallet change',async({page})=>{
+ await page.goto('/?manage#executive');await expect(page.getByLabel('Your Executive credential')).toHaveValue('12');
+ await page.getByLabel('Member wallet').fill('0x2222222222222222222222222222222222222222');await page.getByLabel('Active membership token ID').fill('8');
+ await page.getByRole('button',{name:'Prepare credential issuance'}).click();await expect(page.getByRole('heading',{name:'Review direct issuance'})).toBeVisible();
+ await page.evaluate(()=>(window as any).__membershipFixture('chain'));
+ await expect(page.getByRole('region',{name:'Prepared credential transaction'})).toHaveCount(0);await expect(page.getByRole('button',{name:'Prepare credential issuance'})).toBeDisabled();
+});
+
+test('direct wallet issuance confirms only the matching credential event',async({page})=>{
+ await page.goto('/?manage#executive');await expect(page.getByLabel('Your Executive credential')).toHaveValue('12');
+ await page.getByLabel('Member wallet').fill('0x2222222222222222222222222222222222222222');await page.getByLabel('Active membership token ID').fill('8');
+ await page.getByRole('button',{name:'Prepare credential issuance'}).click();await page.getByRole('button',{name:'Issue credential with my wallet'}).click();
+ await expect(page.getByRole('status')).toContainText('Transaction confirmed. Current chain records refreshed');
+ await expect(page.getByRole('region',{name:'Prepared credential transaction'})).toHaveCount(0);
+});

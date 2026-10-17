@@ -189,7 +189,7 @@ export function withSignedRegistry(
           throw fail("Signature rejected", 401);
         { // Every authority-bearing operation checks Roles, including after policy expiry.
           const op=actions[0];
-          const action=['assignRole','unassignRole','createRole','deleteRole','createCredentialDefinition'].includes(op)?'community.roles.manage':op==='moderate'?'community.moderation.manage':e.endpoint==='/api/rooms'?(op==='proposal'?'rooms.propose':'rooms.manage'):null;
+          const action=op==='createCredentialDefinition'?'research.credentials.define':['assignRole','unassignRole','createRole','deleteRole'].includes(op)?'community.roles.manage':op==='moderate'?'community.moderation.manage':e.endpoint==='/api/rooms'?(op==='proposal'?'rooms.propose':'rooms.manage'):null;
           if(action){const decision=await authority(e.address,action);if(decision.centralized&&['assignRole','unassignRole','createRole','deleteRole'].includes(op))throw fail('Manage shared role assignments at https://roles.bittrees.org',409);if(decision.configured===false){c.policyPending=true;}else{if(!decision.allowed)throw fail(decision.reason||'Not authorized by root policy',403);c.policyDecision=true;c.policyAction=action;c.policyExpiresAt=Date.parse(decision.expiresAt);if(!Number.isFinite(c.policyExpiresAt)||c.policyExpiresAt<=Date.now())throw fail("Authority decision expired",403);}}
         }
         c.signed = true;

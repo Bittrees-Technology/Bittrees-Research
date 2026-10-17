@@ -5,11 +5,12 @@ import {useQuery,useQueryClient} from '@tanstack/react-query';
 import {useAccount,useChainId,usePublicClient,useSendTransaction,useWalletClient} from 'wagmi';
 import {isAddress,keccak256,toBytes,type Address} from 'viem';
 import {useMembershipStatus} from '@/hooks/membership/useMembershipStatus';
-import {AUTHORITIES,RESEARCHER_TYPE,credentialReceiptMatches,prepareCredential,readManagedCredentials,safeCredentialBatch,type CredentialAction,type CredentialPlan} from '@/lib/researchCredentialManagement';
+import {AUTHORITIES,EXECUTIVE_TYPE,credentialReceiptMatches,prepareCredential,readManagedCredentials,safeCredentialBatch,type CredentialAction,type CredentialPlan} from '@/lib/researchCredentialManagement';
 
-/** Preparing a call grants nothing. Only the authorized Safe can execute it. */
-export function ResearchCredentialRoles() {
- const [flow,setFlow]=useState<'create'|'assign'>('assign');
+/** Every submission rechecks current on-chain issuer authority. */
+export function ResearchCredentialRoles({canDefine=false,canAssign=false,canManage=false}:{canDefine?:boolean;canAssign?:boolean;canManage?:boolean}) {
+ const [chosenFlow,setFlow]=useState<'create'|'assign'>(canAssign?'assign':'create');
+ const flow=chosenFlow==='create'&&canDefine?'create':canAssign?'assign':'create';
  const {data:catalog}=useCommunity();
  const definitions:CredentialDefinition[]=[...BUILTIN_ROLE_CREDENTIALS,...(catalog?.credentialdefs||[])];
  const [selected,setSelected]=useState('research.role.researcher.v1');
@@ -18,50 +19,66 @@ export function ResearchCredentialRoles() {
  const {address}=useAccount(),chainId=useChainId(),client=usePublicClient({chainId:1});
  const {sendTransactionAsync}=useSendTransaction(),qc=useQueryClient();const {sessionRevision}=useMembershipStatus();
  const [member,setMember]=useState(''),[parentId,setParent]=useState(''),[uri,setURI]=useState('https://research.bittrees.org/credentials/researcher.json'),[until,setUntil]=useState('');
+ const [issuanceMode,setIssuanceMode]=useState<'safe'|'executive'>(canManage?'safe':'executive');
+ const [chosenProof,setChosenProof]=useState('');
+ const ownCredentials=useQuery({queryKey:['executive-issuance-proof',address,sessionRevision],enabled:!!client&&!!address&&issuanceMode==='executive'&&canAssign,retry:false,refetchInterval:15000,queryFn:()=>readManagedCredentials(client!,address!)});
+ const proofs=ownCredentials.data?.records.filter(r=>r.type===EXECUTIVE_TYPE&&r.valid&&!r.burned&&!r.revoked)||[];
+ const proofId=chosenProof||proofs[0]?.id||'';
+ const proofReady=!ownCredentials.isError&&proofs.some(r=>r.id===proofId);
+ const direct=issuanceMode==='executive';
  const [authority,setAuthority]=useState<Address>(AUTHORITIES[0]),[plan,setPlan]=useState<CredentialPlan|null>(null),[action,setAction]=useState<CredentialAction|null>(null);
  const [busy,setBusy]=useState(false),[message,setMessage]=useState(''),[hash,setHash]=useState('');
- const scope=JSON.stringify([address,chainId,sessionRevision,member,parentId,uri,until,authority,flow,definition.credentialType,catalogReady,selectionExists]);const current=useRef(scope);current.current=scope;
+ const scope=JSON.stringify([address,chainId,sessionRevision,member,parentId,uri,until,authority,flow,definition.credentialType,catalogReady,selectionExists,canDefine,canAssign,canManage,issuanceMode,proofId,proofReady]);const current=useRef(scope);current.current=scope;
  useEffect(()=>{setPlan(null);setAction(null);setMessage('');setHash('');},[scope]);
  const target=member.trim();
  const query=useQuery({queryKey:['managed-research-credentials',target],enabled:!!client&&isAddress(target),retry:false,refetchInterval:30000,queryFn:()=>readManagedCredentials(client!,target)});
  async function prepare(next:CredentialAction){
-  if(!client||busy||(next.kind==='issue'&&(!catalogReady||!selectionExists)))return;const captured=scope;setBusy(true);setMessage('Verifying membership, credential and Safe authority…');setPlan(null);setHash('');
-  try{const prepared=await prepareCredential(client,next,authority);if(current.current!==captured)return;setPlan(prepared);setAction(next);setMessage('Transaction prepared. Role eligibility changes only after Safe execution and a successful Roles verification.');}
+  if(!client||busy||(next.kind==='issue'?!canAssign:!canManage)||(next.kind==='issue'&&(!catalogReady||!selectionExists)))return;const captured=scope;setBusy(true);setMessage('Verifying membership, credential and Safe authority…');setPlan(null);setHash('');
+  try{if(direct&&(!address||!proofReady))throw Error('A current Executive credential is required.');const prepared=await prepareCredential(client,next,direct?address!:authority,direct?proofId:undefined);if(current.current!==captured)return;setPlan(prepared);setAction(next);setMessage(direct?'Transaction prepared for your wallet. Role eligibility changes only after confirmation and a successful Roles verification.':'Transaction prepared. Role eligibility changes only after Safe execution and a successful Roles verification.');}
   catch(e){if(current.current===captured)setMessage(e instanceof Error && !e.message.includes('\n') && !e.message.includes('http')?e.message:'Could not prepare the credential transaction. Check the wallet, membership and current chain data.');}
   finally{setBusy(false);}
  }
  function download(){if(!plan)return;const url=URL.createObjectURL(new Blob([JSON.stringify(safeCredentialBatch(plan),null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='research-credential-safe-transaction.json';a.click();URL.revokeObjectURL(url);}
  async function execute(){
-  if(!client||!plan||!action||busy||(action.kind==='issue'&&(!catalogReady||!selectionExists))||chainId!==1||address?.toLowerCase()!==authority.toLowerCase())return;
+  if(!client||!plan||!action||busy||(action.kind==='issue'?!canAssign:!canManage)||(action.kind==='issue'&&(!catalogReady||!selectionExists))||chainId!==1||address?.toLowerCase()!==plan.authority.toLowerCase()||(direct&&!proofReady))return;
   const captured=scope;setBusy(true);setMessage('Rechecking the prepared transaction…');
   try{
-   const fresh=await prepareCredential(client,action,authority);if(current.current!==captured)throw Error('Session changed');
-   if(fresh.data!==plan.data)throw Error('Transaction changed');
+   const fresh=await prepareCredential(client,action,plan.authority,plan.executiveCredentialId);if(current.current!==captured)throw Error('Session changed');
+   if(fresh.data!==plan.data||fresh.mode!==plan.mode)throw Error('Transaction changed');
    const tx=await sendTransactionAsync({to:fresh.to,data:fresh.data,value:0n,chainId:1});if(current.current!==captured)return;
-   setHash(tx);setMessage('Waiting for the Safe transaction to confirm.');
+   setHash(tx);setMessage(direct?'Waiting for your credential transaction to confirm.':'Waiting for the Safe transaction to confirm.');
    const receipt=await client.waitForTransactionReceipt({hash:tx,timeout:120000});if(current.current!==captured)return;
    if(!credentialReceiptMatches(fresh,receipt))throw Error('Credential execution was not confirmed');
    setPlan(null);setAction(null);await query.refetch();
-   await Promise.all([qc.invalidateQueries({queryKey:['controller-authority']}),qc.invalidateQueries({queryKey:['community']}),qc.invalidateQueries({queryKey:['research-credentials']})]);
+   await Promise.all([qc.invalidateQueries({queryKey:['controller-authority']}),qc.invalidateQueries({queryKey:['community']}),qc.invalidateQueries({queryKey:['research-credentials']}),qc.invalidateQueries({queryKey:['executive-issuance-proof']})]);
    setMessage('Transaction confirmed. Current chain records refreshed below. Open Roles and refresh its credential-derived assignments to verify effective access.');
-  }catch{if(current.current===captured)setMessage('Execution was not confirmed. Check the Safe transaction history before retrying.');}
+  }catch{if(current.current===captured)setMessage(direct?'Execution was not confirmed. Check your wallet transaction history before retrying.':'Execution was not confirmed. Check the Safe transaction history before retrying.');}
   finally{setBusy(false);}
  }
+ if(!canDefine&&!canAssign)return null;
  const rolesURL='https://roles.bittrees.org/role-management?project=research';
  return <section className="card" style={{display:'grid',gap:'1rem'}} aria-label="Credential-backed Research roles">
   <h2>Credential-backed Research roles</h2>
   <p>Create a reusable role credential definition, then assign it to an active membership. Roles checks that credential and its parent membership for current eligibility. Existing independently approved role grants stay separate.</p>
   <p><a href={rolesURL} target="_blank" rel="noreferrer">Manage and verify roles in Roles ↗</a></p>
   <nav aria-label="Credential workflows" style={{display:'flex',gap:12,flexWrap:'wrap'}}>
-   <button disabled={busy} aria-pressed={flow==='create'} onClick={()=>setFlow('create')}>Create a role credential</button>
-   <button disabled={busy} aria-pressed={flow==='assign'} onClick={()=>setFlow('assign')}>Assign a role credential</button>
+   {canDefine&&<button disabled={busy} aria-pressed={flow==='create'} onClick={()=>setFlow('create')}>Create a role credential</button>}
+   {canAssign&&<button disabled={busy} aria-pressed={flow==='assign'} onClick={()=>setFlow('assign')}>Assign a role credential</button>}
   </nav>
   {flow==='create'?<CredentialDefinitionForm onCreated={()=>{void qc.invalidateQueries({queryKey:['community']});setFlow('assign');}}/>:<section aria-label="Assign a role credential" style={{display:'grid',gap:'1rem'}}>
   <h3>Assign a role credential</h3>
   {(!catalogReady||!selectionExists)&&<p role="alert">Credential catalog unavailable or the selected definition is missing. Refresh before assigning.</p>}
-  <p>Select an existing definition and the member who should receive it. Assignment creates a new credential token through the authorized Safe.</p>
-  <label>Role credential<select style={field} value={definition.identifier} disabled={busy} onChange={e=>{const d=definitions.find(d=>d.identifier===e.target.value)!;setSelected(d.identifier);setURI(d.metadataURI);}}>{definitions.map(d=><option key={d.identifier} value={d.identifier}>{d.label}</option>)}</select></label>
-  <p>{definition.credentialType===RESEARCHER_TYPE?'Researcher is mapped in Roles.':'This type has no approved Roles permission mapping. Issuing it does not automatically grant access.'}</p>
+  <p>Select an existing definition and the member who should receive it. Assignment creates a new credential token. Use an active Executive credential to issue directly, or prepare a transaction for an admin Safe.</p>
+  <label>Issuance method<select style={field} value={issuanceMode} disabled={busy} onChange={e=>setIssuanceMode(e.target.value as 'safe'|'executive')}><option value="executive">My Executive credential</option><option value="safe">Admin Safe approval</option></select></label>
+  {direct&&<section aria-label="Executive issuance authority">
+   <p>Issue from your connected wallet on Ethereum. Your Executive credential and its parent membership must remain active when the transaction executes.</p>
+   {ownCredentials.isPending?<p>Checking your Executive credentials…</p>:ownCredentials.isError?<p role="alert">Executive verification unavailable. Refresh before issuing.</p>:!proofs.length?<p role="alert">No active Executive credential found for this wallet. An admin Safe must issue it first.</p>:<label>Your Executive credential<select style={field} disabled={busy} value={proofId} onChange={e=>setChosenProof(e.target.value)}>{proofs.map(r=><option key={r.id} value={r.id}>Credential #{r.id} · Membership #{r.parentId}</option>)}</select></label>}
+   <button disabled={busy||ownCredentials.isFetching} onClick={()=>void ownCredentials.refetch()}>Refresh Executive authority</button>
+   <p>Only primary administrators can issue Executive credentials. Executive issuance cannot revoke credentials or manage administrators.</p>
+  </section>}
+  <label>Role credential<select style={field} value={definition.identifier} disabled={busy} onChange={e=>{const d=definitions.find(d=>d.identifier===e.target.value)!;setSelected(d.identifier);setURI(d.metadataURI);}}>{definitions.map(d=><option key={d.identifier} value={d.identifier} disabled={direct&&d.credentialType===EXECUTIVE_TYPE}>{d.label}</option>)}</select></label>
+  <p>{BUILTIN_ROLE_CREDENTIALS.some(d=>d.credentialType===definition.credentialType)?'Roles verifies current credentials against its approved permission policy. Issuance alone does not establish effective access.':'This type has no approved Roles permission mapping. Issuing it does not automatically grant access.'}</p>
+  {direct&&definition.credentialType===EXECUTIVE_TYPE&&<p role="alert">Choose another credential type, or use admin Safe approval to issue Executive.</p>}
   <details><summary>Credential definition</summary><p>{definition.identifier}</p><code style={{overflowWrap:'anywhere'}}>{definition.credentialType}</code></details>
   <label>Member wallet<input style={field} value={member} disabled={busy} onChange={e=>setMember(e.target.value)} placeholder="0x…" autoComplete="off"/></label>
   {isAddress(target)&&<div>
@@ -69,7 +86,7 @@ export function ResearchCredentialRoles() {
    {query.isPending?<p>Checking current credentials…</p>:query.isError?<p role="alert">Credential verification unavailable. No role state can be confirmed.</p>:<>
     <p>Read at block {query.data?.blockNumber}. {query.data?.records.length===0?'No credentials found.':''}</p>
     <ul>{query.data?.records.map(r=><li key={r.id} style={{marginBottom:'0.75rem'}}>#{r.id} · Membership #{r.parentId} · {r.role||definitions.find(d=>d.credentialType===r.type)?.label||'Unmapped credential'} · {r.burned?'Burned':r.revoked?'Revoked':r.valid?'Valid':'Inactive'}
-     {catalogReady&&definitions.some(d=>d.credentialType===r.type)&&!r.burned&&<div><button disabled={busy} onClick={()=>void prepare({kind:r.revoked?'restore':'revoke',member:target,credentialId:r.id,credentialType:r.type as `0x${string}`})}>Prepare {r.revoked?'restoration':'revocation'}</button></div>}
+     {!direct&&canManage&&catalogReady&&definitions.some(d=>d.credentialType===r.type)&&!r.burned&&<div><button disabled={busy} onClick={()=>void prepare({kind:r.revoked?'restore':'revoke',member:target,credentialId:r.id,credentialType:r.type as `0x${string}`})}>Prepare {r.revoked?'restoration':'revocation'}</button></div>}
     </li>)}</ul>
    </>}
    <button disabled={query.isFetching||busy} onClick={()=>void query.refetch()}>Refresh credential status</button>
@@ -80,14 +97,14 @@ export function ResearchCredentialRoles() {
   <p>Metadata is public and descriptive. It does not grant permissions.</p>
   <label>Credential expiry (optional, your local time)<input style={field} type="datetime-local" value={until} disabled={busy} onChange={e=>setUntil(e.target.value)}/></label>
   <p>Without a separate expiry, validity still requires an active membership. Revocation, burning and membership expiry remove credential-derived eligibility.</p>
-  <label>Issuing Safe<select style={field} value={authority} disabled={busy} onChange={e=>setAuthority(e.target.value as Address)}><option value={AUTHORITIES[0]}>research.bittrees.eth</option><option value={AUTHORITIES[1]}>bittrees.eth</option></select></label>
-  <button className="btn-primary" disabled={busy||!catalogReady||!selectionExists||!isAddress(target)||!parentId||!uri} onClick={()=>void prepare({kind:'issue',member:target,parentId,metadataURI:uri.trim(),validUntil:until,credentialType:definition.credentialType})}>Prepare credential issuance</button>
+  {!direct&&<label>Issuing Safe<select style={field} value={authority} disabled={busy} onChange={e=>setAuthority(e.target.value as Address)}><option value={AUTHORITIES[0]}>research.bittrees.eth</option><option value={AUTHORITIES[1]}>bittrees.eth</option></select></label>}
+  <button className="btn-primary" disabled={busy||!catalogReady||!selectionExists||!isAddress(target)||!parentId||!uri||(direct&&(!proofReady||!address||chainId!==1||definition.credentialType===EXECUTIVE_TYPE))} onClick={()=>void prepare({kind:'issue',member:target,parentId,metadataURI:uri.trim(),validUntil:until,credentialType:definition.credentialType})}>Prepare credential issuance</button>
   {plan&&<section style={{display:'grid',gap:12}} aria-label="Prepared credential transaction">
-   <h3>Review Safe transaction</h3><p>{plan.summary}</p><p>Ethereum · 0 ETH · CALL · Safe {plan.authority}</p>
-   <button onClick={download} disabled={busy}>Download Safe transaction</button>
-   <a href="https://tld.bittrees.org" target="_blank" rel="noreferrer">Open TLD for Safe approval ↗</a>
+   <h3>{plan.mode==='executive'?'Review direct issuance':'Review Safe transaction'}</h3><p>{plan.summary}</p><p>Ethereum · 0 ETH · CALL · {plan.mode==='executive'?'Wallet':'Safe'} {plan.authority}</p>{plan.mode==='executive'&&<p>Uses Executive credential #{plan.executiveCredentialId}. Your wallet pays Ethereum gas.</p>}
+   {plan.mode!=='executive'&&<><button onClick={download} disabled={busy}>Download Safe transaction</button>
+   <a href="https://tld.bittrees.org" target="_blank" rel="noreferrer">Open TLD for Safe approval ↗</a></>}
    <details><summary>Transaction destination and calldata</summary><p style={{overflowWrap:'anywhere'}}>{plan.to}</p><code style={{overflowWrap:'anywhere'}}>{plan.data}</code></details>
-   {address?.toLowerCase()===authority.toLowerCase()&&chainId===1?<button className="btn-primary" disabled={busy} onClick={()=>void execute()}>Submit with connected Safe</button>:<p>Use the selected Safe in TLD, or connect that Safe on Ethereum here. A signer wallet alone cannot execute as the Safe.</p>}
+   {address?.toLowerCase()===plan.authority.toLowerCase()&&chainId===1?<button className="btn-primary" disabled={busy} onClick={()=>void execute()}>{plan.mode==='executive'?'Issue credential with my wallet':'Submit with connected Safe'}</button>:<p>{plan.mode==='executive'?'Connect the reviewed issuer wallet on Ethereum.':'Use the selected Safe in TLD, or connect that Safe on Ethereum here. A signer wallet alone cannot execute as the Safe.'}</p>}
   </section>}
   </section>}
   {message&&<p role="status">{message}</p>}{hash&&<a href={`https://etherscan.io/tx/${hash}`} target="_blank" rel="noreferrer">View transaction ↗</a>}

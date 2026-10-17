@@ -1,3 +1,4 @@
+import {BUILTIN_ROLE_CREDENTIALS} from '../../shared/research-role-credentials.mjs';
 import { decodeEventLog, decodeFunctionData, encodeFunctionData, getAddress, isAddress, keccak256, parseAbi, toBytes, type Address, type PublicClient } from 'viem';
 import deployment from './constants/research-deployment.json' with { type: 'json' };
 
@@ -5,6 +6,7 @@ export const MEMBERSHIP = deployment.addresses.proxy as Address;
 export const CREDENTIALS = deployment.addresses.credentialProxy as Address;
 export const AUTHORITIES = [deployment.research, deployment.root] as Address[];
 export const RESEARCHER_TYPE = keccak256(toBytes('research.role.researcher.v1'));
+export const EXECUTIVE_TYPE = keccak256(toBytes('research.role.executive.v1'));
 export const credentialManagementAbi = parseAbi([
   'function rootAuthority() view returns(address)', 'function researchAuthority() view returns(address)',
   'function membership() view returns(address)', 'function credentialRegistry() view returns(address)',
@@ -14,6 +16,8 @@ export const credentialManagementAbi = parseAbi([
   'function credentials(uint256) view returns(address member,uint256 membershipTokenId,bytes32 credentialType,string metadataURI,uint64 validUntil,bool revoked)',
   'function isCredentialValid(uint256) view returns(bool)', 'function burnedCredentials(uint256) view returns(bool)',
   'function issueCredential(address,uint256,bytes32,string,uint64) returns(uint256)',
+  'function canIssueAsExecutive(address,uint256) view returns(bool)',
+  'function issueCredentialAsExecutive(uint256,address,uint256,bytes32,string,uint64) returns(uint256)',
   'function setCredentialRevoked(uint256,bool)',
   'event CredentialIssued(uint256 indexed credentialId,address indexed member,uint256 indexed membershipTokenId,bytes32 credentialType,string metadataURI,uint64 validUntil,address administrator)',
   'event CredentialRevocationUpdated(uint256 indexed credentialId,bool revoked,address indexed administrator)',
@@ -22,7 +26,7 @@ const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 const assert = (ok: unknown, message = 'Research contract verification unavailable.') => { if (!ok) throw Error(message); };
 export type CredentialRecord = { id: string; member: Address; parentId: string; type: string; uri: string; expiresAt: string; revoked: boolean; burned: boolean; valid: boolean; role: string | null };
 export type CredentialAction = { kind: 'issue'; credentialType?: `0x${string}`; member: string; parentId: string; metadataURI: string; validUntil: string } | { kind: 'revoke' | 'restore'; member: string; credentialId: string; credentialType?: `0x${string}` };
-export type CredentialPlan = { to: Address; data: `0x${string}`; value: '0'; operation: 0; authority: Address; summary: string; checkedAt: number; blockNumber: string };
+export type CredentialPlan = { mode?: 'safe'|'executive'; executiveCredentialId?: string; to: Address; data: `0x${string}`; value: '0'; operation: 0; authority: Address; summary: string; checkedAt: number; blockNumber: string };
 
 /** Pin both proxies, implementations and upgrade owners before preparing authority calls. */
 async function verifiedBlock(client: PublicClient) {
@@ -59,7 +63,7 @@ export async function readManagedCredentials(client:PublicClient,member:string) 
         client.readContract({address:CREDENTIALS,abi:credentialManagementAbi,functionName:'credentials',args:[id],blockNumber:block.number}),
         client.readContract({address:CREDENTIALS,abi:credentialManagementAbi,functionName:'isCredentialValid',args:[id],blockNumber:block.number}),
         client.readContract({address:CREDENTIALS,abi:credentialManagementAbi,functionName:'burnedCredentials',args:[id],blockNumber:block.number}),
-      ]);assert(same(r[0],wallet));return {id:String(id),member:r[0],parentId:String(r[1]),type:r[2],uri:r[3],expiresAt:String(r[4]),revoked:r[5],valid,burned,role:r[2]===RESEARCHER_TYPE?'Researcher':null};
+      ]);assert(same(r[0],wallet));return {id:String(id),member:r[0],parentId:String(r[1]),type:r[2],uri:r[3],expiresAt:String(r[4]),revoked:r[5],valid,burned,role:BUILTIN_ROLE_CREDENTIALS.find(d=>d.credentialType===r[2])?.label??null};
     })));
     if(ids.length<100)break;
   }
@@ -85,9 +89,23 @@ export function credentialCall(action:CredentialAction,now=Date.now()) {
   return {member,id:BigInt(id),data:encodeFunctionData({abi:credentialManagementAbi,functionName:'setCredentialRevoked',args:[BigInt(id),action.kind==='revoke']}),summary:`${action.kind==='revoke'?'Revoke':'Restore'} credential #${id} for ${member}`};
 }
 
-export async function prepareCredential(client:PublicClient,action:CredentialAction,authority:Address):Promise<CredentialPlan> {
-  assert(AUTHORITIES.some(a=>same(a,authority)),'Choose an authorized Research Safe.');
-  const call=credentialCall(action),block=await verifiedBlock(client);
+export function executiveCredentialCall(action:CredentialAction,proofId:string) {
+  assert(action.kind==='issue','Executives can issue credentials only.');
+  assert((action.credentialType??RESEARCHER_TYPE)!==EXECUTIVE_TYPE,'Only primary administrators can issue Executive credentials.');
+  assert(/^[1-9]\d{0,77}$/.test(proofId)&&BigInt(proofId)<2n**256n,'Choose a valid Executive credential.');
+  const call=credentialCall(action);
+  const decoded=decodeFunctionData({abi:credentialManagementAbi,data:call.data});
+  assert(decoded.functionName==='issueCredential');
+  if(decoded.functionName!=='issueCredential')throw Error('Invalid issuance');
+  return {...call,data:encodeFunctionData({abi:credentialManagementAbi,functionName:'issueCredentialAsExecutive',args:[BigInt(proofId),...decoded.args]})};
+}
+
+export async function prepareCredential(client:PublicClient,action:CredentialAction,authority:Address,executiveCredentialId?:string):Promise<CredentialPlan> {
+  const executive=executiveCredentialId!==undefined;
+  assert(isAddress(authority),'Connect an Ethereum wallet.');
+  if(!executive)assert(AUTHORITIES.some(a=>same(a,authority)),'Choose an authorized Research Safe.');
+  const call=executive?executiveCredentialCall(action,executiveCredentialId):credentialCall(action),block=await verifiedBlock(client);
+  if(executive)assert(await client.readContract({address:CREDENTIALS,abi:credentialManagementAbi,functionName:'canIssueAsExecutive',args:[authority,BigInt(executiveCredentialId!)],blockNumber:block.number}),'Your Executive credential or its parent membership is no longer active.');
   if(action.kind==='issue') {
     assert(await client.readContract({address:MEMBERSHIP,abi:credentialManagementAbi,functionName:'isActiveMember',args:[call.member,call.id],blockNumber:block.number}),'The wallet must actively hold this membership.');
     const existing=await readManagedCredentials(client,call.member);
@@ -99,9 +117,10 @@ export async function prepareCredential(client:PublicClient,action:CredentialAct
   }
   await client.call({account:authority,to:CREDENTIALS,data:call.data,blockNumber:block.number});
   assert((await client.getBlock({blockNumber:block.number})).hash===block.hash);
-  return {to:CREDENTIALS,data:call.data,value:'0',operation:0,authority,summary:call.summary,checkedAt:Date.now(),blockNumber:String(block.number)};
+  return {mode:executive?'executive':'safe',executiveCredentialId,to:CREDENTIALS,data:call.data,value:'0',operation:0,authority,summary:call.summary,checkedAt:Date.now(),blockNumber:String(block.number)};
 }
 export function safeCredentialBatch(plan:CredentialPlan) {
+  assert(plan.mode!=='executive','Direct Executive issuance cannot be exported as a Safe transaction.');
   return {version:'1.0',chainId:'1',createdAt:plan.checkedAt,meta:{name:plan.summary,description:'Research membership credential. Roles derives eligibility only after on-chain confirmation and current verification.',txBuilderVersion:'1.18.0',createdFromSafeAddress:plan.authority},transactions:[{to:plan.to,value:'0',data:plan.data}]};
 }
 
@@ -113,8 +132,8 @@ export function credentialReceiptMatches(plan:CredentialPlan,receipt:{status:str
   if(!same(log.address,CREDENTIALS))return false;
   try{
    const event=decodeEventLog({abi:credentialManagementAbi,data:log.data,topics:log.topics as [`0x${string}`,...`0x${string}`[]]});
-   if(call.functionName==='issueCredential'&&event.eventName==='CredentialIssued'){
-    const [member,parent,type,uri,expiry]=call.args;const e=event.args;
+   if((call.functionName==='issueCredential'||call.functionName==='issueCredentialAsExecutive')&&event.eventName==='CredentialIssued'){
+    const [member,parent,type,uri,expiry]=call.functionName==='issueCredential'?call.args:call.args.slice(1) as [Address,bigint,`0x${string}`,string,bigint];const e=event.args;
     return same(e.administrator,plan.authority)&&same(e.member,member)&&e.membershipTokenId===parent&&e.credentialType===type&&e.metadataURI===uri&&e.validUntil===expiry;
    }
    if(call.functionName==='setCredentialRevoked'&&event.eventName==='CredentialRevocationUpdated')return event.args.credentialId===call.args[0]&&event.args.revoked===call.args[1]&&same(event.args.administrator,plan.authority);
