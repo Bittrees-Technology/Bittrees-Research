@@ -11,6 +11,7 @@ export const FAMILY_LINKS = [
 
 /** Bittrees Research external presences (governance, forum, social, publishing). */
 export const RESEARCH_LINKS = {
+  chat: "https://chat.bittrees.org",
   snapshot: "https://snapshot.box/#/s:research.bittrees.eth",
   forum: "https://metaforo.io/g/bittreesresearch",
   twitter: "https://twitter.com/bresearch_",
