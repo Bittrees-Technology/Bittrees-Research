@@ -1,3 +1,5 @@
+import { ResearchCredentialRoles } from "@/components/ResearchCredentialRoles";
+import { useSearchParams } from "react-router";
 import ReviewerAccessSettings, {useReviewerSetupAccess} from '../components/ReviewerAccessSettings';
 import Contributors from "./Contributors";
 import {useAuthorityAccess} from '../lib/authorityAccess';
@@ -26,7 +28,8 @@ export default function Admin() {
   const { address } = useAccount();
   const level = useAdminAccess(address);
   const shared=useAuthorityAccess(address);
-  const [tab, setTab] = useState<Tab>("applications");
+  const [searchParams] = useSearchParams();
+  const [tab, setTab] = useState<Tab>(() => searchParams.get("tab")==="roles"?"roles":"applications");
 
   const tabs: { key: Tab; label: string }[] =
     level === "full"
@@ -72,6 +75,7 @@ export default function Admin() {
       </div>
 
       {active === "reviewer-settings" && <ReviewerAccessSettings address={address} />}
+      {active === "roles" && <ResearchCredentialRoles />}
       {active === "roles" && (shared.data?.configured?<section className="card"><h2>Shared roles</h2><p>Project staff and partner permissions are managed in Roles.</p><a href="https://roles.bittrees.org/role-management?project=research">Manage roles</a></section>:<RolesTab />)}
       {active === "applications" && <Contributors embedded />}
       {active === "moderation" && <ModerationTab />}

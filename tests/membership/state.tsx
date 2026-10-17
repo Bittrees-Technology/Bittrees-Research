@@ -49,3 +49,5 @@ export function usePublicClient(){return {
  simulateContract:async(request:any)=>({request}),
  waitForTransactionReceipt:async()=>({status:'success'}),
 };}
+
+export function useSendTransaction(){return {sendTransactionAsync:async()=>{throw Error('Synthetic signer cannot execute a Safe transaction');}};}
