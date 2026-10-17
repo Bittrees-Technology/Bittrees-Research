@@ -143,7 +143,7 @@ export async function handler(req, res) {
 
     if (body.createCredentialDefinition) {
       // Catalog metadata only: no independent role assignment or permission mapping.
-      if (registryPolicyDecision() !== true) { res.status(403).json({error:"Current role-management authority required"}); return; }
+      if (registryPolicyDecision() !== true) { res.status(403).json({error:"Current credential-definition authority required"}); return; }
       const d=body.createCredentialDefinition;
       const label=String(d.label||"").trim(), identifier=String(d.identifier||"").trim(), metadataURI=String(d.metadataURI||"").trim();
       let url;try{url=new URL(metadataURI);}catch{}

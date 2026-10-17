@@ -20,7 +20,7 @@ export const ecosystemSources={
 export const scopeFor=project=>'ecosystem.'+project;
 export const resourceFor=project=>'project:'+project;
 const legacyActions={gov:['community.roles.manage','community.moderation.manage','rooms.manage','rooms.propose'],research:['community.roles.manage','community.moderation.manage','rooms.manage','rooms.propose'],capital:['snapshot.refresh'],roles:['directory.read']};
-export const actionsFor=project=>[...(legacyActions[project]||[]),'project.admin','tier.partner','tier.junior-partner','tier.associate',...ecosystemSources[project].roles.map(role=>'role.'+role.replaceAll('_','-'))];
+export const actionsFor=project=>[...(project==='research'?['research.credentials.define','research.credentials.assign']:[]),...(legacyActions[project]||[]),'project.admin','tier.partner','tier.junior-partner','tier.associate',...ecosystemSources[project].roles.map(role=>'role.'+role.replaceAll('_','-'))];
 export const ecosystemRequestMessage=r=>'Bittrees ecosystem authority request v1\n'+canonical(r);
 export const ecosystemDecisionMessage=d=>'Bittrees ecosystem authority decision v1\n'+canonical(d);
 export function verifyEcosystemSignature(message,signature,pem){

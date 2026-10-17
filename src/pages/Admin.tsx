@@ -31,14 +31,17 @@ export default function Admin() {
   const [searchParams] = useSearchParams();
   const [tab, setTab] = useState<Tab>(() => searchParams.get("tab")==="roles"?"roles":"applications");
 
-  const tabs: { key: Tab; label: string }[] =
-    level === "full"
-      ? [
-          { key: "roles", label: "Roles" },
-          { key: "applications", label: "Contributor applications" },
-          { key: "moderation", label: "Moderation" },
-        ]
-      : level === "moderation" ? [{ key: "moderation", label: "Moderation" },{key:"applications",label:"Contributor applications"}] : [{key:"applications",label:"Contributor applications"}];
+  const permissions=!shared.isError && shared.data && (!shared.data.configured || (shared.data.expiresAt??0)>Date.now())?shared.data.permissions:[];
+  const legacyFull=shared.data?.configured===false&&!shared.isError&&level==='full';
+  const canManage=permissions.includes('community.roles.manage')||legacyFull;
+  const canDefine=permissions.includes('research.credentials.define')||legacyFull;
+  const canAssign=permissions.includes('research.credentials.assign')||legacyFull;
+  const canModerate=permissions.includes('community.moderation.manage')||legacyFull||(shared.data?.configured===false&&level==='moderation');
+  const tabs: {key:Tab;label:string}[]=[
+    ...(canDefine||canAssign?[{key:'roles' as Tab,label:'Roles'}]:[]),
+    {key:'applications',label:'Contributor applications'},
+    ...(canModerate?[{key:'moderation' as Tab,label:'Moderation'}]:[]),
+  ];
 
   const reviewerSetup=useReviewerSetupAccess(address);
   if(reviewerSetup)tabs.push({key:"reviewer-settings",label:"Admin settings"});
@@ -75,8 +78,8 @@ export default function Admin() {
       </div>
 
       {active === "reviewer-settings" && <ReviewerAccessSettings address={address} />}
-      {active === "roles" && <ResearchCredentialRoles />}
-      {active === "roles" && (shared.data?.configured?<section className="card"><h2>Shared roles</h2><p>Project staff and partner permissions are managed in Roles.</p><a href="https://roles.bittrees.org/role-management?project=research">Manage roles</a></section>:<RolesTab />)}
+      {active === "roles" && <ResearchCredentialRoles canDefine={canDefine} canAssign={canAssign} canManage={canManage} />}
+      {active === "roles" && level==="full" && (shared.data?.configured?<section className="card"><h2>Shared roles</h2><p>Project staff and partner permissions are managed in Roles.</p><a href="https://roles.bittrees.org/role-management?project=research">Manage roles</a></section>:<RolesTab />)}
       {active === "applications" && <Contributors embedded />}
       {active === "moderation" && <ModerationTab />}
     </div>

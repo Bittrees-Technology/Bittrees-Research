@@ -63,3 +63,35 @@ test('five application roles have distinct matching credential types and metadat
  }
  const app=normalizeInterest({name:'Test',email:'test@example.org',expertise:['Research'],requestedRoles:['Executive'],specialty:'Governance',region:['EMEA'],heardFrom:'Website'},'research',{wallet:null});assert.deepEqual(app.requestedRoles,['Executive']);assert.equal(app.credential,undefined);
 });
+
+test('direct issuance binds proof and denies Executive type, revocation, and Safe export',async()=>{
+ const {executiveCredentialCall,EXECUTIVE_TYPE}=await import('../src/lib/researchCredentialManagement.ts');
+ const call=executiveCredentialCall(input,'12'),decoded=decodeFunctionData({abi:credentialManagementAbi,data:call.data});
+ assert.equal(decoded.functionName,'issueCredentialAsExecutive');assert.deepEqual(decoded.args,[12n,member,7n,RESEARCHER_TYPE,input.metadataURI,0n]);
+ assert.throws(()=>executiveCredentialCall({...input,credentialType:EXECUTIVE_TYPE},'12'),/primary administrators/);
+ assert.throws(()=>executiveCredentialCall({kind:'revoke',member,credentialId:'7'},'12'),/issue credentials only/);
+ for(const id of ['0','-1','not-id',String(2n**256n)])assert.throws(()=>executiveCredentialCall(input,id));
+ assert.throws(()=>safeCredentialBatch({mode:'executive'}),/cannot be exported/);
+ const plan={mode:'executive',authority:member,data:call.data};
+ const event={address:CREDENTIALS,data:encodeAbiParameters(parseAbiParameters('bytes32,string,uint64,address'),[RESEARCHER_TYPE,input.metadataURI,0n,member]),topics:encodeEventTopics({abi:credentialManagementAbi,eventName:'CredentialIssued',args:{credentialId:14n,member,membershipTokenId:7n}})};
+ assert(credentialReceiptMatches(plan,{status:'success',logs:[event]}));
+ assert(!credentialReceiptMatches({...plan,authority:AUTHORITIES[0]},{status:'success',logs:[event]}));
+ assert(!credentialReceiptMatches(plan,{status:'success',logs:[]}));
+});
+
+test('direct preparation checks live proof and recipient, simulates wallet, and refuses changed runtime',async()=>{
+ const {default:deployment}=await import('../src/lib/constants/research-deployment.json',{with:{type:'json'}});
+ const {keccak256}=await import('viem');const saved={...deployment.runtimeCodeHashes};
+ try{
+  for(const key of Object.keys(deployment.runtimeCodeHashes))deployment.runtimeCodeHashes[key]=keccak256('0x1234');
+  let proofValid=true,recipientActive=true,badCode=false,simulated=null;
+  const client={getChainId:async()=>1,getBlock:async()=>({number:100n,timestamp:BigInt(Math.floor(Date.now()/1000)),hash:'0xabc'}),getCode:async()=>badCode?'0xdead':'0x1234',
+   getStorageAt:async({address,slot})=>'0x'+(slot.startsWith('0xb531')?(address.toLowerCase()===deployment.addresses.proxy.toLowerCase()?deployment.addresses.proxyAdmin:deployment.addresses.credentialProxyAdmin):(address.toLowerCase()===deployment.addresses.proxy.toLowerCase()?deployment.addresses.implementation:deployment.addresses.credentialImplementation)).slice(2).padStart(64,'0'),
+   readContract:async({functionName})=>({owner:deployment.addresses.authority,rootAuthority:deployment.root,researchAuthority:deployment.research,membership:deployment.addresses.proxy,credentialRegistry:deployment.addresses.credentialProxy,credentialIdsOf:[],canIssueAsExecutive:proofValid,isActiveMember:recipientActive})[functionName],
+   call:async request=>{simulated=request;}};
+  const plan=await prepareCredential(client,input,member,'12');assert.equal(plan.mode,'executive');assert.equal(plan.executiveCredentialId,'12');assert.equal(simulated.account,member);
+  proofValid=false;simulated=null;await assert.rejects(prepareCredential(client,input,member,'12'),/no longer active/);assert.equal(simulated,null);
+  proofValid=true;recipientActive=false;await assert.rejects(prepareCredential(client,input,member,'12'),/actively hold/);
+  recipientActive=true;badCode=true;await assert.rejects(prepareCredential(client,input,member,'12'),/verification unavailable/);
+ }finally{Object.assign(deployment.runtimeCodeHashes,saved);}
+});

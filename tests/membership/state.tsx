@@ -1,4 +1,4 @@
-import {encodeEventTopics,encodeAbiParameters,parseAbi} from 'viem';
+import {decodeFunctionData,encodeEventTopics,encodeAbiParameters,parseAbi} from 'viem';
 import { useEffect, useSyncExternalStore } from 'react';
 import {createMembershipMintReceipts} from '../../src/lib/membershipMintReceipt';
 const first=`0x${'1'.repeat(40)}`,second=`0x${'2'.repeat(40)}`,hash=`0x${'1'.repeat(64)}`;
@@ -50,6 +50,11 @@ export function usePublicClient(){return {
  readContract:async({functionName}:any)=>location.search==='?gift'?(functionName==='mintPrice'?BigInt((window as any).__giftPrice??1):360n*86400n):0n,
  simulateContract:async(request:any)=>{if((window as any).__giftHold)await new Promise(r=>(window as any).__giftRelease=r);return {request};},
  waitForTransactionReceipt:async({onReplaced}:any)=>{
+ if(location.hash.includes('executive')&&(window as any).__credentialWrite){
+  const abi=parseAbi(['function issueCredentialAsExecutive(uint256,address,uint256,bytes32,string,uint64) returns(uint256)','event CredentialIssued(uint256 indexed credentialId,address indexed member,uint256 indexed membershipTokenId,bytes32 credentialType,string metadataURI,uint64 validUntil,address administrator)']);
+  const [,member,parent,type,uri,expiry]=decodeFunctionData({abi,data:(window as any).__credentialWrite.data}).args!;
+  return {status:'success',logs:[{address:'0x335708826d76302E5014E6Ca41564482e38AA8B2',topics:encodeEventTopics({abi,eventName:'CredentialIssued',args:{credentialId:13n,member,membershipTokenId:parent}}),data:encodeAbiParameters([{type:'bytes32'},{type:'string'},{type:'uint64'},{type:'address'}],[type,uri,expiry,state.address as `0x${string}`])}]};
+ }
  if(location.search!=='?gift')return {status:'success',logs:[]};
  if((window as any).__giftReceiptHold)await new Promise(r=>{((window as any).__giftReceiptReleases??=[]).push(r);});
  const mode=(window as any).__giftReceipt;
@@ -62,6 +67,6 @@ export function usePublicClient(){return {
  },
 };}
 
-export function useSendTransaction(){return {sendTransactionAsync:async()=>{if(state.address==='0x2F8f86e6E1Ff118861BEB7E583DE90f0449A264f')return hash;throw Error('Synthetic signer cannot execute a Safe transaction');}};}
+export function useSendTransaction(){return {sendTransactionAsync:async(request:any)=>{if(location.hash.includes('executive')){(window as any).__credentialWrite=request;return hash;}if(state.address==='0x2F8f86e6E1Ff118861BEB7E583DE90f0449A264f')return hash;throw Error('Synthetic signer cannot execute a Safe transaction');}};}
 
 export function useWalletClient(){return {data:{signMessage:async()=>"0x"}};}

@@ -4,24 +4,26 @@
   "addresses": {
     "deployment": "0x9E63e1A0B6Fa89b9b37638E89AD352d415b529d2",
     "authority": "0x54302a2A07298D28Ee41f6C61a280D9bD6d51765",
-    "implementation": "0x38E76941272B1e3c384Ddf740Ebfe349D4F882b8",
+    "implementation": "0x225fd0fE7C3b326a297d1b716Cb330A1dECc8444",
     "proxy": "0xCecD807193Cf79B59e9C849b9CCCbA10DD6f8335",
     "proxyAdmin": "0xCd99DDE40556c1724cd361395078368Fe80E7029",
-    "credentialImplementation": "0xBb74f8b70143FEA17cF117b56080749e3BBC201c",
+    "credentialImplementation": "0x638B365f09b759947CE1e99C7c19d1764b099945",
     "credentialProxy": "0x335708826d76302E5014E6Ca41564482e38AA8B2",
     "credentialProxyAdmin": "0x55c959ddA8D36C2F91F2443322ae5b8d5F559861"
   },
   "runtimeCodeHashes": {
     "deployment": "0x25673c5570f3912a3346996269b6df96ed0ee1f5fd70620a9cd737e8599154c2",
     "authority": "0xd2eb3b68a2584ab7170850f8c02ebb10931c6347818a8f5aee696c4e5dbf1d67",
-    "implementation": "0x4cf4a48050e7eb790896b6fd070b9105c2e0cccc3ebc5c571f9009a379007614",
+    "implementation": "0x4388df934cb0dc8bd1b643215fc8971b681a7b18509734a5ec09b6282d36c1f0",
     "proxy": "0x838826f03ce0a89ab1bd04fce17214007e3caea8f4a6683f5d1ae6df6c61e800",
     "proxyAdmin": "0xa70a81fd0f0a9abd3815d570c5c603e5a19a06fbde6bc472c634849c91049247",
-    "credentialImplementation": "0x24cfa38daca626e04c9da5c143539fbf22d5e8009b2e9aefad6bbc97e1e5bcf0",
+    "credentialImplementation": "0x3bc14cc7d5d9d5591e541d674230150a3b179e31dc36a7d40a1c57af94bd20b4",
     "credentialProxy": "0x31ab7d06af111f94371b2d4d820c0a3220214407d87c8c24d97ccd560e07e8b3",
     "credentialProxyAdmin": "0xa70a81fd0f0a9abd3815d570c5c603e5a19a06fbde6bc472c634849c91049247"
   },
   "root": "0x1B6c450FaDB7c77191f152473FC2f79dC515FA77",
   "research": "0x2F8f86e6E1Ff118861BEB7E583DE90f0449A264f",
-  "bit": "0x57A447E4d5e18A9423408C365963A73F08B9d18C"
+  "bit": "0x57A447E4d5e18A9423408C365963A73F08B9d18C",
+  "version": 3,
+  "upgradeVerifiedBlock": "26210125"
 }
