@@ -1,0 +1,9 @@
+import {test} from 'node:test';import assert from 'node:assert/strict';
+import {MEMBERSHIP,LEGACY,researchMembershipBalance} from '../server/research-membership.mjs';
+const user='0x1111111111111111111111111111111111111111';
+function fixture({blocked=false,active=true,expired=false,fail=false}={}){return {getBlockNumber:async()=>100n,readContract:async({functionName,blockNumber})=>{assert.equal(blockNumber,100n);if(fail)throw Error('RPC unavailable');return ({blockedWallets:blocked,isActiveMember:active,lastTokenId:1n,balanceOf:1n,isExpired:expired})[functionName];},multicall:async({contracts,blockNumber,allowFailure})=>{assert.equal(blockNumber,100n);assert.equal(allowFailure,false);return contracts.map(c=>c.functionName==='isActiveMember'?active:c.functionName==='balanceOf'?1n:expired);}};}
+test('new membership uses active validity, not raw balance',async()=>{assert.equal(await researchMembershipBalance(fixture({active:false}),MEMBERSHIP,user,1n),0n);assert.equal(await researchMembershipBalance(fixture(),MEMBERSHIP,user,1n),1n);});
+test('new wallet block denies both legacy and current memberships',async()=>{for(const token of [LEGACY,MEMBERSHIP])assert.equal(await researchMembershipBalance(fixture({blocked:true}),token,user,1n),0n);});
+test('expired legacy passes do not grant access',async()=>{assert.equal(await researchMembershipBalance(fixture({expired:true}),LEGACY,user,1n),0n);});
+test('legacy any-token room accepts valid new pass; not revoked/expired passes',async()=>{assert.equal(await researchMembershipBalance(fixture({expired:true}),LEGACY,user),1n);assert.equal(await researchMembershipBalance(fixture({active:false,expired:true}),LEGACY,user),0n);});
+test('RPC errors never grant access',async()=>{await assert.rejects(researchMembershipBalance(fixture({fail:true}),MEMBERSHIP,user,1n));});

@@ -1,12 +1,13 @@
 import { useEffect, useSyncExternalStore } from 'react';
 import {createMembershipMintReceipts} from '../../src/lib/membershipMintReceipt';
 const first=`0x${'1'.repeat(40)}`,second=`0x${'2'.repeat(40)}`,hash=`0x${'1'.repeat(64)}`;
-let state = {address:first, connected:true, chain:1, verified:false, receipt:'', submitted:false, revision:0, version:0, checking:false,error:false,verifiedAt:0,tokens:[] as {tokenId:string;expiresAt:number;isExpired:boolean}[]};
+let state = {address:first, connected:true, chain:1, verified:false, receipt:'', submitted:false, revision:0, version:0, checking:false,error:false,verifiedAt:0,tokens:[] as {tokenId:string;expiresAt:number;isExpired:boolean;version?:string}[]};
 const session=()=>({scope:state.connected?`${state.address}:${state.chain}:test`:null,revision:state.revision});
 const receipts=createMembershipMintReceipts(session);
 const listeners = new Set<() => void>();
 const set = (update: Partial<typeof state>) => { state = {...state, ...update, version: state.version + 1}; receipts.observe(); listeners.forEach(fn => fn()); };
 (window as any).__membershipFixture = (change: string) => {
+  if (change === 'v2') set({tokens:[{tokenId:'7',version:'v2',expiresAt:1,isExpired:true}]});
   if (change === 'receipt' || change === 'late_receipt') set({receipt:'success'});
   if (['reverted','cancelled','repriced'].includes(change)) set({receipt:change});
   if (change === 'empty') set({checking:false,error:false,verified:false,tokens:[]});
@@ -20,9 +21,9 @@ function useState() { return useSyncExternalStore(fn => { listeners.add(fn); ret
 export function useAccount() { const s=useState(); return {address:s.connected?s.address:undefined,isConnected:s.connected,isConnecting:false}; }
 export function useChainId() { return useState().chain; }
 export function useSwitchChain() { return {switchChain:()=>{},isPending:false}; }
-export function useReadContract({functionName}:any) { return {data:functionName==='mintPrice'?1n:360n*86400n}; }
+export function useReadContract({functionName}:any) { return {data:functionName==='bitPricePerDay'?2n*10n**18n:functionName==='mintPrice'?1n:360n*86400n,refetch:async()=>{}}; }
 export function useSimulateContract() { return {data:{request:{}},error:null}; }
-export function useWriteContract() { const s=useState(); return {data:s.submitted?hash:undefined,writeContract:()=>set({submitted:true}),reset:()=>set({submitted:false,receipt:''}),isPending:false}; }
+export function useWriteContract() { const s=useState(); return {writeContractAsync:async(request:any)=>{(window as any).__renewWrites.push({functionName:request.functionName,args:request.args.map(String)});return hash;},data:s.submitted?hash:undefined,writeContract:()=>set({submitted:true}),reset:()=>set({submitted:false,receipt:''}),isPending:false}; }
 export function useWaitForTransactionReceipt({chainId,onReplaced}:any) {
  if(chainId!==1) throw Error('Membership receipt must use mainnet'); const s=useState();
  const replaced=['cancelled','repriced'].includes(s.receipt);
@@ -40,3 +41,10 @@ export function useMembershipStatus() {
   confirmMint:(hash:string)=>receipts.record(captured,hash,s.tokens),
   refetch:()=>{(window as any).__verificationRequests++;set({checking:true,error:false});}};
 }
+
+(window as any).__renewWrites=[];
+export function usePublicClient(){return {
+ readContract:async()=>0n,
+ simulateContract:async(request:any)=>({request}),
+ waitForTransactionReceipt:async()=>({status:'success'}),
+};}

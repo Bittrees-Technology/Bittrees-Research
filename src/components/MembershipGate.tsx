@@ -1,3 +1,4 @@
+import { MembershipRenew } from "@/components/membership/MembershipRenew";
 import { Link } from "react-router";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useAccount } from "wagmi";
@@ -18,7 +19,7 @@ export function MembershipGate() {
   const { isConnected } = useAccount();
   const { isLoading, tokens, error, refetch, sessionRevision, pendingMint, isChecking } = useMembershipStatus();
 
-  const hasExpired = tokens.length > 0; // reaching the gate while holding tokens ⇒ all expired
+  const hasExpired = tokens.some(t => t.isExpired); // reaching the gate while holding tokens ⇒ all expired
   const mode: "join" | "renew" = hasExpired ? "renew" : "join";
 
   return (
@@ -121,6 +122,8 @@ export function MembershipGate() {
                   ? "Extend your membership to return to the members area."
                   : "Membership is an on-chain pass (an ERC-1155 token on Ethereum) valid for 360 days."}
               </p>
+              {tokens.some(t => t.version === "v2") && <MembershipRenew />}
+              <h3>Mint a new membership</h3>
               <MembershipMint key={sessionRevision} mode={mode} onMinted={refetch} />
             </>
           )}

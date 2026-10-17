@@ -15,7 +15,7 @@ export type ContractName = keyof ContractsConfig;
 // Production contracts (mainnet, base)
 export const productionContracts: ContractsConfig = {
     membership: {
-        [mainnet.id]: "0xc8121e650bd797d8b9dad00227a9a77ef603a84a",
+        [mainnet.id]: "0xCecD807193Cf79B59e9C849b9CCCbA10DD6f8335",
     },
     bnote: {
         [mainnet.id]: "0xf1AAfFc982B5F553a730a9eC134715a547f1fe80",
