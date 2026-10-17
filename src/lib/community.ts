@@ -21,14 +21,15 @@ export interface RoleDef { label: string; color?: string; description?: string; 
 export interface FlagRecord { by: string[]; mod: "approved" | "removed" | null; surface?: string; preview?: string }
 export type FlagsMap = Record<string, FlagRecord>;
 export type EncKeysMap = Record<string, string>; // addrLower -> x25519 pubkey hex
-export interface CommunityData { reviewerAuthority?: {mode:string;ready:boolean;reviewers?:string[];expiresAt?:number}; authorizationMode?: "legacy" | "root-policy" | "controller-policy-on-activation"; roles: RolesMap; flags: FlagsMap; enckeys: EncKeysMap; roledefs: RoleDef[]; threshold: number }
+export interface CredentialDefinition {label:string;identifier:string;credentialType:`0x${string}`;metadataURI:string}
+export interface CommunityData {credentialdefs?:CredentialDefinition[]; reviewerAuthority?: {mode:string;ready:boolean;reviewers?:string[];expiresAt?:number}; authorizationMode?: "legacy" | "root-policy" | "controller-policy-on-activation"; roles: RolesMap; flags: FlagsMap; enckeys: EncKeysMap; roledefs: RoleDef[]; threshold: number }
 
 export async function fetchCommunity(): Promise<CommunityData> {
   try {
     const r = await fetch(URL,{cache:"no-store"});
     if (!r.ok) return { roles: {}, flags: {}, enckeys: {}, roledefs: [], threshold: FLAG_HIDE_THRESHOLD };
     const j = await r.json();
-    return { reviewerAuthority:j?.reviewerAuthority,roles: j?.roles ?? {}, flags: j?.flags ?? {}, enckeys: j?.enckeys ?? {}, roledefs: j?.roledefs ?? [], threshold: j?.threshold ?? FLAG_HIDE_THRESHOLD };
+    return { reviewerAuthority:j?.reviewerAuthority,roles: j?.roles ?? {}, flags: j?.flags ?? {}, enckeys: j?.enckeys ?? {}, roledefs: j?.roledefs ?? [], credentialdefs:j?.credentialdefs??[], threshold: j?.threshold ?? FLAG_HIDE_THRESHOLD };
   } catch {
     return { roles: {}, flags: {}, enckeys: {}, roledefs: [], threshold: FLAG_HIDE_THRESHOLD };
   }
@@ -183,4 +184,8 @@ export const ASSIGNABLE_ROLES: { label: string; color: string; description: stri
 export function currentReviewers(community:CommunityData):string[]{
  const proof=community.reviewerAuthority;if(!proof||!proof.ready||(proof.mode==="roles"&&(!proof.expiresAt||proof.expiresAt<=Date.now())))throw Error("Current application reviewers are unavailable. Please retry.");
  return proof.mode==="roles"?(proof.reviewers||[]):opsHolders(community.roles);
+}
+
+export async function createCredentialDefinition(opts:{walletClient:WalletClient;account:`0x${string}`;label:string;identifier:string;metadataURI:string}){
+ await postSigned(opts.walletClient,opts.account,'Create credential definition',{createCredentialDefinition:{label:opts.label,identifier:opts.identifier,metadataURI:opts.metadataURI}});
 }

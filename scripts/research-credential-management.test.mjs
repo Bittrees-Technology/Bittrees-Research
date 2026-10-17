@@ -44,3 +44,8 @@ test('issuance confirmation binds the exact member, parent, type, metadata and S
  assert.equal(credentialReceiptMatches({...plan,data:credentialCall({...input,parentId:'8'}).data},{status:'success',logs:[event]}),false);
  assert.equal(credentialReceiptMatches({...plan,authority:AUTHORITIES[1]},{status:'success',logs:[event]}),false);
 });
+
+test('custom types are encoded explicitly without implying a Roles mapping',()=>{
+ const type='0x'+'12'.repeat(32);const decoded=decodeFunctionData({abi:credentialManagementAbi,data:credentialCall({...input,credentialType:type}).data});assert.equal(decoded.args[2],type);
+ for(const type of ['role.admin','0x'+'00'.repeat(32)])assert.throws(()=>credentialCall({...input,credentialType:type}));
+});

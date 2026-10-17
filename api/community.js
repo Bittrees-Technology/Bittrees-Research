@@ -1,5 +1,5 @@
 import {applicationReviewers} from '../server/application-reviewers.mjs';
-import { getAddress } from "viem";
+import { getAddress, keccak256, toBytes } from "viem";
 import { withSignedRegistry, registryCommand, recoverMessageAddress, registryPolicyDecision } from "../server/signed-registry.mjs";
 
 /**
@@ -20,6 +20,7 @@ import { withSignedRegistry, registryCommand, recoverMessageAddress, registryPol
 const KV_URL = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
 const KV_TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
 const ROLES_KEY = "bittrees:research:roles"; // { <addrLower>: [{ label, color }] }
+const CREDENTIALDEFS_KEY = "bittrees:research:credentialdefs";
 const ROLEDEFS_KEY = "bittrees:research:roledefs"; // [{ label, color, description }] — the catalog of assignable roles
 const FLAGS_KEY = "bittrees:research:flags"; // { <itemId>: { by:[addr], mod:'approved'|'removed'|null, surface, preview } }
 const ENCKEYS_KEY = "bittrees:research:enckeys"; // { <addrLower>: <x25519 pubkey hex> } — for encrypting applications
@@ -106,14 +107,15 @@ export async function handler(req, res) {
   res.setHeader("cache-control", "no-store");
 
   if (req.method === "GET") {
-    const [roles, flags, enckeys, roledefs] = await Promise.all([
+    const [roles, flags, enckeys, roledefs, credentialdefs] = await Promise.all([
       readJson(ROLES_KEY, {}),
       readJson(FLAGS_KEY, {}),
       readJson(ENCKEYS_KEY, {}),
       readJson(ROLEDEFS_KEY, []),
+      readJson(CREDENTIALDEFS_KEY, []),
     ]);
     let reviewerAuthority;try{reviewerAuthority=await applicationReviewers(enckeys);}catch{reviewerAuthority={mode:'roles',ready:false,reviewers:[]};}
-    res.status(200).json({ reviewerAuthority,roles: roles || {}, flags: flags || {}, enckeys: enckeys || {}, roledefs: roledefs || [], threshold: FLAG_HIDE_THRESHOLD });
+    res.status(200).json({ reviewerAuthority,roles: roles || {}, flags: flags || {}, enckeys: enckeys || {}, roledefs: roledefs || [], credentialdefs: credentialdefs || [], threshold: FLAG_HIDE_THRESHOLD });
     return;
   }
 
@@ -136,6 +138,21 @@ export async function handler(req, res) {
     if (!Number.isFinite(Number(timestamp)) || Math.abs(Date.now() - Number(timestamp)) > REPLAY_WINDOW_MS) {
       res.status(400).json({ error: "stale or invalid timestamp" });
       return;
+    }
+
+    if (body.createCredentialDefinition) {
+      // Catalog metadata only: no independent role assignment or permission mapping.
+      if (registryPolicyDecision() !== true) { res.status(403).json({error:"Current role-management authority required"}); return; }
+      const d=body.createCredentialDefinition;
+      const label=String(d.label||"").trim(), identifier=String(d.identifier||"").trim(), metadataURI=String(d.metadataURI||"").trim();
+      let url;try{url=new URL(metadataURI);}catch{}
+      if(!label||label.length>80||!/^research\.role\.[a-z][a-z0-9-]{0,63}\.v[1-9][0-9]{0,3}$/.test(identifier)||!url||url.protocol!=="https:"||url.username||url.password||Buffer.byteLength(metadataURI)>2048){res.status(400).json({error:"Provide a name, a versioned research.role identifier and a public HTTPS metadata URL"});return;}
+      const defs=await readJson(CREDENTIALDEFS_KEY,[]);
+      if(identifier==='research.role.researcher.v1'||label.toLowerCase()==='researcher'||defs.some(x=>x.identifier===identifier||x.label.toLowerCase()===label.toLowerCase())){res.status(409).json({error:"Credential definition already exists"});return;}
+      if(defs.length>=200){res.status(409).json({error:"Credential catalog limit reached"});return;}
+      const definition={label,identifier,credentialType:keccak256(toBytes(identifier)),metadataURI};
+      await writeJson(CREDENTIALDEFS_KEY,[...defs,definition]);
+      res.status(200).json({ok:true,definition});return;
     }
 
     // ── Roles (admin-signed) ───────────────────────────────────────────────

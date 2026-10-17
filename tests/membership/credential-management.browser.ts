@@ -21,7 +21,7 @@ test('wallet change rejects a late preparation result',async({page})=>{
 });
 test('existing credential revocation prepares the existing ID and exposes Roles refresh handoff',async({page})=>{
  await form(page);await page.getByRole('button',{name:'Prepare revocation'}).click();
- await expect(page.getByRole('region',{name:'Prepared credential transaction'})).toContainText('Revoke Researcher credential #9');
+ await expect(page.getByRole('region',{name:'Prepared credential transaction'})).toContainText('Revoke credential #9');
  await expect(page.getByRole('link',{name:'Manage and verify roles in Roles ↗'})).toHaveAttribute('href','https://roles.bittrees.org/role-management?project=research');
 });
 
@@ -31,4 +31,18 @@ test('an outer Safe receipt without the credential event is not shown as complet
  await page.getByRole('button',{name:'Submit with connected Safe'}).click();
  await expect(page.getByRole('status')).toContainText('Execution was not confirmed');
  await expect(page.getByText(/Transaction confirmed. Current chain/)).toHaveCount(0);
+});
+
+test('creation saves a definition separately; assignment selects its exact type',async({page})=>{
+ await page.goto('/?manage');await page.getByRole('button',{name:'Create a role credential',exact:true}).click();
+ await expect(page.getByLabel('Member wallet')).toHaveCount(0);
+ await page.getByLabel('Credential name',{exact:true}).fill('Editor');await page.getByLabel('Credential identifier',{exact:true}).fill('research.role.editor.v1');await page.getByLabel('Definition metadata URL').fill('https://example.org/editor.json');
+ await page.getByRole('button',{name:'Create credential definition',exact:true}).click();
+ await expect(page.getByRole('combobox',{name:/Role credential/})).toBeVisible();await page.getByRole('combobox',{name:/Role credential/}).selectOption('research.role.editor.v1');
+ await expect(page.getByText(/This type has no approved Roles permission mapping/)).toBeVisible();
+ await expect(page.getByLabel('Public credential metadata URL')).toHaveValue('https://example.org/editor.json');
+ await expect(page.getByRole('region',{name:'Prepared credential transaction'})).toHaveCount(0);
+ await page.getByLabel('Member wallet').fill('0x1111111111111111111111111111111111111111');await page.getByLabel('Active membership token ID').fill('7');await page.getByRole('button',{name:'Prepare credential issuance'}).click();
+ await expect(page.getByRole('region',{name:'Prepared credential transaction'})).toContainText('Issue 0x');
+ await page.getByRole('button',{name:'Create a role credential',exact:true}).click();await expect(page.getByRole('region',{name:'Prepared credential transaction'})).toHaveCount(0);
 });

@@ -63,3 +63,5 @@ export function usePublicClient(){return {
 };}
 
 export function useSendTransaction(){return {sendTransactionAsync:async()=>{if(state.address==='0x2F8f86e6E1Ff118861BEB7E583DE90f0449A264f')return hash;throw Error('Synthetic signer cannot execute a Safe transaction');}};}
+
+export function useWalletClient(){return {data:{signMessage:async()=>"0x"}};}
