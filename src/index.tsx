@@ -10,7 +10,7 @@ import { WagmiProvider } from "wagmi";
 import "./index.css";
 
 import { wagmiConfig } from "@/lib/wagmi.ts";
-import Layout from "@/components/layout/Layout";
+import Layout, { AppShell } from "@/components/layout/Layout";
 import { LayoutProvider } from "@/hooks/useLayoutContext.tsx";
 import { ROUTES } from "@/lib/links";
 
@@ -31,14 +31,14 @@ import { MintBITPage } from "./pages/membersPages/MintBITPage.tsx";
 import VisionStatementPage from "./pages/VisionStatementPage.tsx";
 import CodeOfEthicsPage from "./pages/CodeOfEthicsPage.tsx";
 
-const ContributorEntry=()=> <main style={{maxWidth:1140,margin:"0 auto",padding:"32px 24px"}}><Contributors/></main>;
+const ContributorEntry=()=> <AppShell><Contributors/></AppShell>;
 
 const router = createBrowserRouter([
   // Existing application records retain wallet-authenticated access. New applications require membership.
   {path:"/admin/contributors",element:<ContributorEntry/>},
   {path:"/contributors/apply",element:<Navigate to="/contribute" replace/>},
   // Keep the guarded form mounted during its Ethereum-to-Base wallet switch.
-  {path:ROUTES.contribute,element:<main style={{maxWidth:1140,margin:"0 auto",padding:"32px 24px"}}><Contribute/></main>},
+  {path:ROUTES.contribute,element:<AppShell><Contribute/></AppShell>},
   {
     path: "/",
     element: <Layout />,

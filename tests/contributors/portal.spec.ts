@@ -87,7 +87,7 @@ test('application sheet loads older encrypted applications beyond the first inde
 
 test('Research applications offer five requested roles including Executive',async({browser,baseURL})=>{
  const app=await setup(browser,baseURL!,'v2-valid');try{
-  await app.page.goto('/contributors/apply');await app.connect();
+  await app.page.goto('/contributors/apply');await app.connect();await expect(app.page).toHaveURL(baseURL!+'/');await app.page.getByRole('link',{name:'Contribute',exact:true}).click();
   for(const role of ['Researcher','Contributor','Assistant','Steward','Executive'])await expect(app.page.locator('button').filter({hasText:new RegExp('^'+role+'$')})).toBeVisible();
   await app.page.locator('button').filter({hasText:/^Executive$/}).click();await expect(app.page.locator('button').filter({hasText:/^Executive$/})).toHaveAttribute('aria-pressed','true');
  }finally{await app.close();}

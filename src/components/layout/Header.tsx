@@ -98,6 +98,8 @@ export default function Header() {
               key={to}
               to={to}
               end={end}
+              target={to === RESEARCH_LINKS.chat ? "_blank" : undefined}
+              rel={to === RESEARCH_LINKS.chat ? "noopener noreferrer" : undefined}
               style={({ isActive }) => ({
                 textDecoration: "none",
                 fontFamily: "var(--font-sans)",
@@ -168,6 +170,8 @@ export default function Header() {
                   key={to}
                   to={to}
                   end={end}
+                  target={to === RESEARCH_LINKS.chat ? "_blank" : undefined}
+                  rel={to === RESEARCH_LINKS.chat ? "noopener noreferrer" : undefined}
                   style={({ isActive }) => ({
                     display: "block",
                     padding: "0.75rem 1.5rem",
