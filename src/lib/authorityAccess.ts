@@ -17,7 +17,13 @@ export function useAuthorityAccess(address?:string, purpose:'access'|'navigation
     queryFn:async({signal})=>{
       const r=await fetch('/api/authority-access?address='+address,{signal});
       if(!r.ok)throw Error('Controller authority unavailable');
-      return r.json() as Promise<AuthorityAccess>;
+      const data = await r.json() as AuthorityAccess;
+      // Expired evidence is unavailable, not a fresh denial. Keep the last
+      // verified navigation hint; protected readers still reject query errors.
+      if (!data.configured || !Number.isFinite(data.expiresAt) || data.expiresAt! <= Date.now()) {
+        throw Error('Controller authority expired. Refresh to check access.');
+      }
+      return data;
     },
   });
 }

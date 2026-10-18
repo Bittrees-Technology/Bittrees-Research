@@ -1,7 +1,8 @@
+import {ensureResearchSignIn} from '../lib/researchSignIn';
 import ContributorSheet from '../components/ContributorSheet';
 import MemoNegotiation from '../components/MemoNegotiation';
 import BaseApplicationSync from '../components/BaseApplicationSync';
-import {useEffect,useState} from 'react';
+import {useEffect,useState,useRef} from 'react';
 import {Link} from 'react-router';
 import {useAccount,useSignMessage,useSignTypedData,useSendTransaction,useSwitchChain} from 'wagmi';
 import {ConnectButton} from '@rainbow-me/rainbowkit';
@@ -14,16 +15,19 @@ function Field({name,title,required=false,type='text',value,options}:{name:strin
 export default function Contributors({embedded=false}:{embedded?:boolean}){
  const [session,setSession]=useState<any>(undefined),[data,setData]=useState<any>(null),[error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false),[selected,setSelected]=useState(''),[search,setSearch]=useState(''),[tab,setTab]=useState('Applications'),[ongoing,setOngoing]=useState(false),[proposalKind,setProposalKind]=useState('standing');
  const {address}=useAccount(),{signMessageAsync}=useSignMessage(),{signTypedDataAsync}=useSignTypedData(),{sendTransactionAsync}=useSendTransaction(),{switchChainAsync}=useSwitchChain();
+ const currentWallet=useRef(address);currentWallet.current=address;
+ const alive=useRef(true),readVersion=useRef(0);
+ useEffect(()=>{alive.current=true;return()=>{alive.current=false;readVersion.current++;};},[]);
  const [transactionHash,setTransactionHash]=useState('');
  async function call(body:any,csrf=session?.csrf){const r=await fetch('/api/contributors',{method:'POST',headers:{'content-type':'application/json',...(csrf?{'x-contributor-csrf':csrf}:{})},body:JSON.stringify(body)});const result=await r.json();if(!r.ok)throw Error(result.error||'Request failed.');return result;}
- async function refresh(){const r=await fetch('/api/contributors');const s=await r.json();if(!r.ok)throw Error(s.error);setSession(s.session);if(s.session)setData(await call({action:'list'},s.session.csrf));else setData(null);}
+ async function refresh(){const version=++readVersion.current,wallet=address;const current=()=>alive.current&&version===readVersion.current&&currentWallet.current===wallet;const r=await fetch('/api/contributors',{cache:'no-store'});const s=await r.json();if(!current())return;if(!r.ok)throw Error(s.error);setSession(s.session);if(s.session&&(!wallet||s.session.wallet?.toLowerCase()===wallet.toLowerCase())){const next=await call({action:'list'},s.session.csrf);if(current())setData(next);}else setData(null);}
  useEffect(()=>{const restore=()=>{refresh().catch(e=>setError(e.message));};restore();window.addEventListener('focus',restore);return()=>window.removeEventListener('focus',restore);},[address]);
  async function run(fn:()=>Promise<void>){setBusy(true);setError('');setNotice('');try{await fn();}catch(e){setError((e as Error).message);}finally{setBusy(false);}}
  const walletMismatch=!!(address&&session?.wallet&&address.toLowerCase()!==session.wallet.toLowerCase());
  const queue=(data?.applications||[]).filter((a:any)=>(!data?.persona?.canReview||(tab==='Directory'?a.state==='approved':tab==='Applications'?a.state!=='approved':true))&&[a.name,a.wallet,a.specialty,a.state,...(a.requestedRoles||[])].join(' ').toLowerCase().includes(search.toLowerCase())).sort((a:any,b:any)=>Number(a.state==='rejected')-Number(b.state==='rejected'));const app=queue.find((a:any)=>a.id===selected)||queue[0],actor=data?.persona,own=app?.identity===actor?.id,memo=app?.memos?.at(-1),pendingMemoEdit=app?.memoEdits?.some((e:any)=>e.state==='pending');
  useEffect(()=>{setOngoing(memo?memo.end===null:app?.wallet==='0xe5350d96fc3161bf5c385843ec5ee24e8b465b2f');},[app?.id,memo?.version]);
  async function change(action:string,values:any={}){await run(async()=>{const next=await call({action:'review',id:app.id,change:{action,expectedVersion:app.version,...values}});setData(next);if(action==='approve'&&next.applications.find((a:any)=>a.id===app.id)?.state==='approved'){setSelected(app.id);setTab('Directory');setSearch('');setNotice('Accepted and moved to Directory.');}else setNotice('Saved.');});}
- async function walletSignIn(){await run(async()=>{if(!address)throw Error('Connect your wallet.');const c=await call({action:'wallet_login_start',address});const signature=await signMessageAsync({message:c.message});await call({action:'wallet_login_finish',challenge:c.challenge,signature});await refresh();});}
+ async function walletSignIn(){await run(async()=>{if(!address)throw Error('Connect your wallet.');readVersion.current++;await ensureResearchSignIn(address,message=>signMessageAsync({message}),()=>alive.current&&currentWallet.current===address);if(alive.current&&currentWallet.current===address)await refresh();});}
  async function verifyCurrentWallet(){if(!address)throw Error('Connect your Ethereum wallet.');const c=await call({action:'wallet_challenge',address});const signature=await signMessageAsync({message:c.message});await call({action:'wallet_verify',signature});await refresh();}
  async function signMemo(){await run(async()=>{if(address?.toLowerCase()!==session.wallet)throw Error('Connect the verified contributor wallet.');await switchChainAsync({chainId:1});const prepared=await call({action:'chain_consent_prepare',id:app.id,expectedVersion:app.version});const typedData=prepared.result;const signature=await signTypedDataAsync({...typedData,chainId:1});setData(await call({action:'chain_consent_save',id:app.id,expectedVersion:app.version,typedData,signature}));setNotice('Signed acknowledgment saved. A Partner can now prepare issuance.');});}
  async function executeChain(kind:string,extra:any={}){await run(async()=>{if(!address||address.toLowerCase()!==session.wallet)throw Error('Verify this Partner wallet before preparing a transaction.');await switchChainAsync({chainId:1});const prepared=await call({action:'chain_execute_prepare',id:app.id,expectedVersion:app.version,kind,...extra});setData(prepared);const tx=prepared.result;const hash=await sendTransactionAsync({to:tx.to,data:tx.data,value:0n,chainId:1});setTransactionHash(hash);setNotice('Transaction submitted. Use Check transaction after Ethereum finality; issuance is not confirmed yet.');});}
