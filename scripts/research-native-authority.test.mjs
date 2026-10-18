@@ -38,3 +38,16 @@ test('native reads cannot outlive policy or authorize review from an expired dec
  await assert.rejects(()=>contributorActor({identity:'test',wallet},'research',{access,native:async()=>evidence()}),/expired/);
  await assert.rejects(()=>authorityDecision(wallet,'rooms.manage',{access,native:async()=>evidence()}),/unavailable/);
 });
+
+test('approved Research admin plus native Executive grants Research review without Partner rights',async()=>{
+ for(const action of ['project.admin','role.executive']){
+  const access=async()=>({enrolled:true,authoritative:true,expiresAt:Date.now()+30000,actions:[action]});
+  const actor=await contributorActor({identity:'test',wallet},'research',{access,native:async()=>evidence()});
+  assert.deepEqual(actor.review,['research']);assert.deepEqual(actor.decide,[]);assert.equal(actor.issue,false);assert.equal(actor.validate,false);assert.deepEqual(actor.changeStatus,[]);
+  const {researchAccess}=await import('../server/authority-client.mjs');
+  assert.equal((await researchAccess(wallet,{access,native:async()=>evidence()})).reviewer,true);
+  for(const role of ['assistant','steward'])assert.deepEqual((await contributorActor({identity:'test',wallet},'research',{access,native:async()=>evidence(role)})).review,[]);
+  assert.deepEqual((await contributorActor({identity:'test',wallet},'gov',{access,native:async()=>evidence()})).review,[]);
+ }
+ const actor=await contributorActor({identity:'test',wallet},'research',{access:async()=>({enrolled:true,authoritative:true,expiresAt:Date.now()+30000,actions:[]}),native:async()=>evidence()});assert.deepEqual(actor.review,[]);
+});
