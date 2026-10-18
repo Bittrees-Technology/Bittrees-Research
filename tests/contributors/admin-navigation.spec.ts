@@ -7,7 +7,7 @@ test('Admin navigation stays during expired evidence and refresh failures; actio
   await p.addLocatorHandler(p.getByRole('region',{name:'Analytics preferences'}),async()=>{await p.getByRole('button',{name:'Decline',exact:true}).click();});
   await p.route('**/api/authority-access?*',r=>{
    reads++;if(mode==='failure')return r.fulfill({status:503,json:{error:'Synthetic unavailable'}});
-   return r.fulfill({json:{configured:true,permissions:mode==='denied'?[]:['community.moderation.manage'],expiresAt:Date.now()+(mode==='expired'?-1000:30000)}});
+   return r.fulfill({json:{configured:true,permissions:['denied','expired'].includes(mode)?[]:['community.moderation.manage'],expiresAt:Date.now()+(mode==='expired'?-1000:30000)}});
   });
   await p.getByRole('link',{name:'Overview',exact:true}).click();
   const admin=p.getByRole('banner').getByRole('link',{name:'Admin',exact:true});

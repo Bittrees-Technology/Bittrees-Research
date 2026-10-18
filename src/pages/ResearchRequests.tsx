@@ -1,3 +1,4 @@
+import {ensureResearchSignIn} from '../lib/researchSignIn';
 import {useEffect,useRef,useState} from 'react';
 import {Link} from 'react-router';
 import {useAccount,useSignMessage} from 'wagmi';
@@ -14,15 +15,15 @@ const actions:Record<string,string>={create:'Request opened',accept:'Work accept
 const date=(v:string)=>new Date(v).toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'});
 export default function ResearchRequests(){const {address}=useAccount();return <RequestBoard key={address?.toLowerCase()||'disconnected'} address={address}/>;}
 function RequestBoard({address}:{address?:`0x${string}`}){
- const wallet=address?.toLowerCase(),alive=useRef(true),{signMessageAsync}=useSignMessage();
+ const wallet=address?.toLowerCase(),alive=useRef(true),readVersion=useRef(0),{signMessageAsync}=useSignMessage();
  const [session,setSession]=useState<Session|null>(null),[board,setBoard]=useState<Board|null>(null),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(''),[creating,setCreating]=useState(false),[selected,setSelected]=useState(''),[filter,setFilter]=useState('Open'),[search,setSearch]=useState('');
  const [draft,setDraft]=useState({title:'',brief:'',deliverable:'',targetDate:''}),[summary,setSummary]=useState(''),[url,setUrl]=useState(''),[note,setNote]=useState('');
  const matched=!!wallet&&session?.wallet===wallet;
  async function call(input:Record<string,unknown>,current=session){const r=await fetch('/api/research-requests',{method:'POST',headers:{'content-type':'application/json',...(current?{'x-research-csrf':current.csrf}:{})},body:JSON.stringify({...input,wallet})});const result=await r.json();if(!r.ok){if(alive.current&&[401,403].includes(r.status))setBoard(null);throw Error(result.error||'Research requests could not load.');}return result;}
- async function load(){const r=await fetch('/api/research-requests',{cache:'no-store'}),result=await r.json();if(!r.ok)throw Error(result.error);if(!alive.current)return;setSession(result.session);if(result.session?.wallet===wallet){const data=await call({action:'list'},result.session);if(alive.current&&data.wallet===wallet)setBoard(data);}else setBoard(null);}
+ async function load(){const version=++readVersion.current;const r=await fetch('/api/research-requests',{cache:'no-store'}),result=await r.json();if(!r.ok)throw Error(result.error);if(!alive.current||version!==readVersion.current)return;setSession(result.session);if(result.session?.wallet===wallet){const data=await call({action:'list'},result.session);if(alive.current&&version===readVersion.current&&data.wallet===wallet)setBoard(data);}else setBoard(null);}
  useEffect(()=>{alive.current=true;const refresh=()=>load().catch(e=>{if(alive.current){setError(e.message);setBoard(null);}}).finally(()=>{if(alive.current)setLoading(false);});refresh();window.addEventListener('focus',refresh);return()=>{alive.current=false;window.removeEventListener('focus',refresh);};},[]);
  async function run(work:()=>Promise<void>){if(busy)return;setBusy(true);setError('');setNotice('');try{await work();}catch(e){if(alive.current)setError((e as Error).message);}finally{if(alive.current)setBusy(false);}}
- async function signIn(){await run(async()=>{if(!wallet)return;const c=await call({action:'wallet_login_start',address:wallet});if(!alive.current)return;const signature=await signMessageAsync({message:c.message});if(!alive.current)return;await call({action:'wallet_login_finish',challenge:c.challenge,signature});if(alive.current)await load();});}
+ async function signIn(){await run(async()=>{if(!wallet)return;readVersion.current++;await ensureResearchSignIn(wallet,message=>signMessageAsync({message}),()=>alive.current);if(alive.current)await load();});}
  const items=(board?.requests||[]).filter(r=>(filter==='All'||filter==='Open'&&r.status==='open'||filter==='My requests'&&r.requester===wallet||filter==='My work'&&r.assignee===wallet||filter==='Completed'&&r.status==='completed')&&(r.title+' '+r.brief).toLowerCase().includes(search.toLowerCase()));
  const request=items.find(r=>r.id===selected)||items[0],owner=request?.requester===wallet,assigned=request?.assignee===wallet,researcher=board?.capabilities.researcher;
  useEffect(()=>{setSummary('');setUrl('');setNote('');},[request?.id]);

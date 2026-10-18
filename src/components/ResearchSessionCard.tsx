@@ -1,3 +1,4 @@
+import {ensureResearchSignIn} from '../lib/researchSignIn';
 import {useEffect,useRef,useState} from 'react';
 import {useAccount,useSignMessage} from 'wagmi';
 import {useQuery,useQueryClient} from '@tanstack/react-query';
@@ -26,11 +27,8 @@ function WalletSession({wallet}:{wallet?:string}){
  const verified=!!wallet&&!session.isError&&!!session.data&&session.data.wallet===wallet&&session.data.expiresAt>Date.now();
  async function signIn(){
   if(!wallet||busy)return;setBusy(true);setError('');
-  const post=async(body:unknown)=>{const r=await fetch('/api/contributors',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)}),data=await r.json();if(!r.ok)throw Error(data.error||'Wallet verification failed.');return data;};
   try{
-   const c=await post({action:'wallet_login_start',address:wallet});if(!alive.current)return;
-   const signature=await signMessageAsync({message:c.message});if(!alive.current)return;
-   await post({action:'wallet_login_finish',challenge:c.challenge,signature});
+   await ensureResearchSignIn(wallet,message=>signMessageAsync({message}),()=>alive.current);
    if(alive.current)await session.refetch();
   }catch(e){if(alive.current)setError((e as Error).message);}finally{if(alive.current)setBusy(false);}
  }
