@@ -15,6 +15,7 @@ export default function ResearchPage() {
         intro="Original essays and analysis on emerging technology, systems innovation, and the institutions of a more equitable digital future."
       />
 
+      <section style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'1rem',flexWrap:'wrap',padding:'1.25rem 0',marginBottom:'1.5rem',borderBottom:'1px solid var(--color-border)'}}><div><h2 style={{fontSize:'1.2rem',margin:'0 0 .4rem'}}>Have a question for the community?</h2><p style={{margin:0,color:'var(--color-ink-muted)'}}>Members can request research. Credentialed researchers can accept the work.</p></div><Link className="btn-primary" to="/research/requests">Research requests</Link></section>
       {isLoading && <FeedSkeleton />}
 
       {isError && (

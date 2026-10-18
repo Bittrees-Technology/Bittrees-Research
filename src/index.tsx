@@ -16,6 +16,7 @@ import { ROUTES } from "@/lib/links";
 
 import Home from "./pages/Home";
 import Contribute from "./pages/Contribute";
+import ResearchRequests from "./pages/ResearchRequests";
 import ResearchPage from "./pages/ResearchPage";
 import PostPage from "./pages/PostPage";
 import Forum from "./pages/Forum";
@@ -44,6 +45,7 @@ const router = createBrowserRouter([
     children: [
       { index: true, element: <Home /> },
       { path: "research", element: <ResearchPage /> },
+      { path: "research/requests", element: <ResearchRequests /> },
       { path: "research/:slug", element: <PostPage /> },
       { path: "forum", element: <Forum /> },
       { path: "forum/:id", element: <ForumThread /> },

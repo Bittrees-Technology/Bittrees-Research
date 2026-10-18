@@ -4,8 +4,8 @@ const fail=(m,status=400)=>Object.assign(Error(m),{status});
 const equal=(a,b)=>typeof a==='string'&&typeof b==='string'&&a.length===b.length&&timingSafeEqual(Buffer.from(a),Buffer.from(b));
 export const consume=`if redis.call('GET',KEYS[1])~=ARGV[1] then return 0 end; redis.call('DEL',KEYS[1]); return 1`;
 const limited=`local n=redis.call('INCR',KEYS[1]); if n==1 then redis.call('EXPIRE',KEYS[1],ARGV[1]) end; return n`;
-export function contributorAuth({command,codec,project,origin,env=process.env,send=fetch,now=()=>Date.now(),verifyWallet,identityForWallet}){
- const prefix=`bittrees:contributors:v1:${project}:`,cookieName='__Host-bittrees-contributor';
+export function contributorAuth({command,codec,project,origin,env=process.env,send=fetch,now=()=>Date.now(),verifyWallet,identityForWallet,cookieName='__Host-bittrees-contributor',loginTitle='Bittrees contributor sign-in',loginPurpose='Sign in to your contributor application. No transaction or memorandum approval.'}){
+ const prefix=`bittrees:contributors:v1:${project}:`,loginCookieName=cookieName+'-login';
  const cookie=req=>String(req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith(cookieName+'='))?.slice(cookieName.length+1)||'';
  const key=req=>prefix+'session:'+digest(cookie(req));
  async function limit(suffix,max,seconds){const n=Number((await command(['EVAL',limited,1,prefix+suffix,seconds])).result);if(n>max)throw fail('Too many attempts. Please try again later.',429);}
@@ -15,12 +15,12 @@ export function contributorAuth({command,codec,project,origin,env=process.env,se
   if(!/^0x[a-fA-F0-9]{40}$/.test(address||''))throw fail('Connect an Ethereum wallet.');
   await limit('wallet-login-ip:'+digest(String(req.headers['x-forwarded-for']||req.socket?.remoteAddress||'unknown').split(',')[0]),15,900);
   const id=randomBytes(32).toString('hex'),wallet=address.toLowerCase();
-  const message=`Bittrees contributor sign-in\nOrigin: ${origin}\nWallet: ${wallet}\nNonce: ${id}\nExpires: ${new Date(now()+300000).toISOString()}\nSign in to your contributor application. No transaction or memorandum approval.`;
+  const message=`${loginTitle}\nOrigin: ${origin}\nWallet: ${wallet}\nNonce: ${id}\nExpires: ${new Date(now()+300000).toISOString()}\n${loginPurpose}`;
   await command(['SET',prefix+'wallet-login:'+id,codec.seal({wallet,message,expiresAt:now()+300000}),'EX',300]);
-  res.setHeader('Set-Cookie',`__Host-bittrees-contributor-login=${id}; Secure; HttpOnly; SameSite=Strict; Path=/; Max-Age=300`);
+  res.setHeader('Set-Cookie',`${loginCookieName}=${id}; Secure; HttpOnly; SameSite=Strict; Path=/; Max-Age=300`);
   return {challenge:id,message};
  },async walletLoginFinish(req,res,id,signature){
-  const binding=String(req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith('__Host-bittrees-contributor-login='))?.split('=')[1];
+  const binding=String(req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith(loginCookieName+'='))?.split('=')[1];
   if(!/^[a-f0-9]{64}$/.test(id||'')||binding!==id||typeof signature!=='string'||signature.length>8192)throw fail('Wallet sign-in request rejected.',403);
   await limit('wallet-login-attempts:'+id,5,300);
   const k=prefix+'wallet-login:'+id,raw=(await command(['GET',k])).result;if(!raw)throw fail('Wallet sign-in expired.');const c=codec.open(raw);
@@ -28,7 +28,7 @@ export function contributorAuth({command,codec,project,origin,env=process.env,se
   if(Number((await command(['EVAL',consume,1,k,raw])).result)!==1)throw fail('Wallet sign-in already used.');
   const token=randomBytes(32).toString('hex'),session={identity:identityForWallet?await identityForWallet(c.wallet):'wallet:'+createHmac('sha256',env.CONTRIBUTOR_IDENTITY_SECRET).update(c.wallet).digest('hex'),email:null,wallet:c.wallet,walletVerifiedAt:now(),csrf:randomBytes(32).toString('hex'),expiresAt:now()+86400000};
   await command(['SET',prefix+'session:'+digest(token),codec.seal(session),'EX',86400]);
-  res.setHeader('Set-Cookie',[`${cookieName}=${token}; Secure; HttpOnly; SameSite=Strict; Path=/; Max-Age=86400`,'__Host-bittrees-contributor-login=; Secure; HttpOnly; SameSite=Strict; Path=/; Max-Age=0']);return {ok:true};
+  res.setHeader('Set-Cookie',[`${cookieName}=${token}; Secure; HttpOnly; SameSite=Strict; Path=/; Max-Age=86400`,`${loginCookieName}=; Secure; HttpOnly; SameSite=Strict; Path=/; Max-Age=0`]);return {ok:true};
  },async start(req,email){
   if(typeof email!=='string'||email.length>160||! /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))throw fail('Enter a valid email.');email=email.trim().toLowerCase();
   if(!env.RESEND_API_KEY)throw fail('Contributor email sign-in is not configured.',503);
