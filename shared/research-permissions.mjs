@@ -23,3 +23,8 @@ export function researchPermissions(decision,now=Date.now(),evidence,wallet){
  }
  return [...out];
 }
+
+/** Review is scoped to Research; it does not confer Partner issuance or payment rights. */
+export function researchReviewer(decision,evidence,wallet,now=Date.now()){
+ return decision?.authoritative===true&&Number.isFinite(decision.expiresAt)&&decision.expiresAt>now&&nativeRoles(evidence,wallet,now).includes('executive')&&(decision.actions||[]).some(a=>['project.admin','role.executive','tier.partner','tier.junior-partner','tier.associate'].includes(a));
+}

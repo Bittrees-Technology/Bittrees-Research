@@ -1,6 +1,6 @@
 import {setup} from '../app-recovery/membership-fixture';
 import {test,expect} from '@playwright/test';
-for(const role of ['Partner','Junior Partner','Associate'])test(`${role} with native Executive setup lives in settings and disappears when registered`,async({browser,baseURL})=>{
+for(const role of ['Partner','Junior Partner','Associate','Research admin'])test(`${role} with native Executive setup lives in settings and disappears when registered`,async({browser,baseURL})=>{
  const fixture=await setup(browser,baseURL!,"valid"),page=fixture.page;
  const wallet='0x1111111111111111111111111111111111111111';let registered=false;
  await page.addLocatorHandler(page.getByRole('region',{name:'Analytics preferences'}),async()=>{await page.getByRole('button',{name:'Decline',exact:true}).click();});
