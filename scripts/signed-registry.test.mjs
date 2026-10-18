@@ -11,7 +11,7 @@ const actor=privateKeyToAccount('0x'+'11'.repeat(32));
 const target='0x'+'22'.repeat(20);
 function fixture(){let revision=0;const db=new Map([['bittrees:research:roles',JSON.stringify({[actor.address.toLowerCase()]:[{label:'Executive'}]})]]),nonces=new Set();let failed=false;const command=async c=>{if(failed)throw Error('outage');if(c[0]==='MGET')return {result:[String(revision),...c.slice(2).map(k=>db.get(k)??null)]};assert.equal(c[0],'EVAL');if(nonces.has(c[4]))return {result:-2};if(Number(c[6])!==revision)return {result:-1};for(const [k,v] of JSON.parse(c[7]))db.set(k,v);nonces.add(c[4]);return {result:++revision};};return {command,db,get revision(){return revision},fail(){failed=true}};}
 async function envelope(endpoint,payload,revision){const e={version:2,audience:'https://research.bittrees.org',chainId:1,endpoint,address:actor.address,nonce:crypto.randomUUID().replaceAll('-','').repeat(2),timestamp:Date.now(),expectedRevision:revision,payload};return {...e,signature:await actor.signMessage({message:actionMessage(e)})};}
-async function call(handler,f,body,method='POST',authority=async()=>({configured:false})){const r={setHeader(){},status(code){this.code=code;return this},json(body){this.body=body;return this}};await withSignedRegistry(handler,{command:f.command,verify:verifyMessage,authority})({url:handler===rooms?'/api/rooms':'/api/community',method,body},r);return r;}
+async function call(handler,f,body,method='POST',authority=async()=>({configured:true,allowed:true,expiresAt:new Date(Date.now()+5000).toISOString()})){const r={setHeader(){},status(code){this.code=code;return this},json(body){this.body=body;return this}};await withSignedRegistry(handler,{command:f.command,verify:verifyMessage,authority})({url:handler===rooms?'/api/rooms':'/api/community',method,body},r);return r;}
 globalThis.fetch=async url=>{assert.equal(url,'https://hub.snapshot.org/graphql');return {ok:true,json:async()=>({data:{space:{admins:['0x'+'33'.repeat(20)],moderators:[]}}})}};
 test('full room payload is bound; altered gate and destination never commit',async()=>{const f=fixture();const b=await envelope('/api/rooms',{custom:{key:'committee',name:'Committee',chatId:'original',gate:{kind:'role',role:'Partner'}}},0);const changed=structuredClone(b);changed.payload.custom.chatId='replacement';changed.payload.custom.gate={kind:'bgov',tier:0};assert.equal((await call(rooms,f,changed)).code,401);assert.equal(f.revision,0);assert.equal((await call(rooms,f,b)).code,200);assert.equal(JSON.parse(f.db.get('bittrees:research:customrooms'))[0].chatId,'original');});
 test('replay cannot reinstate a revoked role',async()=>{const f=fixture(),grant=await envelope('/api/community',{assignRole:{target,label:'Partner'}},0);assert.equal((await call(community,f,grant)).code,200);assert.equal((await call(community,f,await envelope('/api/community',{unassignRole:{target,label:'Partner'}},1))).code,200);assert.equal((await call(community,f,grant)).code,409);assert.equal(JSON.parse(f.db.get('bittrees:research:roles'))[target],undefined);});
@@ -31,12 +31,12 @@ test('root-policy mode cannot fall back to legacy role authorization on denial o
  }finally{globalThis.fetch=original;delete process.env.REGISTRY_AUTHORITY_MODE;delete process.env.ROLES_FEED_PRIVATE_KEY;}
 });
 
-test('automatic enrollment preserves legacy only before first policy and never falls back after activation',async()=>{
+test('legacy enrollment cannot authorize protected actions before or after activation',async()=>{
  const original=globalThis.fetch;process.env.REGISTRY_AUTHORITY_MODE='root-policy-auto';const {generateKeyPairSync}=await import('node:crypto');process.env.ROLES_FEED_PRIVATE_KEY=generateKeyPairSync('ed25519').privateKey.export({type:'pkcs8',format:'pem'});
  try{let configured=false;globalThis.fetch=async(url,options)=>{if(url==='https://hub.snapshot.org/graphql')return {ok:true,json:async()=>({data:{space:{admins:['0x'+'33'.repeat(20)],moderators:[]}}})};const {request}=JSON.parse(options.body);return {ok:true,json:async()=>({allowed:false,configured,audience:request.source,requestId:request.requestId})}};
- const authority=async()=>({allowed:false,configured});const f=fixture();const initial=await call(community,f,await envelope('/api/community',{assignRole:{target,label:'Partner'}},0),'POST',authority);assert.equal(initial.code,200,JSON.stringify(initial.body));
- configured=true;assert.equal((await call(community,f,await envelope('/api/community',{assignRole:{target,label:'Partner'}},1),'POST',authority)).code,403);assert.equal(f.revision,1);
- globalThis.fetch=async()=>{throw Error('outage')};assert.equal((await call(community,f,await envelope('/api/community',{assignRole:{target,label:'Partner'}},1),'POST',async()=>{throw Error('outage')})).code,503);
+ const authority=async()=>({allowed:false,configured});const f=fixture();const initial=await call(community,f,await envelope('/api/community',{assignRole:{target,label:'Partner'}},0),'POST',authority);assert.equal(initial.code,403,JSON.stringify(initial.body));
+ configured=true;assert.equal((await call(community,f,await envelope('/api/community',{assignRole:{target,label:'Partner'}},0),'POST',authority)).code,403);assert.equal(f.revision,0);
+ globalThis.fetch=async()=>{throw Error('outage')};assert.equal((await call(community,f,await envelope('/api/community',{assignRole:{target,label:'Partner'}},0),'POST',async()=>{throw Error('outage')})).code,503);
  }finally{globalThis.fetch=original;delete process.env.REGISTRY_AUTHORITY_MODE;delete process.env.ROLES_FEED_PRIVATE_KEY;}
 });
 
@@ -46,7 +46,7 @@ test('credential definitions require current authority and never create role ass
  const f=fixture(),definition={label:'Editor',identifier:'research.role.editor.v1',metadataURI:'https://example.org/editor.json'};
  const allow=async()=>({allowed:true,configured:true,centralized:true,expiresAt:new Date(Date.now()+60000).toISOString()});
  const body=await envelope('/api/community',{createCredentialDefinition:definition},0);
- assert.equal((await call(community,f,body)).code,403);
+ assert.equal((await call(community,f,body,'POST',async()=>({configured:false}))).code,403);
  const result=await call(community,f,body,'POST',allow);assert.equal(result.code,200,JSON.stringify(result.body));
  assert.equal(JSON.parse(f.db.get('bittrees:research:credentialdefs'))[0].identifier,definition.identifier);
  assert.equal(JSON.parse(f.db.get('bittrees:research:roles'))[target],undefined);

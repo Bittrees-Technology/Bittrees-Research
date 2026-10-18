@@ -1,21 +1,15 @@
-import {researchPermissions} from '../shared/research-permissions.mjs';
+import {researchPermissions,nativeRoles} from '../shared/research-permissions.mjs';
 import {ecosystemAccess} from './ecosystem-client.mjs';
-import {createPrivateKey,sign,randomUUID} from 'node:crypto';
-export async function authorityDecision(actor,action){
- const shared=await ecosystemAccess('research',[actor.toLowerCase()],{authenticatedWallet:actor.toLowerCase()});
- if(shared.enrolled){
-  const allowed=researchPermissions(shared).includes(action);
-  return {allowed,configured:true,centralized:true,expiresAt:new Date(shared.expiresAt).toISOString(),reason:allowed?'Approved by Roles':'No current shared role',actions:shared.actions};
- }
-
- if(action.startsWith('research.credentials.'))return {allowed:false,configured:true,reason:'Current shared Roles authority required'};
- const endpoint='https://roles.bittrees.org/api/authority/source-decision';
- const request={source:'research.bittrees.org',scope:'research',audience:endpoint,actor:actor.toLowerCase(),action,resource:'community-registry',issuedAt:Date.now(),requestId:randomUUID()};
- const key=createPrivateKey(process.env.ROLES_FEED_PRIVATE_KEY);
- if(key.asymmetricKeyType!=='ed25519')throw Error('Source key unavailable');
- const signature=sign(null,Buffer.from(JSON.stringify(request)),key).toString('base64');
- const r=await fetch(endpoint,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({request,signature}),redirect:'error',signal:AbortSignal.timeout(8000)});
- if(!r.ok)throw Error('Authority unavailable');const decision=await r.json();
- if(decision.audience!==request.source||decision.requestId!==request.requestId||typeof decision.allowed!=='boolean'||typeof decision.configured!=='boolean')throw Error('Invalid authority response');
- return decision;
+import {readResearchCredentials} from './research-native-authority.mjs';
+export async function researchAccess(actor,{access=ecosystemAccess,native=readResearchCredentials}={}){
+ const wallet=actor.toLowerCase();
+ const [shared,evidence]=await Promise.all([access('research',[wallet],{authenticatedWallet:wallet}),native(wallet)]);
+ if(!shared.enrolled||!shared.authoritative||!Number.isFinite(shared.expiresAt)||shared.expiresAt<=Date.now()||evidence.status==='unavailable')throw Error('Research authority unavailable');
+ const now=Date.now(),permissions=researchPermissions(shared,now,evidence,wallet);
+ const executive=nativeRoles(evidence,wallet,now).includes('executive');
+ return {configured:true,permissions,reviewer:executive&&shared.actions.some(a=>['tier.partner','tier.junior-partner','tier.associate'].includes(a)),roles:(shared.actions||[]).filter(a=>a.startsWith('tier.')||a.startsWith('role.')).map(a=>({label:a.slice(5)})),expiresAt:Math.min(shared.expiresAt,evidence.validUntil||now),checkedAt:new Date(now).toISOString()};
+}
+export async function authorityDecision(actor,action,options){
+ const result=await researchAccess(actor,options),allowed=result.permissions.includes(action);
+ return {allowed,configured:true,centralized:true,expiresAt:new Date(result.expiresAt).toISOString(),reason:allowed?'Approved by Roles and native Research credentials':'Current Research credential and Roles permission required'};
 }
