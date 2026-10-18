@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Outlet } from "react-router";
 import { useAccount } from "wagmi";
 import Header from "@/components/layout/Header";
@@ -33,6 +34,11 @@ export default function Layout() {
   }
 
   // Member: the full app.
+  return <AppShell><Outlet /></AppShell>;
+}
+
+// Shared presentation; each entry retains its own authorization checks.
+export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", background: "var(--color-bg)" }}>
       <Header />
@@ -45,7 +51,7 @@ export default function Layout() {
           padding: "2.5rem 1.5rem 1rem",
         }}
       >
-        <Outlet />
+        {children}
       </main>
       <Footer />
     </div>

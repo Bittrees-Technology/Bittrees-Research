@@ -4,7 +4,7 @@ for(const state of ['valid','expired','v2-revoked','v2-blocked','legacy-only','u
  const f=await setup(browser,baseURL!,state),page=f.page;
  try{
   await page.addLocatorHandler(page.getByRole('region',{name:'Analytics preferences'}),async()=>{await page.getByRole('button',{name:'Decline',exact:true}).click();});
-  await page.goto('/contributors/apply');await expect(page).toHaveURL(/\/contribute$/);await f.connect();
+  await page.goto('/contributors/apply');await expect(page).toHaveURL(/\/contribute$/);await f.connect();await expect(page).toHaveURL(baseURL!+'/');await page.evaluate(()=>{history.pushState(null,'','/contribute');dispatchEvent(new PopStateEvent('popstate'));});
   if(state==='valid'){
    await expect(page.getByRole('heading',{name:'Apply to contribute',exact:true})).toBeVisible();
    for(const role of ['Researcher','Contributor','Assistant','Steward','Executive'])await expect(page.getByRole('button',{name:role,exact:true})).toBeVisible();
