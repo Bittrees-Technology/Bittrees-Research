@@ -2,13 +2,11 @@ import {requireApplicantMembership} from './membership.mjs';
 import {readBaseApplication} from './base-application.mjs';
 import {createHash,createHmac,randomUUID} from 'node:crypto';
 import {chainContext,prepareConsent,acceptConsent,prepareExecution,reconcile,refreshCredential,expireBootstrap,verifyExpiredMemoConsent} from './chain.mjs';
-import {createPublicClient,http} from 'viem';
-import {mainnet} from 'viem/chains';
 import {redisCommand} from '../signed-registry.mjs';
 import {contributorService} from './core.mjs';
 import {privateCodec,contributorStore} from './storage.mjs';
 import {contributorActor} from './authority.mjs';
-import {contributorAuth} from './auth.mjs';
+import {contributorWalletAuth} from './wallet-auth.mjs';
 export function createContributorHandler(project,{env=process.env,command=redisCommand,actorFor=contributorActor,verifyWallet,send,baseReader=readBaseApplication,membershipCheck=requireApplicantMembership}={}){
  const origin=`https://${project==='gov'?'gov':'research'}.bittrees.org`;
  return async(req,res)=>{
@@ -16,9 +14,9 @@ export function createContributorHandler(project,{env=process.env,command=redisC
  try{
   if(!['GET','POST'].includes(req.method))return res.status(405).json({error:'Method not allowed'});
   if(env.CONTRIBUTORS_ENABLED!=='1'||!env.CONTRIBUTOR_IDENTITY_SECRET||env.CONTRIBUTOR_IDENTITY_SECRET.length<48)return res.status(503).json({error:'Contributor administration is being configured. Existing applications remain available through the legacy form.',configured:false});
-  const codec=privateCodec(env.CONTRIBUTOR_STORAGE_SECRET),auth=contributorAuth({command,codec,project,origin,env,send,identityForWallet:async wallet=>{const state=await contributorStore(command,codec,project).read();const identities=[...new Set(state.applications.filter(a=>a.wallet===wallet&&a.walletVerification==='verified').map(a=>a.identity))];if(identities.length>1)throw Object.assign(Error('This wallet needs account reconciliation. Contact a Partner.'),{status:409});return identities[0]||'wallet:'+createHmac('sha256',env.CONTRIBUTOR_IDENTITY_SECRET).update(wallet).digest('hex');},verifyWallet:verifyWallet||((args)=>createPublicClient({chain:mainnet,transport:http(env.ETHEREUM_RPC_URL)}).verifyMessage(args))});
+  const codec=privateCodec(env.CONTRIBUTOR_STORAGE_SECRET),auth=contributorWalletAuth({command,codec,project,origin,env,send,verifyWallet});
   const savedSession=await auth.read(req),session=savedSession?.wallet&&savedSession.walletVerifiedAt?savedSession:null;
-  if(req.method==='GET')return res.status(200).json({configured:true,session:session?{email:session.email,wallet:session.wallet,csrf:session.csrf}:null});
+  if(req.method==='GET')return res.status(200).json({configured:true,session:session?{email:session.email,wallet:session.wallet,csrf:session.csrf,expiresAt:session.expiresAt}:null});
   if(req.headers.origin!==origin)return res.status(403).json({error:'Use the contributor page to submit this request.'});
   if(!String(req.headers['content-type']||'').startsWith('application/json'))return res.status(415).json({error:'Use JSON'});
   const raw=typeof req.body==='string'?req.body:JSON.stringify(req.body||{});if(Buffer.byteLength(raw)>24000)return res.status(413).json({error:'Request too large'});const body=JSON.parse(raw);

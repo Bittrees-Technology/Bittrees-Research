@@ -4,7 +4,7 @@ import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useAccount } from "wagmi";
 import { BittreesMark } from "@/components/Brand";
 import { useMembershipStatus } from "@/hooks/membership/useMembershipStatus";
-import { useAdminAccess } from "@/lib/adminAccess";
+import { useAdminNavigation } from "@/lib/adminAccess";
 import { RESEARCH_LINKS, ROUTES } from "@/lib/links";
 
 const NAV = [
@@ -42,7 +42,7 @@ function MemberChip() {
 export default function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { address } = useAccount();
-  const isAdmin = useAdminAccess(address) !== "none";
+  const isAdmin = useAdminNavigation(address);
   // Admin sits far-right (after Structure) when present.
   const navItems = isAdmin ? [...NAV, { to: "/admin", label: "Admin", end: false }] : NAV;
 

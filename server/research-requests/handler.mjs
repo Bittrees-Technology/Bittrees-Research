@@ -1,5 +1,4 @@
-import {createPublicClient,http} from 'viem';import {mainnet} from 'viem/chains';
-import {contributorAuth} from '../contributors/auth.mjs';import {privateCodec} from '../contributors/storage.mjs';import {redisCommand} from '../signed-registry.mjs';
+import {contributorWalletAuth} from '../contributors/wallet-auth.mjs';import {privateCodec} from '../contributors/storage.mjs';import {redisCommand} from '../signed-registry.mjs';
 import {requestStore} from './store.mjs';import {requestEligibility} from './authority.mjs';import {transition} from './core.mjs';
 export function createResearchRequestHandler({env=process.env,command=redisCommand,eligibility=requestEligibility,verifyWallet}={}){
  return async(req,res)=>{
@@ -7,7 +6,7 @@ export function createResearchRequestHandler({env=process.env,command=redisComma
   try{
    if(!['GET','POST'].includes(req.method))return res.status(405).json({error:'Method not allowed'});
    const origin='https://research.bittrees.org',codec=privateCodec(env.CONTRIBUTOR_STORAGE_SECRET);
-   const auth=contributorAuth({command,codec,project:'research-requests',origin,env,cookieName:'__Host-bittrees-research-work',loginTitle:'Bittrees Research member sign-in',loginPurpose:'Open the member research request board. This signature does not authorize a transaction or accept any work.',verifyWallet:verifyWallet||((args)=>createPublicClient({chain:mainnet,transport:http(env.ETHEREUM_RPC_URL||'https://ethereum-rpc.publicnode.com',{timeout:8000,retryCount:0})}).verifyMessage(args))});
+   const auth=contributorWalletAuth({command,codec,project:'research',origin,env,verifyWallet});
    const session=await auth.read(req);
    if(req.method==='GET')return res.status(200).json({session:session?.wallet&&session.walletVerifiedAt?{wallet:session.wallet,csrf:session.csrf}:null});
    if(req.headers.origin!==origin)return res.status(403).json({error:'Use the Research request board.'});

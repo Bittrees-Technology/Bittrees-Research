@@ -40,8 +40,8 @@ test('HTTP session, CSRF, wallet binding and fresh chain authorization protect r
  const mem=memory();let member=true,researcher=false;const handler=createResearchRequestHandler({env:{CONTRIBUTOR_STORAGE_SECRET:secret,CONTRIBUTOR_IDENTITY_SECRET:secret},command:mem.command,verifyWallet:async({signature})=>signature==='valid',eligibility:async wallet=>({wallet,member,researcher,validUntil:Date.now()+5000,researcherUntil:researcher?Date.now()+5000:0})});
  const call=async(body,headers={},method='POST')=>{const r=response();await handler({method,body,headers:{origin:'https://research.bittrees.org','content-type':'application/json',...headers}},r);return r;};
  assert.equal((await call({action:'list'})).code,401);assert.equal((await call({action:'wallet_login_start',address:wallet},{origin:'https://evil.invalid'})).code,403);
- const start=await call({action:'wallet_login_start',address:wallet}),challenge=start.body.challenge;assert.match(start.body.message,/Research member sign-in/);
- const loginCookie=start.headers['Set-Cookie'].split(';')[0];assert.match(loginCookie,/research-work-login/);
+ const start=await call({action:'wallet_login_start',address:wallet}),challenge=start.body.challenge;assert.match(start.body.message,/Research sign-in/);
+ const loginCookie=start.headers['Set-Cookie'].split(';')[0];assert.match(loginCookie,/bittrees-contributor-login/);
  assert.equal((await call({action:'wallet_login_finish',challenge,signature:'bad'},{cookie:loginCookie})).code,403);
  const finish=await call({action:'wallet_login_finish',challenge,signature:'valid'},{cookie:loginCookie});assert.equal(finish.code,200);
  const cookie=finish.headers['Set-Cookie'][0].split(';')[0],session=(await call({}, {cookie},'GET')).body.session,headers={cookie,'x-research-csrf':session.csrf};
@@ -57,4 +57,28 @@ test('exact Researcher type and current parent required; other roles cannot acce
   const result=await requestEligibility(wallet,{...f,native:async()=>evidence(role)});assert.equal(result.member,true);assert.equal(result.researcher,role==='researcher');
  }
  const f=chainFixture(),read=f.client.readContract;f.client.readContract=args=>args.functionName==='lastTokenId'?Promise.resolve(1n):read(args);f.client.multicall=async()=>[false];assert.equal((await requestEligibility(wallet,{...f,native:async()=>evidence('researcher')})).member,false);
+});
+
+test('one Research wallet verification serves contributor records and board; sign-out revokes both',async()=>{
+ const {createContributorHandler}=await import('../server/contributors/handler.mjs');
+ const {contributorStore}=await import('../server/contributors/storage.mjs');
+ for(const loginAt of ['contributors','board']){
+  const mem=memory(),env={CONTRIBUTORS_ENABLED:'1',CONTRIBUTOR_STORAGE_SECRET:secret,CONTRIBUTOR_IDENTITY_SECRET:secret};let signatures=0;
+  await contributorStore(mem.command,codec,'research').mutate(s=>{s.applications.push({wallet,walletVerification:'verified',identity:'existing-applicant'});return s;});
+  const options={env,command:mem.command,verifyWallet:async()=>{signatures++;return true;}};
+  const contributors=createContributorHandler('research',options),board=createResearchRequestHandler({...options,eligibility:async()=>({...owner,validUntil:Date.now()+5000})});
+  const call=async(handler,body={},headers={},method='POST')=>{const r=response();await handler({method,body,headers:{origin:'https://research.bittrees.org','content-type':'application/json',...headers}},r);return r;};
+  const login=loginAt==='board'?board:contributors,start=await call(login,{action:'wallet_login_start',address:wallet}),binding=start.headers['Set-Cookie'].split(';')[0];
+  assert.match(start.body.message,/Research member features and contributor records/);
+  const finish=await call(login,{action:'wallet_login_finish',challenge:start.body.challenge,signature:'valid'},{cookie:binding});assert.equal(finish.code,200);
+  const cookie=finish.headers['Set-Cookie'][0].split(';')[0];
+  const c=(await call(contributors,{}, {cookie},'GET')).body.session,b=(await call(board,{}, {cookie},'GET')).body.session;
+  assert.equal(c.wallet,wallet);assert.equal(b.wallet,wallet);assert.equal(c.csrf,b.csrf);assert.equal(signatures,1);
+  const raw=[...mem.values.entries()].find(([key])=>key.includes(':session:'))[1];assert.equal(codec.open(raw).identity,'existing-applicant');
+  assert.equal((await call(board,{action:'list',wallet},{cookie,'x-research-csrf':b.csrf})).code,200);
+  const gov=createContributorHandler('gov',options);assert.equal((await call(gov,{}, {cookie},'GET')).body.session,null);
+  await call(board,{action:'sign_out',wallet},{cookie,'x-research-csrf':b.csrf});
+  assert.equal((await call(contributors,{}, {cookie},'GET')).body.session,null);
+  assert.equal((await call(board,{action:'list',wallet},{cookie,'x-research-csrf':b.csrf})).code,401);
+ }
 });
