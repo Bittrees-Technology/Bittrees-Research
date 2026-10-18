@@ -136,8 +136,6 @@ export function MembershipGate() {
             </>
           )}
         </div>
-        <p style={{ marginTop: "1.5rem" }}><span>Contributor applications open after your membership is active.</span>
-        </p>
       </main>
 
       <footer style={{ borderTop: "1px solid var(--color-border)", background: "#fff" }}>
