@@ -7,7 +7,7 @@ import {publishEncKey,currentReviewers,type CommunityData} from '../lib/communit
 
 export function useReviewerSetupAccess(address?:string){
  const authority=useAuthorityAccess(address);
- return !authority.isError&&authority.data?.configured===true&&!!authority.data.roles?.some(r=>['Partner','Junior Partner','Associate','operations','executive'].includes(r.label));
+ return !authority.isError&&authority.data?.configured===true&&(authority.data.expiresAt??0)>Date.now()&&authority.data.reviewer===true;
 }
 
 export default function ReviewerAccessSettings({address}:{address?:`0x${string}`}){
@@ -34,7 +34,7 @@ export default function ReviewerAccessSettings({address}:{address?:`0x${string}`
   }catch(e){setError((e as Error).message);}finally{setBusy(false);}
  }
  return <section className="card"><h2>Application access</h2>
- {registry.isError?<p role="alert">Application access could not be checked. <button onClick={()=>registry.refetch()}>Retry</button></p>:!registry.data?<p>Checking application access…</p>:receiving?<p role="status">Application access enabled. Future applications include this wallet while its reviewer role remains eligible.</p>:registered?<p role="status">Your wallet is registered. Future application access is waiting for current role eligibility to be confirmed.</p>:<><p>Set up this wallet once to receive future encrypted applications. Eligible Partners, Junior Partners and Associates are included automatically after setup.</p><button className="btn-primary" disabled={busy||!client||client.account?.address.toLowerCase()!==wallet} onClick={setup}>{busy?'Setting up…':'Enable application access'}</button><p>Your wallet will ask you to derive an encryption key and sign its public registration. No transaction is required.</p></>}
+ {registry.isError?<p role="alert">Application access could not be checked. <button onClick={()=>registry.refetch()}>Retry</button></p>:!registry.data?<p>Checking application access…</p>:receiving?<p role="status">Application access enabled. Future applications include this wallet while its reviewer role remains eligible.</p>:registered?<p role="status">Your wallet is registered. Future application access is waiting for current role eligibility to be confirmed.</p>:<><p>Set up this wallet once to receive future encrypted applications. Reviewers need an active Research membership, a valid Executive credential, and current reviewer permission.</p><button className="btn-primary" disabled={busy||!client||client.account?.address.toLowerCase()!==wallet} onClick={setup}>{busy?'Setting up…':'Enable application access'}</button><p>Your wallet will ask you to derive an encryption key and sign its public registration. No transaction is required.</p></>}
  {error&&<p role="alert">{error}</p>}
  </section>;
 }
