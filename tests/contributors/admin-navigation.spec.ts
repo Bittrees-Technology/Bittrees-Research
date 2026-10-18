@@ -12,8 +12,11 @@ test('Admin navigation stays during expired evidence and refresh failures; actio
   await p.getByRole('link',{name:'Overview',exact:true}).click();
   const admin=p.getByRole('banner').getByRole('link',{name:'Admin',exact:true});
   await expect(admin).toBeVisible({timeout:10000});
-  mode='expired';const previous=reads;await expect.poll(()=>reads,{timeout:10000}).toBeGreaterThan(previous);
-  await expect(admin).toBeVisible();await admin.click();
+  // The overview needs only a navigation hint, not five-second permission polling.
+  const idleReads=reads;await p.waitForTimeout(11000);expect(reads).toBe(idleReads);
+  mode='expired';await admin.click();
+  await expect.poll(()=>reads,{timeout:10000}).toBeGreaterThan(idleReads);
+  await expect(admin).toBeVisible();
   await expect(p.getByRole('button',{name:'Moderation',exact:true})).toHaveCount(0);
   mode='failure';const beforeFailure=reads;await expect.poll(()=>reads,{timeout:10000}).toBeGreaterThan(beforeFailure);
   await expect(admin).toBeVisible();await expect(p.getByRole('button',{name:'Moderation',exact:true})).toHaveCount(0);

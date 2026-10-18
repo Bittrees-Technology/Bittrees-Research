@@ -14,7 +14,7 @@ function adminLevel(permissions: string[]): AdminLevel {
  * removes it. This must never authorize controls, reads, or writes. Wallet-specific
  * query keys prevent carrying the link into another account. */
 export function useAdminNavigation(address?: string): boolean {
-  const policy = useAuthorityAccess(address);
+  const policy = useAuthorityAccess(address, 'navigation');
   return !!address && policy.data?.configured === true && adminLevel(policy.data.permissions) !== 'none';
 }
 
