@@ -70,4 +70,3 @@ yarn release:gate --mode rollback-check --baseline output/release-gates/<baselin
 ```
 
 It writes `run.json` and `report.md` under `output/release-gates/`; these route/API checks supplement, rather than replace, authenticated and negative-authority tests. Retain private evidence outside public commits. Do not infer free hosting, new spending authorization, or migration readiness from a build succeeding.
-
