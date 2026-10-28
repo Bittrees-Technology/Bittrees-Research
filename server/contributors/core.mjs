@@ -49,7 +49,7 @@ function transition(original,actor,id,input,{expiredConsentVerified=false}={}){
  const action=input.action;
  if(app.chainOperation?.status==='prepared'&&['draft_memo','link_wallet','review_proposal','request_memo_edit','review_memo_edit'].includes(action))fail('Reconcile the prepared transaction before changing its terms.',409);
  const revisesMemo=action==='draft_memo'||action==='review_memo_edit'&&input.decision==='approve'||action==='review_proposal'&&input.decision==='approve'&&app.proposals.find(p=>p.id===input.proposalId)?.kind==='terms';
- if(revisesMemo&&app.memos.at(-1)?.status==='draft'&&app.memos.at(-1)?.consent&&!expiredConsentVerified)fail('The signed memorandum must expire and be verified on-chain before revising it.',409);
+ if(revisesMemo&&app.memos.at(-1)?.status==='draft'&&app.memos.at(-1)?.consent&&!expiredConsentVerified)fail('The signed memorandum must expire and be verified on-chain before revising it, or be issued and confirmed before preparing an amendment. An edit cannot cancel a valid signature.',409);
  if(action==='standing'&&app.credential)fail('On-chain standing and amendment execution is not configured.',503);
  if(['start_review','request_info','resume_review','approve','reject'].includes(action)){
   fields(input,['action','expectedVersion','reason','privateNote']);
@@ -78,6 +78,18 @@ function transition(original,actor,id,input,{expiredConsentVerified=false}={}){
   if(app.state!=='approved')fail('Accept the application before preparing a memo.',409);
   if(app.credential&&app.credential.standing==='suspended')fail('Resume the credential before revising its memorandum.',409);
   const memo=draftMemo(state,actor,app,input);log(state,actor,app,action,{memoVersion:memo.version,hash:memo.hash});
+ }else if(action==='edit_application'){
+  const editable=['name','twitter','telegram','expertise','specialty','expertField','region','languages','heardFrom','referrer'];
+  fields(input,['action','expectedVersion',...editable]);
+  if(!owns(actor,app))fail('Only the applicant can edit their application.',403);
+  const site=app.lane==='research'?'research':'gov';
+  const existing=Object.fromEntries(['name','email','twitter','telegram','expertise','requestedRoles','specialty','expertField','region','languages','heardFrom','referrer','wallet'].map(k=>[k,app[k]]));
+  const normalized=normalizeInterest({...existing,...Object.fromEntries(editable.filter(k=>k in input).map(k=>[k,input[k]]))},site,actor);
+  const before=Object.fromEntries(editable.map(k=>[k,app[k]??null]));
+  for(const k of editable)app[k]=normalized[k];
+  app.applicationEdits=[...(app.applicationEdits||[]),{at:new Date().toISOString(),actor:actor.id,before,after:Object.fromEntries(editable.map(k=>[k,app[k]]))}];
+  if(['in_review','pending_authority','needs_info'].includes(app.state))app.state='submitted';
+  log(state,actor,app,action,{fields:editable.filter(k=>JSON.stringify(before[k])!==JSON.stringify(app[k])),state:app.state});
  }else if(action==='respond_info'){
   fields(input,['action','expectedVersion','reason']);
   if(!owns(actor,app))fail('Only the applicant can respond.',403);
@@ -89,7 +101,7 @@ function transition(original,actor,id,input,{expiredConsentVerified=false}={}){
   if(!owns(actor,app))fail('Only the applicant can propose edits to their memorandum.',403);
   const memo=app.memos.at(-1);
   if(app.state!=='approved'||memo?.status!=='draft'||memo.version!==input.memoVersion||memo.hash!==input.memoHash)fail('Reload the current draft before proposing edits.',409);
-  if(memo.consent)fail('This memorandum is already signed. Ask a Partner to prepare a revised draft after the authorization expires.',409);
+  if(memo.consent)fail('This version is already signed. Ask a Partner to issue and confirm it, then prepare an amendment for a new signature.',409);
   if(app.memoEdits?.some(e=>e.state==='pending'))fail('A memorandum edit is already awaiting review.',409);
   const terms=memoTerms(input),edit={id:randomUUID(),baseVersion:memo.version,baseHash:memo.hash,terms,reason:text(input.reason,'Reason for edits'),requestedBy:actor.id,requestedAt:new Date().toISOString(),state:'pending'};
   app.memoEdits=[...(app.memoEdits||[]),edit];log(state,actor,app,action,{editId:edit.id,baseVersion:memo.version,reason:edit.reason});

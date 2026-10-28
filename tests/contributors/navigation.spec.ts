@@ -15,7 +15,7 @@ test('sign-in lands on overview; Contribute retains the shared header and draft 
   await expect(p.getByRole('textbox',{name:'Name or handle *',exact:true})).toHaveValue('Draft applicant');
   await expect(p.getByRole('banner').getByRole('link',{name:'Overview'})).toBeVisible();
   await p.screenshot({path:'/tmp/research-contribute-navigation.png',fullPage:true});
-  await p.getByRole('link',{name:'View my application and memorandum'}).click();
+  await p.getByRole('link',{name:'My contribution'}).click();
   await expect(p.getByRole('banner').getByRole('link',{name:/Bittrees Research/})).toBeVisible();
  }finally{await f.close();}
 });
