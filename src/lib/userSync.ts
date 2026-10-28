@@ -1,4 +1,5 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createSyncVault } from "./sync-vault.mjs";
 import { xchacha20poly1305 } from "@noble/ciphers/chacha.js";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { randomBytes, utf8ToBytes, hexToBytes, bytesToHex } from "@noble/hashes/utils.js";
@@ -10,31 +11,24 @@ import {
 } from "./dmPrefs";
 import { useSavedMessages, getNotes, replaceNotes, type SavedMessage } from "./savedMessages";
 
-/**
- * Optional cross-device sync of Saved Messages + messenger preferences, keyed by the
- * connected wallet. The data is ENCRYPTED client-side (XChaCha20-Poly1305) with a key
- * derived from ONE wallet signature, then stored as ciphertext in the app's KV
- * (`/api/usersync`) — so the same wallet on any device re-derives the key and reads
- * its data, but the server only ever holds ciphertext. The same signature is cached
- * and reused as the write credential (the server checks it recovers to the address),
- * so there's no repeated signing. Opt-in, per-device; off by default.
- *
- * Merge is loss-averse: Saved-Messages notes and the block list are UNIONed; per-conv
- * prefs + global settings adopt the remote values (then the merged result is pushed).
- */
+/** Encrypted Messenger sync keeps its existing cipher and key message. The
+ * encryption signature lives only in this tab; fresh scoped wallet proof creates
+ * a separate, one-hour HttpOnly server session. Native app roles are unchanged. */
 
 export const SYNC_MESSAGE =
   "Bittrees Messenger — sync key (v1)\n\nSign to sync and encrypt your saved messages and preferences across your devices. No gas; this only proves wallet ownership.";
 
 const SYNC_URL = "/api/usersync";
-const sigKey = (a: string) => `bittrees.sync.sig.${a.toLowerCase()}`;
+const vault = createSyncVault({message: SYNC_MESSAGE, validate: (signature: string, blob: string) => {
+  const data = decryptBlob(keyFromSig(signature), blob) as SyncBlob;
+  if (!data || !Array.isArray(data.savedMessages) || !data.prefs || !data.settings || !Array.isArray(data.blocked)) throw Error("Encrypted sync data could not be verified. Nothing was changed.");
+  return data;
+}});
+export const hasLegacySyncCredential = (addr?: string): boolean => vault.hasLegacy(addr);
 
 interface SyncBlob { savedMessages: SavedMessage[]; prefs: DmPrefs; settings: DmSettings; blocked: string[] }
 
-export function getCachedSig(addr?: string): string | null {
-  if (!addr) return null;
-  try { return localStorage.getItem(sigKey(addr)); } catch { return null; }
-}
+export function getCachedSig(addr?: string): string | null { return vault.signature(addr); }
 
 /**
  * Signature-free probe: does the store already hold an (encrypted) blob for this
@@ -55,16 +49,14 @@ export async function hasRemoteSync(addr?: string): Promise<{ exists: boolean; s
 export function isSyncEnabled(addr?: string): boolean {
   return !!getCachedSig(addr);
 }
-export function disableSync(addr: string) {
-  try { localStorage.removeItem(sigKey(addr)); } catch { /* ignore */ }
-}
+export function disableSync(addr: string) { void vault.disconnect(addr); }
 
-/** Sign once (cached) to turn sync on for this device, then pull + merge + push. */
+/** User-initiated unlock; existing ciphertext is verified before any migration. */
 export async function enableSync(walletClient: WalletClient, addr: `0x${string}`): Promise<void> {
-  const signature = await walletClient.signMessage({ account: addr, message: SYNC_MESSAGE });
-  try { localStorage.setItem(sigKey(addr), signature); } catch { /* ignore (quota) */ }
-  if (await pullAndMerge(addr)) { /* merged remote */ }
-  await pushNow(addr); // publish initial/merged state
+  const result = await vault.connect(addr, (message: string) => walletClient.signMessage({account: addr, message}));
+  if (result.remote) mergeRemote(addr, result.remote as SyncBlob);
+  if (!result.legacyCleared) throw Error("Messages are unlocked in this tab, but the browser blocked removal of the older sync credential. The security migration remains incomplete.");
+  await pushNow(addr);
 }
 
 function keyFromSig(sig: string): Uint8Array {
@@ -83,18 +75,15 @@ function decryptBlob(key: Uint8Array, blob: string): unknown {
 
 /** Fetch + decrypt the remote blob and merge it into the local stores. */
 export async function pullAndMerge(addr: string): Promise<boolean> {
-  const sig = getCachedSig(addr);
-  if (!sig) return false;
-  let blob: string | null = null;
+  if (!getCachedSig(addr)) return false;
   try {
-    const r = await fetch(`${SYNC_URL}?address=${addr}`);
-    if (!r.ok) return false;
-    blob = (await r.json())?.blob ?? null;
-  } catch { return false; }
-  if (!blob) return false;
-  let remote: SyncBlob;
-  try { remote = decryptBlob(keyFromSig(sig), blob) as SyncBlob; } catch { return false; }
+    const remote = await vault.read(addr);
+    if (remote) mergeRemote(addr, remote as SyncBlob);
+    return true;
+  } catch { vault.lock(addr); return false; }
+}
 
+function mergeRemote(addr: string, remote: SyncBlob) {
   // Notes: union by id (never lose a note), oldest→newest.
   const byId = new Map<string, SavedMessage>();
   [...(remote.savedMessages ?? []), ...getNotes(addr)].forEach((m) => { if (m?.id) byId.set(m.id, m); });
@@ -104,7 +93,6 @@ export async function pullAndMerge(addr: string): Promise<boolean> {
   // Prefs + settings: adopt remote (keep local-only conv keys).
   if (remote.prefs) replaceAllPrefs({ ...getAllPrefs(), ...remote.prefs });
   if (remote.settings) replaceSettings(remote.settings);
-  return true;
 }
 
 /** Encrypt the current local state and push it (signed) to the remote store. */
@@ -113,13 +101,7 @@ export async function pushNow(addr: string): Promise<void> {
   if (!sig) return;
   const blobObj: SyncBlob = { savedMessages: getNotes(addr), prefs: getAllPrefs(), settings: getSettingsSnapshot(), blocked: getBlockedList() };
   const blob = encryptBlob(keyFromSig(sig), blobObj);
-  try {
-    await fetch(SYNC_URL, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ address: addr, signature: sig, blob, updatedAt: Date.now() }),
-    });
-  } catch { /* best-effort */ }
+  await vault.write(addr, blob);
 }
 
 /**
@@ -127,22 +109,23 @@ export async function pushNow(addr: string): Promise<void> {
  * (debounced) whenever Saved Messages or preferences change. No-op when sync is off.
  */
 export function useUserSync(addr?: string) {
-  const prefs = useDmPrefs();
-  const settings = useDmSettings();
-  const blocked = useBlocked();
-  const saved = useSavedMessages(addr);
+  const [, refresh] = useState(0);
+  useEffect(() => vault.subscribe(() => refresh(n => n + 1)), []);
+  const previous = useRef<string | undefined>(undefined);
+  useEffect(() => { if (previous.current && previous.current !== addr) vault.lock(previous.current); previous.current = addr; }, [addr]);
+  const prefs = useDmPrefs(), settings = useDmSettings(), blocked = useBlocked(), saved = useSavedMessages(addr);
   const enabled = isSyncEnabled(addr);
   const pulled = useRef<string>("");
-
   useEffect(() => {
-    if (!addr || !enabled || pulled.current === addr) return;
-    pulled.current = addr;
-    pullAndMerge(addr).then((ok) => { if (ok) void pushNow(addr); }).catch(() => {});
+    let active = true;
+    pulled.current = "";
+    if (!addr || !enabled) return;
+    pullAndMerge(addr).then(ok => { if (ok && active) pulled.current = addr; }).catch(() => {});
+    return () => { active = false; };
   }, [addr, enabled]);
-
   useEffect(() => {
-    if (!addr || !enabled || pulled.current !== addr) return;
-    const t = setTimeout(() => { void pushNow(addr); }, 1500);
-    return () => clearTimeout(t);
+    if (!addr || !enabled) return;
+    const timer = setTimeout(() => { if (pulled.current === addr) void pushNow(addr).catch(() => {}); }, 1500);
+    return () => clearTimeout(timer);
   }, [addr, enabled, prefs, settings, blocked, saved]);
 }
