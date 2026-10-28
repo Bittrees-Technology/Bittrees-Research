@@ -30,7 +30,7 @@ test('Research contributor permissions and reviewer distribution require Executi
   assert.equal(actor.issue,role==='executive');assert.equal(actor.review.length>0,role==='executive');
   const routed=await applicationReviewers({[wallet]:'a'.repeat(64)},{access,native});assert.deepEqual(routed.reviewers,role==='executive'?[wallet]:[]);
  }
- const actor=await contributorActor({identity:'test',wallet},'research',{access:async()=>({...await access(),actions:['project.admin']}),native:async()=>evidence()});assert.equal(actor.issue,false);
+ const actor=await contributorActor({identity:'test',wallet},'research',{access:async()=>({...await access(),actions:['project.admin']}),native:async()=>evidence()});assert.equal(actor.issue,true);
 });
 
 test('native reads cannot outlive policy or authorize review from an expired decision',async()=>{
@@ -39,11 +39,11 @@ test('native reads cannot outlive policy or authorize review from an expired dec
  await assert.rejects(()=>authorityDecision(wallet,'rooms.manage',{access,native:async()=>evidence()}),/unavailable/);
 });
 
-test('approved Research admin plus native Executive grants Research review without Partner rights',async()=>{
+test('approved Research admin plus native Executive can decide Research applications without Governance tiers',async()=>{
  for(const action of ['project.admin','role.executive']){
   const access=async()=>({enrolled:true,authoritative:true,expiresAt:Date.now()+30000,actions:[action]});
   const actor=await contributorActor({identity:'test',wallet},'research',{access,native:async()=>evidence()});
-  assert.deepEqual(actor.review,['research']);assert.deepEqual(actor.decide,[]);assert.equal(actor.issue,false);assert.equal(actor.validate,false);assert.deepEqual(actor.changeStatus,[]);
+  assert.deepEqual(actor.review,['research']);assert.deepEqual(actor.decide,['research']);assert.equal(actor.issue,true);assert.equal(actor.validate,false);assert.deepEqual(actor.changeStatus,[]);
   const {researchAccess}=await import('../server/authority-client.mjs');
   assert.equal((await researchAccess(wallet,{access,native:async()=>evidence()})).reviewer,true);
   for(const role of ['assistant','steward'])assert.deepEqual((await contributorActor({identity:'test',wallet},'research',{access,native:async()=>evidence(role)})).review,[]);

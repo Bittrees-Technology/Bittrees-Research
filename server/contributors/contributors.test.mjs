@@ -210,7 +210,8 @@ test('Research applicant and reviewer import paths require the applicant members
   const request=(body={},headers={})=>req(body,{...headers,origin:'https://research.bittrees.org'});
   let r=response();await handler(request({action:'wallet_login_start',address:action==='import_base'?owner:staff}),r);const challenge=r.body.challenge,binding=r.headers['Set-Cookie'].split(';')[0];r=response();await handler(request({action:'wallet_login_finish',challenge,signature:'valid'},{cookie:binding}),r);const cookie=r.headers['Set-Cookie'][0].split(';')[0];r=response();await handler({...request({}, {cookie}),method:'GET'},r);const headers={cookie,'x-contributor-csrf':r.body.session.csrf};
   for(const state of [false,'outage',true]){allowed=state;r=response();await handler(request({action,uid,contentKey:'6'.repeat(64)},headers),r);assert.equal(r.code,state===true?200:state==='outage'?503:403,JSON.stringify(r.body));}
-  assert.deepEqual(checked,[owner,owner,owner]);assert.deepEqual(r.body.applications[0].requestedRoles,['Executive']);assert.equal(r.body.applications[0].credential,null);assert.equal(r.body.applications[0].capabilityGrant,null);
+  assert.deepEqual(checked,[owner,owner,owner]);assert.deepEqual(r.body.applications[0].requestedRoles,['Executive']);assert.equal(r.body.applications[0].credential,undefined);assert.equal(r.body.applications[0].capabilityGrant,null);
+  for(const body of [{action:'chain_consent_prepare'},{action:'chain_consent_save'},{action:'chain_execute_prepare'},{action:'chain_reconcile'},{action:'chain_expire_bootstrap'},...['draft_memo','validate_month','review_proposal','request_memo_edit','update_directory'].map(action=>({action:'review',change:{action}}))]){const denied=response();await handler(request(body,headers),denied);assert.equal(denied.code,410);assert.match(denied.body.error,/membership and role credentials/);}
  }
 });
 
@@ -233,7 +234,7 @@ test('automatic HTTP intake requires the verified session and CSRF, waits for fi
  const key=[...mem.values.keys()].find(k=>k.includes(':intake-key:'));assert.ok(key);assert.ok(!mem.values.get(key).includes(contentKey));
  finalized=true;
  res=response();await handler(request({action:'list'},{cookie,'x-contributor-csrf':csrf}),res);
- assert.equal(res.code,200);assert.ok(membershipReads>=3);assert.equal(res.body.applications.length,1);assert.equal(res.body.applications[0].state,'submitted');assert.equal(res.body.applications[0].credential,null);assert.equal(res.body.intakes.length,0);assert.ok(!mem.values.has(key));assert.ok(!JSON.stringify(res.body).includes(contentKey));
+ assert.equal(res.code,200);assert.ok(membershipReads>=3);assert.equal(res.body.applications.length,1);assert.equal(res.body.applications[0].state,'submitted');assert.equal(res.body.applications[0].credential,undefined);assert.equal(res.body.intakes.length,0);assert.ok(!mem.values.has(key));assert.ok(!JSON.stringify(res.body).includes(contentKey));
 });
 
 test('only the applicant edits application details without changing approved authority or terms',()=>{

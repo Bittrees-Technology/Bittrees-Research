@@ -1,3 +1,4 @@
+import {researchApplicationView} from './research-view.mjs';
 import {stageIntake,settleIntakes,intakeView,intakeVault} from './intake.mjs';
 import {requireApplicantMembership} from './membership.mjs';
 import {readBaseApplication} from './base-application.mjs';
@@ -29,7 +30,9 @@ export function createContributorHandler(project,{env=process.env,command=redisC
   if(body.action==='sign_out')return res.status(200).json(await auth.signOut(req,res));
   if(body.action==='wallet_challenge')return res.status(200).json(await auth.walletChallenge(req,session,body.address));
   if(body.action==='wallet_verify')return res.status(200).json(await auth.walletVerify(req,session,body.signature));
+  if(project==='research'&&(String(body.action).startsWith('chain_')||body.action==='review'&&!['start_review','request_info','resume_review','approve','reject','respond_info','edit_application','link_wallet'].includes(body.change?.action)))return res.status(410).json({error:'Research uses membership and role credentials. Use Research role credential management for on-chain changes.'});
   let actor=await actorFor(session,project);const store=contributorStore(command,codec,project),service=contributorService(),vault=intakeVault(command,codec,project);
+  const view=(state)=>{const result=service.view(state,actor,project);return project==='research'?researchApplicationView(result):result;};
   const intakeReader=async(...args)=>{const verified=await baseReader(...args);if(project==='research')await membershipCheck(verified.source.attester,{env});return verified;};
   if(body.action==='list'){
    let state=await store.read();
@@ -40,14 +43,14 @@ export function createContributorHandler(project,{env=process.env,command=redisC
     if(actor.authorityExpiresAt<=Date.now())actor=await actorFor(session,project);
    }
    const visible=state.applications.filter(a=>a.identity===actor.id||actor.review.includes(a.lane));
-   if(visible.some(a=>a.credential)){const ctx=await chainContext(env);await Promise.all(visible.filter(a=>a.credential).map(a=>refreshCredential(a,ctx)));}
+   if(project!=='research'&&visible.some(a=>a.credential)){const ctx=await chainContext(env);await Promise.all(visible.filter(a=>a.credential).map(a=>refreshCredential(a,ctx)));}
    if(actor.authorityExpiresAt<=Date.now())actor=await actorFor(session,project);
-   return res.status(200).json({...service.view(state,actor,project),intakes:intakeView(state,actor,project)});
+   return res.status(200).json({...view(state),intakes:intakeView(state,actor,project)});
   }
   if(body.action==='stage_base'){
    const next=await store.mutate(async s=>{if(actor.authorityExpiresAt<=Date.now())throw Object.assign(Error('Authority expired. Retry.'),{status:503});return stageIntake(s,session,project,body,{read:intakeReader,vault});});
    if(actor.authorityExpiresAt<=Date.now())actor=await actorFor(session,project);
-   return res.status(200).json({...service.view(next,actor,project),intakes:intakeView(next,actor,project)});
+   return res.status(200).json({...view(next),intakes:intakeView(next,actor,project)});
   }
   if(['chain_consent_prepare','chain_consent_save','chain_execute_prepare','chain_reconcile','chain_expire_bootstrap'].includes(body.action)){
    const ctx=await chainContext(env);let result;
@@ -65,7 +68,7 @@ export function createContributorHandler(project,{env=process.env,command=redisC
     const entry={id:randomUUID(),sequence:state.audit.length+1,at:new Date().toISOString(),actor:actor.id,applicationId:app.id,action:body.action,detail:{memoVersion:app.memos.at(-1)?.version,operationId:app.chainOperation?.id||null,transactionHash:body.transactionHash||null},policy:'contributor-policy-v1',previousHash:state.audit.at(-1)?.hash||null};
     entry.hash=createHash('sha256').update(JSON.stringify(entry)).digest('hex');state.audit.push(entry);return state;
    });
-   return res.status(200).json({result,...service.view(next,actor,project)});
+   return res.status(200).json({result,...view(next)});
   }
   if(body.action==='import_base_review'){
    const lane=project==='gov'?'inc-ops-governance':'research';
@@ -80,14 +83,14 @@ export function createContributorHandler(project,{env=process.env,command=redisC
     const next=service.importBaseForReview(s,actor,owner,project,verified);next.pendingIntakes=(next.pendingIntakes||[]).filter(p=>p.uid!==verified.source.uid);return next;
    });
    await vault.remove(verified.source.uid).catch(()=>{});
-   return res.status(200).json(service.view(next,actor,project));
+   return res.status(200).json(view(next));
   }
   if(body.action==='import_base'){
    const verified=await baseReader(project,session,body);
    if(project==='research')await membershipCheck(verified.source.attester,{env});
    const next=await store.mutate(async s=>{if(actor.authorityExpiresAt<=Date.now())throw Object.assign(Error('Authority expired. Retry.'),{status:503});const next=service.importBase(s,actor,project,verified);next.pendingIntakes=(next.pendingIntakes||[]).filter(p=>p.uid!==verified.source.uid);return next;});
    await vault.remove(verified.source.uid).catch(()=>{});
-   return res.status(200).json(service.view(next,actor,project));
+   return res.status(200).json(view(next));
   }
   if(body.action==='apply')return res.status(409).json({error:'Submit the wallet-signed Base application, then unlock it here to continue.'});
   if(body.action==='review'){
@@ -100,7 +103,7 @@ export function createContributorHandler(project,{env=process.env,command=redisC
      expiredConsentVerified=await verifyExpiredMemoConsent(app,await chainContext(env));
     }
     if(actor.authorityExpiresAt<=Date.now())throw Object.assign(Error('Authority expired. Retry.'),{status:503});
-    return service.transition(s,actor,body.id,change,{expiredConsentVerified});});return res.status(200).json(service.view(next,actor,project));
+    return service.transition(s,actor,body.id,change,{expiredConsentVerified});});return res.status(200).json(view(next));
   }
   return res.status(400).json({error:'Unknown contributor action.'});
  }catch(e){return res.status(e.status||503).json({error:e.status?e.message:'Contributor service unavailable. No success has been confirmed; reload records before retrying.'});}

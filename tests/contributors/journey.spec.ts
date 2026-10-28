@@ -6,28 +6,23 @@ async function mock(page:any,get:()=>any,change?:(b:any)=>void){
  await page.route('**/graphql',(r:any)=>r.fulfill({json:{data:{attestations:[]}}}));
  await page.route('**/api/contributors',(r:any)=>{if(r.request().method()==='GET')return r.fulfill({json:{session:{wallet,csrf:'test'}}});const b=r.request().postDataJSON();change?.(b);return r.fulfill({json:{today:'2026-10-28',...get()}});});
 }
-test('applicant has one journey with reviewer replies, edits, signing and issued credential history',async({page})=>{
- const app:any=application();let submitted:any;
+test('applicant follows review and separate role assignment without Governance consent or duplicate account menus',async({page})=>{
+ const app:any={...application(),requestedRoles:['Researcher']};let submitted:any;
  await mock(page,()=>({applications:[app],persona:{id:'owner',canReview:false}}),b=>{if(b.action==='review'){submitted=b.change;app.state='in_review';}});
- await page.goto('/admin/contributors');const nav=page.getByRole('navigation',{name:'Contributor workspace'});await expect(nav.getByRole('button')).toHaveCount(1);await expect(nav.getByRole('button',{name:'My contribution'})).toHaveAttribute('aria-current','page');
- await expect(page.getByRole('list',{name:'Contributor progress'})).toBeVisible();await expect(page.getByText('Your application is in the review queue.',{exact:true})).toBeVisible();
- app.state='needs_info';app.reviews=[{reason:'Which projects would you like to help?',state:'needs_info'}];await page.reload();await page.getByLabel('Your response',{exact:true}).fill('Gov documentation');await page.getByRole('button',{name:'Send response',exact:true}).click();expect(submitted.action).toBe('respond_info');
- app.state='approved';app.memos=[{version:1,status:'draft',scope:app.specialty,level:'Part Time',rank:'Contributor',wallet,start:'2026-10-28',end:null}];await page.reload();await expect(page.getByRole('button',{name:'Sign memorandum with wallet',exact:true})).toHaveCount(1);await expect(page.getByText('Propose changes to this memorandum',{exact:true})).toHaveCount(1);
- await page.screenshot({path:'artifacts/guided-contributor-desktop.png',fullPage:true});
- app.memos[0].consent={};await page.reload();await expect(page.getByRole('button',{name:'Sign memorandum with wallet',exact:true})).toHaveCount(0);await expect(page.getByText('Propose changes to this memorandum',{exact:true})).toHaveCount(0);await expect(page.getByText('Already signed.',{exact:false})).toBeVisible();
- app.memos[0].status='issued';app.credential={tokenId:'1',standing:'active',termActive:true,transactionHash:'0x'+'2'.repeat(64)};app.validations=[{id:'month1',month:'2026-10',evidence:'Published documentation',validatedBy:'Partner'}];await page.reload();await expect(page.getByRole('heading',{name:'Active credential',exact:true})).toBeVisible();await page.getByText('Confirmed monthly contributions',{exact:true}).click();await expect(page.getByText('Published documentation',{exact:true})).toBeVisible();await expect(page.getByRole('link',{name:'View role profile',exact:true})).toHaveAttribute('href','https://roles.bittrees.org/profile');
- await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:'artifacts/guided-contributor-mobile.png',fullPage:true});
+ await page.goto('/admin/contributors');await expect(page.getByRole('list',{name:'Contributor progress'})).toBeVisible();await expect(page.getByText('Your application is in the review queue.',{exact:true})).toBeVisible();
+ app.state='needs_info';app.reviews=[{reason:'Which projects would you like to help?',state:'needs_info'}];await page.reload();await page.getByLabel('Your response',{exact:true}).fill('Research documentation');await page.getByRole('button',{name:'Send response',exact:true}).click();expect(submitted.action).toBe('respond_info');
+ app.state='approved';app.memos=[{version:1,status:'issued',scope:'Historical data'}];app.credential={tokenId:'1',standing:'active',termActive:true};await page.reload();
+ await expect(page.getByText('Role credential assignment is a separate transaction;',{exact:false})).toBeVisible();
+ for(const label of ['Sign memorandum with wallet','Issue Memorandum of Contribution','End Research session'])await expect(page.getByRole('button',{name:label,exact:true})).toHaveCount(0);
+ await expect(page.locator('.cp-account')).toHaveCount(0);await expect(page.getByText('Wallet settings',{exact:true})).toHaveCount(0);await expect(page.getByRole('heading',{name:'Active credential',exact:true})).toHaveCount(0);
+ for(const role of ['Researcher','Contributor','Assistant','Steward','Executive'])await expect(page.getByText(role,{exact:false}).first()).toBeVisible();
+ await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
-test('reviewer opens application beside the sheet and proceeds directly to prefilled memorandum after acceptance',async({page})=>{
- const app:any=application();
- await mock(page,()=>({applications:[app],persona:{id:'partner',canReview:true,canDecide:true,canIssue:true}}),b=>{if(b.action==='review'&&b.change.action==='approve'){app.state='approved';app.version++;}});
- await page.goto('/admin/contributors');await page.getByRole('button',{name:'Open Example contributor',exact:true}).click();await expect(page.locator('.cp-review-layout')).toBeVisible();await page.getByLabel('Contributor-facing explanation',{exact:true}).fill('Welcome to the documentation team.');await page.screenshot({path:'artifacts/guided-reviewer-desktop.png',fullPage:true});await page.getByRole('button',{name:'Accept application',exact:true}).click();await expect(page.getByRole('button',{name:'Memoranda & issuance',exact:true})).toHaveAttribute('aria-current','page');await expect(page.getByRole('textbox',{name:'Responsibilities',exact:true})).toHaveValue(app.specialty);await expect(page.getByRole('combobox',{name:'Term',exact:true})).toHaveValue('ongoing');
- await page.getByRole('button',{name:'← All memoranda'}).click();await page.getByLabel('Show memoranda').selectOption('action');await expect(page.getByRole('button',{name:'Open Example contributor',exact:true})).toBeVisible();
-});
-test('signed unissued memorandum offers issuance without an impossible revise or expiry-wait path',async({page})=>{
- const app:any={...application(),state:'approved',memos:[{version:1,status:'draft',wallet,scope:'Agreed scope',start:'2026-10-28',end:null,level:'Full Time',rank:'Contributor',consent:{}}]};
- await mock(page,()=>({applications:[app],persona:{id:'partner',canReview:true,canDecide:true,canIssue:true}}));
- await page.goto('/admin/contributors');await page.getByRole('button',{name:'Memoranda & issuance',exact:true}).click();await page.getByRole('button',{name:'Open Example contributor',exact:true}).click();await expect(page.getByRole('button',{name:'Issue Memorandum of Contribution',exact:true})).toHaveCount(1);await expect(page.getByText('Prepare a revised memorandum',{exact:true})).toHaveCount(0);await expect(page.getByText('Issue and confirm this version before preparing an amendment.',{exact:false})).toBeVisible();
+test('Executive acceptance moves to Directory and explains separate native credential assignment',async({page})=>{
+ const app:any={...application(),requestedRoles:['Researcher']};
+ await mock(page,()=>({applications:[app],persona:{id:'executive',canReview:true,canDecide:true,canIssue:true}}),b=>{if(b.action==='review'&&b.change.action==='approve'){app.state='approved';app.version++;}});
+ await page.goto('/admin/contributors');await page.getByRole('button',{name:'Open Example contributor',exact:true}).click();await expect(page.locator('.cp-review-layout')).toBeVisible();await page.getByLabel('Contributor-facing explanation',{exact:true}).fill('Welcome to Research.');await page.getByRole('button',{name:'Accept application',exact:true}).click();
+ await expect(page.getByRole('button',{name:'Directory',exact:true})).toHaveAttribute('aria-current','page');await expect(page.getByText('Acceptance does not issue credentials or grant access.',{exact:false})).toBeVisible();await expect(page.getByRole('link',{name:'Open role credential management'})).toHaveAttribute('href','/admin?tab=roles');await expect(page.getByRole('button',{name:'Memoranda & issuance',exact:true})).toHaveCount(0);
 });
 test('pending intake becomes the same private application on refresh without another unlock',async({page})=>{
  let ready=false;
@@ -43,12 +38,6 @@ test('an intake refresh denied by the server removes private applicant data',asy
  await page.goto('/admin/contributors');await expect(page.getByRole('heading',{name:'Example contributor',exact:true})).toBeVisible();deny=true;await page.clock.fastForward(61000);await expect(page.getByRole('alert')).toContainText('Access unavailable');await expect(page.getByRole('heading',{name:'Example contributor',exact:true})).toHaveCount(0);
 });
 
-test('expired Research consent exposes recovery while server finality remains required',async({page})=>{
- const app:any={...application(),state:'approved',memos:[{version:1,status:'draft',wallet,scope:'Agreed scope',start:'2026-10-28',end:null,level:'Part Time',rank:'Contributor',consent:{typedData:{message:{deadline:1}}}}]};
- await mock(page,()=>({applications:[app],persona:{id:'reviewer',canReview:true,canDecide:true,canIssue:true}}));
- await page.goto('/admin/contributors');await page.getByRole('button',{name:'Memoranda & issuance',exact:true}).click();await page.getByRole('button',{name:'Open Example contributor',exact:true}).click();await page.getByText('Manage memorandum & history',{exact:true}).click();await expect(page.getByText('Recover expired authorization and revise memorandum',{exact:true})).toBeVisible();
-});
-
 test('pending intake reads pause while hidden and resume when visible',async({page})=>{
  await page.clock.install();let reads=0;
  await page.route('https://insights.bittrees.org/consent.js',r=>r.abort());await page.route('**/graphql',r=>r.fulfill({json:{data:{attestations:[]}}}));
@@ -58,9 +47,9 @@ test('pending intake reads pause while hidden and resume when visible',async({pa
  await page.evaluate(()=>Object.defineProperty(document,'visibilityState',{configurable:true,get:()=> 'visible'}));await page.clock.fastForward(61000);await expect.poll(()=>reads).toBeGreaterThan(initial);
 });
 
-test('ending the Research session clears private journey data and stops intake reads',async({page})=>{
+test('a session ending through the profile removes private records on refresh and stops polling',async({page})=>{
  await page.clock.install();let ended=false,reads=0;
  await page.route('https://insights.bittrees.org/consent.js',r=>r.abort());await page.route('**/graphql',r=>r.fulfill({json:{data:{attestations:[]}}}));
- await page.route('**/api/contributors',r=>{if(r.request().method()==='GET')return r.fulfill({json:{session:ended?null:{wallet,csrf:'test'}}});const body=r.request().postDataJSON();expect(r.request().headers()['x-contributor-csrf']).toBe('test');if(body.action==='sign_out'){ended=true;return r.fulfill({json:{ok:true}});}reads++;return r.fulfill({json:{today:'2026-10-28',applications:[application()],intakes:[{uid:'0x'+'4'.repeat(64),wallet,status:'waiting_finality'}],persona:{id:'owner',canReview:false}}});});
- await page.goto('/admin/contributors');await expect(page.getByRole('heading',{name:'Example contributor',exact:true})).toBeVisible();await page.getByRole('button',{name:'End Research session',exact:true}).click();await expect(page.getByRole('heading',{name:'Example contributor',exact:true})).toHaveCount(0);await expect(page.getByRole('button',{name:'End Research session',exact:true})).toHaveCount(0);const stopped=reads;await page.clock.fastForward(121000);expect(reads).toBe(stopped);await page.reload();await expect(page.getByRole('heading',{name:'Connect your wallet',exact:true})).toBeVisible();expect(reads).toBe(stopped);
+ await page.route('**/api/contributors',r=>{if(r.request().method()==='GET')return r.fulfill({json:{session:ended?null:{wallet,csrf:'test'}}});reads++;return r.fulfill({json:{today:'2026-10-28',applications:[application()],intakes:[{uid:'0x'+'4'.repeat(64),wallet,status:'waiting_finality'}],persona:{id:'owner',canReview:false}}});});
+ await page.goto('/admin/contributors');await expect(page.getByRole('heading',{name:'Example contributor',exact:true})).toBeVisible();ended=true;await page.evaluate(()=>window.dispatchEvent(new Event('focus')));await expect(page.getByRole('heading',{name:'Example contributor',exact:true})).toHaveCount(0);const stopped=reads;await page.clock.fastForward(121000);expect(reads).toBe(stopped);await expect(page.getByRole('heading',{name:'Connect your wallet',exact:true})).toBeVisible();
 });

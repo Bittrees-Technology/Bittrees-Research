@@ -13,12 +13,12 @@ Bittrees Research brings publications, member research requests, contributor app
 | Research library | Read publications from the Bittrees Research feed. |
 | Research requests | Submit a brief as an active member. Holders of an active Researcher credential can accept work, submit findings and respond to revisions; the requester reviews completion. |
 | Membership | Mint a membership for yourself or another wallet, or renew an existing membership with BIT. |
-| Contribute | Apply for a role as an active member and follow the application, review and memorandum process. |
+| Contribute | Apply for a role as an active member and follow application review and assignment of a Research role credential. |
 | Forum | Read discussions and participate through the supported proposal, post and reply flows. |
 | Credentials | View membership-linked credentials. Authorized users can define credential types and assign credentials in separate workflows. |
 | BNOTE and BIT | Use the enabled minting and redemption interfaces, with prices and eligibility determined by the contracts. |
 
-Research reuses a verified wallet session across its protected application views. Membership and role checks still apply to each protected action. Transactions, token approvals, memorandum consent and first-time decryption of legacy applications retain their own authorization requirements.
+Research reuses a verified wallet session across its protected application views. Membership and role checks still apply to each protected action. Transactions, token approvals, first-time decryption of legacy applications retain their own authorization requirements.
 
 ## Verified smart contracts
 
@@ -98,7 +98,7 @@ Active Executive credential holders can issue eligible credentials directly from
 - [Membership, renewal and gifting](docs/membership-v2.md)
 - [V3 credential issuance and authority](docs/research-v3-issuance.md)
 - [Contributor journey and private intake](docs/contributor-guided-flow.md)
-- [Contributor memorandum workflow](docs/contributor-memorandum-flow.md)
+- [Research applications and role credentials](docs/contributor-guided-flow.md)
 - [Session and access verification notes](docs/research-access-followup.md)
 - [Permission mappings](shared/research-permissions.mjs)
 

@@ -1,23 +1,15 @@
-# Research contributor journey
+# Research membership and role credentials
 
-Applicants follow **My contribution** from their original application through reviewer messages, memorandum negotiation, signature and confirmed issuance. Reviewers use the application worksheet with selected details alongside it. Acceptance opens memorandum preparation with the applicant's contribution interests prefilled. Memoranda have action and waiting filters; Directory distinguishes accepted applicants from current issued credentials.
+Research uses its Ethereum membership and credential contracts. Its five standard roles are Researcher, Contributor, Assistant, Steward and Executive. Executive is the Research admin role.
 
-## Research admission and authority
+An active member submits the original encrypted Base application and selects requested roles. The existing membership checks, reviewer encryption, private intake, finality checks and duplicate protection remain in place. Requested roles are requests, not grants.
 
-The original Research form and its five requested roles are retained. Active native Research membership is required for application submission and import. The automatic intake repeats that check both when staging and when promoting a finalized application. Existing records remain readable under their current authorization. Native membership, Executive credentials, Roles decisions and Safe controls remain separate requirements. Requested roles never grant permissions.
+An authorized Executive reviews the application, requests information or accepts/rejects with an explanation. Applicants can reply and follow the same private record. Acceptance is separate from credential assignment and never indicates that a credential has been issued.
 
-## Private automatic intake
+After acceptance, credential assignment opens with the verified member wallet and requested role prefilled. The issuer confirms the membership token, credential type, metadata and optional expiry. Existing on-chain checks run before preparation and execution. An active Executive can issue non-Executive credentials directly. Only the primary admin Safes may issue Executive credentials. Roles still verifies its approved permission mappings and the current parent membership.
 
-The successful Base receipt supplies the attestation UID. After checking the existing Research wallet session, the browser sends only that UID and its random per-document content key. Wallet-derived encryption keys are wiped and are never stored server-side. Automatic intake can be retried without another Base transaction.
+The credential status panel reads the published Research contracts. Expiry, revocation, burning and membership validity determine current status. A stale application record or historical memorandum cannot establish active credentials.
 
-The server independently verifies the latest Base source, submitting wallet, project, revocation and encrypted contents before staging. The per-document key is separately encrypted using the existing private codec and stored in Redis with an enforced 24-hour TTL. Application state and response views contain only provenance and status, never the key.
+Research does not issue a Memorandum of Contribution or calculate monthly contribution allocations. Those Governance flows are not exposed through Research; direct attempts to use their API actions are rejected. Historical stored records are preserved.
 
-On an authorized workspace refresh, at most three due records are checked, at most once per minute each. Promotion repeats finalized source and membership checks before creating a submitted application. It does not approve an application, issue a credential or grant a role. Keys are removed after the private state commits; the TTL remains a cleanup backstop. Pending intake refreshes only while the workspace is open. There is no new scheduler.
-
-Old submissions and intake whose key has expired use one wallet unlock to import the existing Base record. Applicants should not submit another transaction because intake is pending. Denied or superseded workspace reads clear private view data.
-
-## Memoranda and integration
-
-Research retains its existing contract and 24-hour contributor consent. A signed draft may be issued and reconciled before an amendment; historical expiry recovery still requires finalized on-chain verification. The interface does not imply that editing cancels a signature. Gov's non-expiring authorization behavior is not imported into Research.
-
-Applicant edits retain the original Base source, requested roles, wallet, signed memorandum and credential. Approved profile fields continue through the existing signed Roles profile protocol. Private notes stay private. Signed responsibilities produce Workflow suggestions for Partner approval through the existing feed; no automatic assignment or execution is added. Pending Safe operations, native role credentials, policy activation and token reissue are unchanged.
+Connected-account controls belong in the top-right profile. The contributor page has no duplicate verified-wallet row or wallet-settings menu. A missing or mismatched session still requires valid ownership proof; a current Research session is reused.
