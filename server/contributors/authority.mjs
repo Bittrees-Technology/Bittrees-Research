@@ -15,6 +15,10 @@ export async function contributorActor(session,project,{access=ecosystemAccess,s
   nativeAllowed=nativeRoles(evidence,session.wallet).includes('executive');
   if(nativeAllowed)decision.expiresAt=Math.min(decision.expiresAt,evidence.validUntil);
  }
+ if(project==='research'){
+  const executive=researchReviewer(decision,evidence,session.wallet);
+  return {authorityExpiresAt:decision.expiresAt,id:session.identity,name:executive?'Executive':'Member',wallet:session.wallet||null,applicant:true,review:executive?['research']:[],decide:executive?['research']:[],issue:executive,validate:false,changeStatus:[],proposeStatus:[]};
+ }
  const partner=nativeAllowed&&decision.actions.includes('tier.partner'),junior=nativeAllowed&&decision.actions.includes('tier.junior-partner'),associate=nativeAllowed&&decision.actions.includes('tier.associate'),staff=partner||junior||associate;
  return {authorityExpiresAt:decision.expiresAt,id:session.identity,name:partner?'Partner':junior?'Junior Partner':associate?'Associate':'Contributor',wallet:session.wallet||null,applicant:true,review:staff?lanes:project==='research'&&researchReviewer(decision,evidence,session.wallet)?['research']:[],decide:partner?lanes:[],issue:partner,validate:staff,changeStatus:partner?lanes:[],proposeStatus:!partner&&staff?lanes:[]};
 }

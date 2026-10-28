@@ -8,17 +8,17 @@ import {useMembershipStatus} from '@/hooks/membership/useMembershipStatus';
 import {AUTHORITIES,EXECUTIVE_TYPE,credentialReceiptMatches,prepareCredential,readManagedCredentials,safeCredentialBatch,type CredentialAction,type CredentialPlan} from '@/lib/researchCredentialManagement';
 
 /** Every submission rechecks current on-chain issuer authority. */
-export function ResearchCredentialRoles({canDefine=false,canAssign=false,canManage=false}:{canDefine?:boolean;canAssign?:boolean;canManage?:boolean}) {
+export function ResearchCredentialRoles({canDefine=false,canAssign=false,canManage=false,initialMember='',initialRole=''}:{canDefine?:boolean;canAssign?:boolean;canManage?:boolean;initialMember?:string;initialRole?:string}) {
  const [chosenFlow,setFlow]=useState<'create'|'assign'>(canAssign?'assign':'create');
  const flow=chosenFlow==='create'&&canDefine?'create':canAssign?'assign':'create';
  const {data:catalog}=useCommunity();
  const definitions:CredentialDefinition[]=[...BUILTIN_ROLE_CREDENTIALS,...(catalog?.credentialdefs||[])];
- const [selected,setSelected]=useState('research.role.researcher.v1');
+ const [selected,setSelected]=useState(BUILTIN_ROLE_CREDENTIALS.find(d=>d.label.toLowerCase()===initialRole.toLowerCase())?.identifier||'research.role.researcher.v1');
  const definition=definitions.find(d=>d.identifier===selected)||definitions[0];
  const catalogReady=Array.isArray(catalog?.credentialdefs),selectionExists=definitions.some(d=>d.identifier===selected);
  const {address}=useAccount(),chainId=useChainId(),client=usePublicClient({chainId:1});
  const {sendTransactionAsync}=useSendTransaction(),qc=useQueryClient();const {sessionRevision}=useMembershipStatus();
- const [member,setMember]=useState(''),[parentId,setParent]=useState(''),[uri,setURI]=useState('https://research.bittrees.org/credentials/researcher.json'),[until,setUntil]=useState('');
+ const [member,setMember]=useState(initialMember),[parentId,setParent]=useState(''),[uri,setURI]=useState(BUILTIN_ROLE_CREDENTIALS.find(d=>d.identifier===selected)?.metadataURI||'https://research.bittrees.org/credentials/researcher.json'),[until,setUntil]=useState('');
  const [issuanceMode,setIssuanceMode]=useState<'safe'|'executive'>(canManage?'safe':'executive');
  const [chosenProof,setChosenProof]=useState('');
  const ownCredentials=useQuery({queryKey:['executive-issuance-proof',address,sessionRevision],enabled:!!client&&!!address&&issuanceMode==='executive'&&canAssign,retry:false,refetchInterval:15000,queryFn:()=>readManagedCredentials(client!,address!)});

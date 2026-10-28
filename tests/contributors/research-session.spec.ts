@@ -36,7 +36,7 @@ test('one wallet proof on Overview opens board and contributor records without a
   await expect(p.getByRole('button',{name:'Verify wallet and open board'})).toHaveCount(0);
   await p.getByRole('banner').getByRole('link',{name:'Contribute',exact:true}).click();
   await p.getByRole('link',{name:'My contribution'}).click();
-  await expect(p.getByText(/^Verified wallet ·/)).toBeVisible();
+  await expect(p.getByRole('navigation',{name:'Contributor workspace'})).toBeVisible();await expect(p.getByText(/^Verified wallet ·/)).toHaveCount(0);
   await expect(p.getByRole('button',{name:'Verify wallet and continue'})).toHaveCount(0);
   expect(finishes).toBe(1);expect(await p.evaluate(()=>(window as any).__researchSignatures)).toBe(1);
  }finally{await f.context.close();}
@@ -59,7 +59,7 @@ test('contributor entry rechecks an existing session before requesting a signatu
   await p.getByRole('link',{name:'My contribution'}).click();
   const button=p.getByRole('button',{name:'Verify wallet and continue'});await expect(button).toBeVisible();
   verified=true;await button.click();
-  await expect(p.getByText(/^Verified wallet ·/)).toBeVisible();
+  await expect(p.getByRole('navigation',{name:'Contributor workspace'})).toBeVisible();await expect(p.getByText(/^Verified wallet ·/)).toHaveCount(0);
   await p.getByRole('banner').getByRole('link',{name:'Forum',exact:true}).click();
   await expect(p.getByRole('heading',{name:'Forum',exact:true})).toBeVisible();
   expect(starts).toBe(0);expect(await p.evaluate(()=>(window as any).__extraSignatures)).toBe(0);
