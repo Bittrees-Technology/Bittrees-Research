@@ -94,6 +94,13 @@ export function ContributorForm() {
       checkWallet();
       await ensureResearchSignIn(address,message=>walletClient.signMessage({account:address,message}),()=>currentWallet.current===address);
       checkWallet();
+      const sessionResponse=await fetch('/api/contributors',{cache:'no-store'}),sessionData=await sessionResponse.json();
+      checkWallet();
+      if(!sessionResponse.ok||sessionData.session?.wallet?.toLowerCase()!==address.toLowerCase())throw Error('Verify the submitting wallet to continue.');
+      const currentResponse=await fetch('/api/contributors',{method:'POST',headers:{'content-type':'application/json','x-contributor-csrf':sessionData.session.csrf},body:JSON.stringify({action:'list'})}),current=await currentResponse.json();
+      checkWallet();
+      if(!currentResponse.ok)throw Error(current.error||'Your current application could not be checked. Open My contribution and retry.');
+      if(current.applications?.some((a:any)=>a.wallet?.toLowerCase()===address.toLowerCase()&&a.walletVerification==='verified'&&a.state!=='rejected')||current.intakes?.some((i:any)=>i.wallet?.toLowerCase()===address.toLowerCase()&&i.status==='waiting_finality'))throw Error('You already have an application in progress. Open My contribution to continue it; no new Base transaction is needed.');
       let wc = walletClient;
       if (chainId !== base.id) {
         await switchChainAsync({ chainId: base.id });

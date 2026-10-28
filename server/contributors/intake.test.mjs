@@ -67,3 +67,15 @@ test('failed older intakes do not starve newer submissions and invalid form data
  checked=[];await settleIntakes(state,reviewer,'gov',{vault,service,now:63000,read:async(_p,_s,input)=>{checked.push(input.uid);throw Error('Unavailable');}});assert.equal(checked[0],'0x'+'4'.repeat(64));
  await assert.rejects(()=>stageIntake(emptyState(),session,'gov',input,{vault,read:async()=>({...verified,application:{...application,specialty:''}})}),/contribution interests/);
 });
+
+test('an active application rejects a second UID before saving its key, while rejection permits a new application',async()=>{
+ const vault=memoryVault();let state=await stageIntake(emptyState(),session,'gov',input,{vault,now:1000,read:async()=>verified});
+ state=await settleIntakes(state,owner,'gov',{vault,service,now:2000,read:async()=>verified});
+ const second='0x'+'9'.repeat(64),read=async()=>({...verified,source:{...source,uid:second}});
+ await assert.rejects(()=>stageIntake(state,session,'gov',{uid:second,contentKey:key},{vault,read}),/application in progress/);
+ assert.equal(await vault.read(second,wallet),null);
+ const declared=structuredClone(state);declared.applications[0].walletVerification='unverified';
+ const legitimate=await stageIntake(declared,session,'gov',{uid:second,contentKey:key},{vault,read});assert.equal(legitimate.pendingIntakes.length,1);
+ state.applications[0].state='rejected';const next=await stageIntake(state,session,'gov',{uid:second,contentKey:key},{vault,read});
+ assert.equal(next.pendingIntakes.length,1);assert.equal(await vault.read(second,wallet),key);
+});

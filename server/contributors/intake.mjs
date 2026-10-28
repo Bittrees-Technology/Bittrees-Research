@@ -19,6 +19,7 @@ export async function stageIntake(state,session,project,input,{read,vault,now=Da
  if(verified.source.attester.toLowerCase()!==wallet)throw fail('Use the submitting wallet.',403);
  normalizeInterest(verified.application,project,{wallet});
  if(state.applications.some(a=>a.sourceAttestation?.uid===verified.source.uid))return state;
+ if(state.applications.some(a=>a.lane===lane(project)&&a.wallet?.toLowerCase()===wallet&&a.walletVerification==='verified'&&a.state!=='rejected'))throw fail('You already have an application in progress. Open My contribution to continue it.');
  const pending=state.pendingIntakes||[];
  const existing=pending.find(p=>p.uid===verified.source.uid);
  if(existing){if(existing.identity!==session.identity)throw fail('Application identity needs reconciliation.');return state;}
