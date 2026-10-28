@@ -97,6 +97,7 @@ Active Executive credential holders can issue eligible credentials directly from
 - [Research request workflow](docs/research-requests.md)
 - [Membership, renewal and gifting](docs/membership-v2.md)
 - [V3 credential issuance and authority](docs/research-v3-issuance.md)
+- [Contributor journey and private intake](docs/contributor-guided-flow.md)
 - [Contributor memorandum workflow](docs/contributor-memorandum-flow.md)
 - [Session and access verification notes](docs/research-access-followup.md)
 - [Permission mappings](shared/research-permissions.mjs)

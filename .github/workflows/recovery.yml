@@ -24,6 +24,7 @@ jobs:
       - run: node --test scripts/ens-profile.test.mjs
       - run: yarn playwright install --with-deps chromium
       - run: npm run test:contributors
+      - run: node --test scripts/contributor-journey.test.ts
       - run: npm run test:contributors-browser
       - run: node scripts/ens-profile-browser.mjs
       - run: yarn test:membership-browser

@@ -213,3 +213,37 @@ test('Research applicant and reviewer import paths require the applicant members
   assert.deepEqual(checked,[owner,owner,owner]);assert.deepEqual(r.body.applications[0].requestedRoles,['Executive']);assert.equal(r.body.applications[0].credential,null);assert.equal(r.body.applications[0].capabilityGrant,null);
  }
 });
+
+test('automatic HTTP intake requires the verified session and CSRF, waits for finality and deletes its temporary key',async()=>{
+ const mem=memory(),wallet='0x'+'6'.repeat(40),uid='0x'+'7'.repeat(64),contentKey='8'.repeat(64);let finalized=false,member=false,membershipReads=0;
+ const request=(body,headers={})=>{const r=req(body,headers);r.headers.origin='https://research.bittrees.org';return r;};
+ const handler=createContributorHandler('research',{env:{CONTRIBUTORS_ENABLED:'1',CONTRIBUTOR_IDENTITY_SECRET:secret,CONTRIBUTOR_STORAGE_SECRET:secret},command:mem.command,verifyWallet:async({signature})=>signature==='valid',actorFor:async s=>({...applicant,id:s.identity,wallet:s.wallet,authorityExpiresAt:Date.now()+10000}),membershipCheck:async()=>{membershipReads++;if(!member)throw Object.assign(Error('Membership required'),{status:403});},baseReader:async(_p,s,input,_client,options)=>{
+  assert.equal(s.wallet,wallet);assert.equal(input.contentKey,contentKey);
+  if(!options&& !finalized)throw Object.assign(Error('Not finalized yet'),{status:409});
+  return {application:{...interest,email:'',requestedRoles:['Researcher'],expertise:['Research'],wallet},source:{uid,attester:wallet,chainId:8453,dataHash:'fixed'}};
+ }});
+ let res=response();await handler(request({action:'stage_base',uid,contentKey}),res);assert.equal(res.code,401);
+ res=response();await handler(request({action:'wallet_login_start',address:wallet}),res);const challenge=res.body.challenge,binding=res.headers['Set-Cookie'].split(';')[0];
+ res=response();await handler(request({action:'wallet_login_finish',challenge,signature:'valid'},{cookie:binding}),res);const cookie=res.headers['Set-Cookie'][0].split(';')[0];
+ res=response();await handler({...request({}, {cookie}),method:'GET'},res);const csrf=res.body.session.csrf;
+ res=response();await handler(request({action:'stage_base',uid,contentKey},{cookie}),res);assert.equal(res.code,403);
+ res=response();await handler(request({action:'stage_base',uid,contentKey},{cookie,'x-contributor-csrf':csrf}),res);assert.equal(res.code,403);member=true;
+ res=response();await handler(request({action:'stage_base',uid,contentKey},{cookie,'x-contributor-csrf':csrf}),res);
+ assert.equal(res.code,200);assert.equal(res.body.applications.length,0);assert.equal(res.body.intakes[0].status,'waiting_finality');assert.ok(!JSON.stringify(res.body).includes(contentKey));
+ const key=[...mem.values.keys()].find(k=>k.includes(':intake-key:'));assert.ok(key);assert.ok(!mem.values.get(key).includes(contentKey));
+ finalized=true;
+ res=response();await handler(request({action:'list'},{cookie,'x-contributor-csrf':csrf}),res);
+ assert.equal(res.code,200);assert.ok(membershipReads>=3);assert.equal(res.body.applications.length,1);assert.equal(res.body.applications[0].state,'submitted');assert.equal(res.body.applications[0].credential,null);assert.equal(res.body.intakes.length,0);assert.ok(!mem.values.has(key));assert.ok(!JSON.stringify(res.body).includes(contentKey));
+});
+
+test('only the applicant edits application details without changing approved authority or terms',()=>{
+ const core=contributorService();let state=core.submitInterest(emptyState(),applicant,'research',interest);const id=state.applications[0].id;
+ const update={action:'edit_application',expectedVersion:state.applications[0].version,name:'Updated name',specialty:'Updated interests'};
+ assert.throws(()=>core.transition(state,partner,id,update),/Only the applicant/);
+ assert.throws(()=>core.transition(state,applicant,id,{...update,wallet:'0x'+'2'.repeat(40)}),/Unexpected field/);
+ state.applications[0].state='pending_authority';state=core.transition(state,applicant,id,update);assert.equal(state.applications[0].state,'submitted');assert.equal(state.applications[0].applicationEdits[0].before.name,interest.name);
+ assert.throws(()=>core.transition(state,applicant,id,update),/record changed/);
+ const a=state.applications[0];a.state='approved';a.memos=[{version:1,status:'issued',scope:'Signed responsibilities'}];a.credential={tokenId:'1'};a.sourceAttestation={uid:'original'};
+ const next=core.transition(state,applicant,id,{action:'edit_application',expectedVersion:a.version,specialty:'New interests'}).applications[0];
+ assert.equal(next.state,'approved');assert.deepEqual(next.memos,a.memos);assert.deepEqual(next.credential,a.credential);assert.deepEqual(next.sourceAttestation,a.sourceAttestation);assert.equal(next.applicationEdits.length,2);
+});

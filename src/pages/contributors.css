@@ -44,3 +44,46 @@ main:has(.cp-sheet){max-width:none!important;box-sizing:border-box}
 @media(max-width:650px){.cp-sheet-toolbar{gap:10px}.cp-sheet-toolbar>span{margin-left:0}.cp-sheet-scroll{max-height:60vh}.cp-sheet tr>:nth-child(2){position:static}.cp-bulk-unlock{gap:5px}}
 
 .cp-sheet th,.cp-sheet td{box-sizing:border-box}.cp-sheet td:first-child{min-width:0}
+
+.cp-memo-summary h4{margin-bottom:0}
+.cp-memo-summary dl{margin-top:1rem}
+.cp-sheet-memoranda .cp-sheet-scroll{min-height:0}
+
+/* A selected memorandum is a document, separate from its queue. */
+.cp-memo-progress{display:flex;gap:1.5rem;list-style:none;padding:0;margin:1rem 0 1.5rem;color:var(--color-ink-dim);font-size:.875rem}
+.cp-memo-progress li{padding-bottom:.5rem;border-bottom:2px solid transparent}
+.cp-memo-progress [aria-current="step"]{color:var(--color-ink);border-color:var(--color-primary);font-weight:600}
+.cp-memo-caption{color:var(--color-ink-dim);font-size:.8125rem}
+.cp-memo-manage{margin-top:1.5rem;border-top:1px solid var(--color-border);padding-top:1rem}
+.cp-memo-manage>summary{color:var(--color-ink-muted)}
+.cp-memo-summary .cp-responsibilities{max-width:74ch}
+
+/* Stable column sizing, including long names and wallet addresses. */
+.cp dl>div,.cp-grid>*{min-width:0}
+.cp-memo-summary{max-width:850px;box-sizing:border-box}
+.cp-memo-summary dl{grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}
+.cp-sheet-memoranda table{table-layout:fixed;min-width:640px}
+.cp-sheet-memoranda thead th:nth-child(1){width:42px}
+.cp-sheet-memoranda thead th:nth-child(2){width:28%}
+.cp-sheet-memoranda thead th:nth-child(3){width:30%}
+.cp-sheet-memoranda thead th:nth-child(4){width:150px}
+.cp-sheet-memoranda thead th:nth-child(5){width:75px}
+@media(max-width:650px){.cp-memo-summary dl{grid-template-columns:minmax(0,1fr)}.cp-memo-progress{gap:1rem}.cp-memo-summary{padding:1rem}}
+
+/* The existing Gov worksheet remains the reviewer's anchor. */
+.cp-review-layout{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(320px,1fr);gap:1.5rem;align-items:start}
+.cp-review-layout>.cp-panel{margin-top:0;padding:0;border:0;min-width:0}
+.cp-review-layout>.cp-workspace{border-left:1px solid var(--color-border);padding-left:1.5rem;min-width:0}
+.cp-review-layout .cp-sheet-scroll{max-height:70vh}
+.cp-review-layout .cp-sheet th:nth-child(2),.cp-review-layout .cp-sheet td{max-width:240px}
+.cp-journey-steps{display:flex;gap:.8rem;list-style:none;padding:0;margin:1.5rem 0 2rem}
+.cp-journey-steps li{flex:1;border-top:2px solid var(--color-border);padding-top:.6rem;font-size:.75rem;color:var(--color-ink-muted)}
+.cp-journey-steps li span{display:block;margin-bottom:.3rem}
+.cp-journey-steps li[aria-current=step]{border-color:var(--color-primary);color:var(--color-ink);font-weight:700}
+.cp-journey-steps li[data-complete=true]{border-color:var(--color-secondary)}
+.cp-next-step{padding:.8rem 0;border-bottom:1px solid var(--color-border-light)}
+.cp-review-message{border-left:3px solid var(--color-secondary);padding-left:1rem}
+.cp-queue-filter{max-width:280px}
+.cp-intakes{padding:.5rem 1rem;background:var(--color-bg-subtle);border-left:3px solid var(--color-secondary);margin-bottom:1rem}
+.cp-intakes p{margin:.25rem 0}
+@media(max-width:900px){.cp-review-layout{grid-template-columns:minmax(0,1fr)}.cp-review-layout>.cp-workspace{border-left:0;border-top:1px solid var(--color-border);padding:1rem 0}.cp-journey-steps{gap:.35rem}.cp-journey-steps li{font-size:.7rem}}

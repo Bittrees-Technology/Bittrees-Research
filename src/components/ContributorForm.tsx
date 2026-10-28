@@ -1,9 +1,10 @@
+import {ensureResearchSignIn} from '../lib/researchSignIn';
 import {RESEARCH_ROLE_NAMES} from '../../shared/research-role-credentials.mjs';
 import {Link} from 'react-router';
 import '../pages/contributor-application.css';
 import {useMembershipStatus} from "@/hooks/membership/useMembershipStatus";
 import {verifyContributorMembership} from "@/lib/contributorMembership";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAccount, useChainId, useSwitchChain, useWalletClient } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { base } from "viem/chains";
@@ -11,7 +12,7 @@ import { getAccount, getWalletClient } from "@wagmi/core";
 import { wagmiConfig } from "@/lib/wagmi";
 import { publishPost, CONTRIB_COMMUNITY, useSchemaRegistered } from "@/lib/forum";
 import { fetchCommunity, currentReviewers } from "@/lib/community";
-import { deriveEncKeypair, encryptApplication, pubKeyFromHex, type Application } from "@/lib/appcrypto";
+import { deriveEncKeypair, encryptApplication, applicationContentKey, pubKeyFromHex, type Application } from "@/lib/appcrypto";
 import { ChipMultiSelect, SearchMultiSelect } from "@/components/multiselect";
 import type { Hash } from "viem";
 
@@ -38,6 +39,21 @@ function humanError(e: unknown): string {
 
 export function ContributorForm() {
   const { address, isConnected } = useAccount();
+  const currentWallet=useRef(address);currentWallet.current=address;
+  const pendingIntake=useRef<{uid:string;contentKey:string;wallet:string}|null>(null);
+  const [intakeStatus,setIntakeStatus]=useState('');
+  useEffect(()=>{pendingIntake.current=null;return()=>{pendingIntake.current=null;};},[address]);
+  async function saveIntake(){
+    const pending=pendingIntake.current;
+    if(!pending||currentWallet.current?.toLowerCase()!==pending.wallet)throw Error('Open the submitting wallet to continue.');
+    const response=await fetch('/api/contributors',{cache:'no-store'}),data=await response.json();
+    if(!response.ok||data.session?.wallet?.toLowerCase()!==pending.wallet)throw Error('Verify the submitting wallet, then retry intake.');
+    if(currentWallet.current?.toLowerCase()!==pending.wallet)return;
+    const saved=await fetch('/api/contributors',{method:'POST',headers:{'content-type':'application/json','x-contributor-csrf':data.session.csrf},body:JSON.stringify({action:'stage_base',uid:pending.uid,contentKey:pending.contentKey})});
+    const result=await saved.json();if(!saved.ok)throw Error(result.error||'Application intake is unavailable.');
+    if(currentWallet.current?.toLowerCase()!==pending.wallet)return;
+    pendingIntake.current=null;setIntakeStatus('Your application enters review after Base finality. Follow its progress in My contribution.');
+  }
   const membership = useMembershipStatus();
   const chainId = useChainId();
   const { switchChainAsync } = useSwitchChain();
@@ -62,6 +78,7 @@ export function ContributorForm() {
     membership.hasValidMembership && !membership.error &&
     name.trim().length > 0 &&
     roles.length > 0 &&
+    languages.length <= 20 &&
     specialty.trim().length > 0 &&
     region.length > 0 &&
     heardFrom.trim().length > 0;
@@ -74,6 +91,8 @@ export function ContributorForm() {
       const connector = getAccount(wagmiConfig).connector?.uid;
       const checkWallet = (requireBase=false) => { const a=getAccount(wagmiConfig); if(a.status!=="connected"||a.address?.toLowerCase()!==address.toLowerCase()||a.connector?.uid!==connector||(requireBase&&a.chainId!==base.id))throw Error("Wallet changed. Return to the application and try again."); };
       await verifyContributorMembership(address);
+      checkWallet();
+      await ensureResearchSignIn(address,message=>walletClient.signMessage({account:address,message}),()=>currentWallet.current===address);
       checkWallet();
       let wc = walletClient;
       if (chainId !== base.id) {
@@ -94,14 +113,19 @@ export function ContributorForm() {
         wallet: address,
         referrer: referrer.trim(),
       };
-      const keypair = await deriveEncKeypair(wc, address);const publicKey=keypair.publicKey;keypair.secretKey.fill(0);
+      const keypair = await deriveEncKeypair(wc, address);const publicKey=keypair.publicKey;
+      let envelope: ReturnType<typeof encryptApplication>,contentKey:string;
+      try {
       const community = await fetchCommunity();
       const reviewers = currentReviewers(community)
         .map((a) => ({ addr: a, hex: community.enckeys[a] }))
         .filter((r) => /^[0-9a-f]{64}$/.test(r.hex || ""))
         .map((r) => ({ addr: r.addr, pub: pubKeyFromHex(r.hex) }));
       const recipients = [{ addr: address.toLowerCase(), pub: publicKey }, ...reviewers];
-      const envelope = encryptApplication(JSON.stringify(app), recipients);
+      envelope = encryptApplication(JSON.stringify(app), recipients);
+      contentKey=applicationContentKey(envelope,address,keypair.secretKey);
+      } finally {keypair.secretKey.fill(0);}
+      let attestationUid:Hash|undefined;
       await verifyContributorMembership(address);
       checkWallet(true);
       const hash = await publishPost({
@@ -110,8 +134,14 @@ export function ContributorForm() {
         title: "Member role application",
         body: JSON.stringify(envelope),
         community: CONTRIB_COMMUNITY,
+        onAttested:uid=>{attestationUid=uid;},
       });
+      checkWallet(true);
       setTxHash(hash);
+      if(attestationUid){
+        pendingIntake.current={uid:attestationUid,contentKey,wallet:address.toLowerCase()};
+        try{await saveIntake();}catch(e){setIntakeStatus(humanError(e)+' Your Base submission is saved. Retry intake or unlock it in My contribution.');}
+      }else setIntakeStatus('Your Base submission is saved. Open My contribution to unlock and continue it.');
       setStatus("done");
     } catch (e) {
       setStatus("error");
@@ -122,7 +152,7 @@ export function ContributorForm() {
   return (
     <div className="contributor-application">
       <header style={{ borderBottom: "1px solid var(--color-border)", paddingBottom: "1.25rem", marginBottom: "1.5rem" }}>
-        <p><Link to="/">Research home</Link> · <Link to="/admin/contributors">View my application and memorandum</Link></p>
+        <p><Link to="/">Research home</Link> · <Link to="/admin/contributors">My contribution</Link></p>
         <h2 className="text-display" style={{ fontSize: "1.6rem", margin: "0.3rem 0 0.5rem" }}>Apply to contribute</h2>
         <p style={{ fontFamily: "var(--font-sans)", fontSize: "0.9375rem", color: "var(--color-ink-muted)", lineHeight: 1.6, margin: 0 }}>
           An active Research membership on Ethereum is required to apply. Use that wallet to submit your application on Base; your answers are encrypted for you and the designated reviewers.
@@ -137,7 +167,9 @@ export function ContributorForm() {
           <p style={{ fontFamily: "var(--font-sans)", fontSize: "0.85rem", color: "var(--color-ink-muted)", margin: 0 }}>
             Encrypted and recorded on-chain. Only you and the Bittrees reviewers can decrypt it.
           </p>
-          <a href="/admin/contributors">Continue to application review and memorandum</a>
+          <p role="status">{intakeStatus}</p>
+          {pendingIntake.current&&<button onClick={()=>saveIntake().catch(e=>setIntakeStatus(humanError(e)))}>Retry application intake</button>}
+          <Link to="/admin/contributors">Open My contribution</Link>
           {txHash && (
             <a href={`https://basescan.org/tx/${txHash}`} target="_blank" rel="noreferrer" style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem", color: "var(--color-ink-muted)", textDecoration: "none" }}>
               View on BaseScan ↗
@@ -164,7 +196,7 @@ export function ContributorForm() {
           <p style={dim}>Applying requests a role; it does not grant a credential or permissions. Only the primary admin authorities can issue an Executive credential, and its holder must have an active membership.</p>
 
           <Field label="What would you like to contribute?" required>
-            <textarea value={specialty} onChange={(e) => setSpecialty(e.target.value)} rows={5} placeholder="A few sentences on your specialty and what you'd contribute." style={{ ...inputStyle, resize: "vertical", lineHeight: 1.6 }} />
+            <textarea maxLength={2000} value={specialty} onChange={(e) => setSpecialty(e.target.value)} rows={5} placeholder="A few sentences on your specialty and what you'd contribute." style={{ ...inputStyle, resize: "vertical", lineHeight: 1.6 }} />
           </Field>
 
           <h3>Your background</h3><Field label="Regions" required>
@@ -172,7 +204,7 @@ export function ContributorForm() {
           </Field>
 
           <Field label="Languages you speak">
-            <SearchMultiSelect options={LANGUAGES} value={languages} onChange={setLanguages} placeholder="Search languages, or type your own…" />
+            <SearchMultiSelect options={LANGUAGES} value={languages} onChange={values=>setLanguages(values.slice(0,20))} placeholder="Search languages, or type your own…" />
           </Field>
 
           <Field label="How did you learn about Bittrees Research?" required>
@@ -186,8 +218,8 @@ export function ContributorForm() {
           </div></details>
 
           <p style={{ fontFamily: "var(--font-sans)", fontSize: "0.72rem", color: "var(--color-ink-dim)", lineHeight: 1.55, margin: 0 }}>
-            Submitting signs once to derive your encryption key (no gas), then records the encrypted
-            application on Base. Fields marked <span style={{ color: "var(--color-primary-hover)" }}>*</span> are required.
+            Submitting verifies your Research session if needed and signs to derive your encryption key (no gas), then records the encrypted
+            application on Base. Its per-document key is encrypted in the private workspace for up to 24 hours to complete finalized review intake. Fields marked <span style={{ color: "var(--color-primary-hover)" }}>*</span> are required.
           </p>
 
           <div>

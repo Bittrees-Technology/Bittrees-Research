@@ -35,7 +35,7 @@ test('one wallet proof on Overview opens board and contributor records without a
   await expect(p.getByRole('button',{name:'Request research',exact:true})).toBeVisible();
   await expect(p.getByRole('button',{name:'Verify wallet and open board'})).toHaveCount(0);
   await p.getByRole('banner').getByRole('link',{name:'Contribute',exact:true}).click();
-  await p.getByRole('link',{name:'View my application and memorandum'}).click();
+  await p.getByRole('link',{name:'My contribution'}).click();
   await expect(p.getByText(/^Verified wallet ·/)).toBeVisible();
   await expect(p.getByRole('button',{name:'Verify wallet and continue'})).toHaveCount(0);
   expect(finishes).toBe(1);expect(await p.evaluate(()=>(window as any).__researchSignatures)).toBe(1);
@@ -56,7 +56,7 @@ test('contributor entry rechecks an existing session before requesting a signatu
   });
   await p.route('https://base.easscan.org/graphql',r=>r.fulfill({json:{data:{attestations:[]}}}));
   await p.getByRole('banner').getByRole('link',{name:'Contribute',exact:true}).click();
-  await p.getByRole('link',{name:'View my application and memorandum'}).click();
+  await p.getByRole('link',{name:'My contribution'}).click();
   const button=p.getByRole('button',{name:'Verify wallet and continue'});await expect(button).toBeVisible();
   verified=true;await button.click();
   await expect(p.getByText(/^Verified wallet ·/)).toBeVisible();

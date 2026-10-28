@@ -9,12 +9,12 @@ const abi=parseAbi(['function getAttestation(bytes32 uid) view returns ((bytes32
 const fail=(m,status=409)=>Object.assign(Error(m),{status});
 // Only a single application's random content key is supplied. Never accept a wallet
 // signature-derived private key; it could expose every application for that wallet.
-export async function readBaseApplication(project,session,{uid,contentKey},client,{reviewer=false}={}){
+export async function readBaseApplication(project,session,{uid,contentKey},client,{reviewer=false,finality='finalized'}={}){
  if(!session.wallet||!session.walletVerifiedAt)throw fail('Sign in with the submitting wallet.',403);
  if(!/^0x[a-fA-F0-9]{64}$/.test(uid||'')||!/^[a-f0-9]{64}$/.test(contentKey||''))throw fail('Select and unlock an existing application.',400);
  client ||= createPublicClient({chain:base,transport:http(process.env.BASE_RPC_URL||undefined,{timeout:10000,retryCount:0})});
  if(await client.getChainId()!==8453)throw fail('Base verification unavailable.',503);
- const block=await client.getBlock({blockTag:'finalized'});
+ const block=await client.getBlock({blockTag:finality==='latest'?'latest':'finalized'});
  const a=await client.readContract({address:EAS,abi,functionName:'getAttestation',args:[uid],blockNumber:block.number});
  if(a.uid.toLowerCase()!==uid.toLowerCase()||a.schema!==schema||a.refUID!==ZERO||(!reviewer&&a.attester.toLowerCase()!==session.wallet)||a.revocationTime!==0n||a.expirationTime!==0n&&a.expirationTime<=block.timestamp)throw fail('No valid finalized application from this wallet was found.');
  const [community,,body]=decodeAbiParameters([{type:'string'},{type:'string'},{type:'string'}],a.data);
