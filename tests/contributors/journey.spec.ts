@@ -57,3 +57,10 @@ test('pending intake reads pause while hidden and resume when visible',async({pa
  await page.evaluate(()=>Object.defineProperty(document,'visibilityState',{configurable:true,get:()=> 'hidden'}));await page.clock.fastForward(121000);expect(reads).toBe(initial);
  await page.evaluate(()=>Object.defineProperty(document,'visibilityState',{configurable:true,get:()=> 'visible'}));await page.clock.fastForward(61000);await expect.poll(()=>reads).toBeGreaterThan(initial);
 });
+
+test('ending the Research session clears private journey data and stops intake reads',async({page})=>{
+ await page.clock.install();let ended=false,reads=0;
+ await page.route('https://insights.bittrees.org/consent.js',r=>r.abort());await page.route('**/graphql',r=>r.fulfill({json:{data:{attestations:[]}}}));
+ await page.route('**/api/contributors',r=>{if(r.request().method()==='GET')return r.fulfill({json:{session:ended?null:{wallet,csrf:'test'}}});const body=r.request().postDataJSON();expect(r.request().headers()['x-contributor-csrf']).toBe('test');if(body.action==='sign_out'){ended=true;return r.fulfill({json:{ok:true}});}reads++;return r.fulfill({json:{today:'2026-10-28',applications:[application()],intakes:[{uid:'0x'+'4'.repeat(64),wallet,status:'waiting_finality'}],persona:{id:'owner',canReview:false}}});});
+ await page.goto('/admin/contributors');await expect(page.getByRole('heading',{name:'Example contributor',exact:true})).toBeVisible();await page.getByRole('button',{name:'End Research session',exact:true}).click();await expect(page.getByRole('heading',{name:'Example contributor',exact:true})).toHaveCount(0);await expect(page.getByRole('button',{name:'End Research session',exact:true})).toHaveCount(0);const stopped=reads;await page.clock.fastForward(121000);expect(reads).toBe(stopped);await page.reload();await expect(page.getByRole('heading',{name:'Connect your wallet',exact:true})).toBeVisible();expect(reads).toBe(stopped);
+});
