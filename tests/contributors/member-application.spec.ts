@@ -33,6 +33,7 @@ for(const existing of ['application','intake','unverified'])test(`${existing==='
  const f=await setup(browser,baseURL!,'valid'),page=f.page,wallet='0x'+'1'.repeat(40);let signatures=0;
  try{
   await page.addLocatorHandler(page.getByRole('region',{name:'Analytics preferences'}),async()=>{await page.getByRole('button',{name:'Decline',exact:true}).click();});
+  await page.route('**/api/gate/token/**',r=>r.fulfill({json:{access:true}}));
   await page.route('**/api/contributors',r=>r.fulfill({json:r.request().method()==='GET'?{session:{wallet,csrf:'shared',expiresAt:Date.now()+86400000}}:{applications:existing!=='intake'?[{wallet,walletVerification:existing==='unverified'?'unverified':'verified',state:'approved'}]:[],intakes:existing==='intake'?[{wallet,status:'waiting_finality'}]:[]}}));
   await page.evaluate(()=>{const provider=(window as any).ethereum,original=provider.request.bind(provider);(window as any).__duplicateSignatures=0;(window as any).__duplicateSwitches=0;provider.request=async(args:any)=>{if(args.method==='wallet_switchEthereumChain'){(window as any).__duplicateSwitches++;throw Error('Synthetic network switch stopped');}if(args.method==='personal_sign'){(window as any).__duplicateSignatures++;throw Error('Unexpected encryption signature');}return original(args);};});
   await page.getByRole('link',{name:'Contribute',exact:true}).click();
