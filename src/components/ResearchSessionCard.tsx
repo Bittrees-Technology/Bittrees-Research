@@ -32,11 +32,11 @@ function WalletSession({wallet}:{wallet?:string}){
    if(alive.current)await session.refetch();
   }catch(e){if(alive.current)setError((e as Error).message);}finally{if(alive.current)setBusy(false);}
  }
- if(!wallet)return null;
+ if(!wallet||verified)return null;
  return <section aria-label="Research sign-in" style={{maxWidth:720,width:'100%',margin:'0 auto',padding:'1rem 0',borderBlock:'1px solid var(--color-border)'}}>
-  <h2 style={{fontSize:'1rem',margin:'0 0 .5rem'}}>{verified?'Wallet verified for Research':'Verify once for Research'}</h2>
-  <p style={{fontSize:'.9rem',color:'var(--color-ink-muted)'}}>{verified?'Your research requests and contributor records use this same sign-in session.':'Connecting a wallet identifies it. One gas-free signature verifies ownership for research requests and contributor records.'}</p>
-  {session.isPending?<p role="status">Checking your Research session…</p>:!verified&&<button className="btn-primary" disabled={busy} onClick={signIn}>{busy?'Waiting for wallet…':'Verify wallet for Research'}</button>}
+  <h2 style={{fontSize:'1rem',margin:'0 0 .5rem'}}>Verify once for Research</h2>
+  <p style={{fontSize:'.9rem',color:'var(--color-ink-muted)'}}>Connecting a wallet identifies it. One gas-free signature verifies ownership for research requests and contributor records.</p>
+  {session.isPending?<p role="status">Checking your Research session…</p>:<button className="btn-primary" disabled={busy} onClick={signIn}>{busy?'Waiting for wallet…':'Verify wallet for Research'}</button>}
   {(error||session.isError)&&<p role="alert">{error||'Your sign-in session could not be checked. Retry wallet verification.'}</p>}
  </section>;
 }

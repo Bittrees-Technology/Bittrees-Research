@@ -24,7 +24,7 @@ test('one wallet proof on Overview opens board and contributor records without a
   });
   await p.getByRole('link',{name:'Overview',exact:true}).click();
   await p.getByRole('button',{name:'Verify wallet for Research',exact:true}).click();
-  await expect(p.getByRole('heading',{name:'Wallet verified for Research'})).toBeVisible();
+  await expect(p.getByRole('region',{name:'Research sign-in',exact:true})).toHaveCount(0);
   await p.screenshot({path:'/tmp/research-shared-session-home.png',fullPage:true});
   await p.route('https://base.easscan.org/graphql',r=>r.fulfill({json:{data:{attestations:[]}}}));
   await p.getByRole('banner').getByRole('link',{name:'Forum',exact:true}).click();
