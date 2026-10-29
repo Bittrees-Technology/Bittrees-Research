@@ -21,11 +21,11 @@ test('all installed query-string callers resolve the patched decoder', () => {
   visit(resolve('node_modules'));
   const callers = packages.filter(p => p.name === 'query-string');
   assert(callers.length > 0);
-  for (const p of packages.filter(p => p.name === 'decode-uri-component')) assert.equal(p.version, '0.5.0');
+  for (const p of packages.filter(p => p.name === 'decode-uri-component')) assert.equal(p.version, '0.5.1');
   for (const p of callers) {
     const require = createRequire(join(p.path, 'package.json'));
     const decoder = require.resolve('decode-uri-component');
-    assert.equal(JSON.parse(readFileSync(join(dirname(decoder), 'package.json'), 'utf8')).version, '0.5.0');
+    assert.equal(JSON.parse(readFileSync(join(dirname(decoder), 'package.json'), 'utf8')).version, '0.5.1');
     assert.equal(require('./index.js').parse('x=%C3%A5').x, 'å');
   }
 });
@@ -56,6 +56,14 @@ test('actual WalletConnect URI helpers preserve encoded synthetic pairing links'
 
 test('malformed percent encodings finish in a bounded isolated process', () => {
   const result = spawnSync(process.execPath, ['--input-type=module', '-e', `import query from 'query-string'; const input = '%FF'.repeat(60000); if (query.parse('value=' + input).value !== input) process.exit(2);`], { timeout: 5000, encoding: 'utf8' });
+  assert.equal(result.error, undefined);
+  assert.equal(result.signal, null);
+  assert.equal(result.status, 0, result.stderr);
+});
+
+// Regression for GHSA-qr28-fpjm-wq7f: distinct encoded runs previously caused quadratic replacements.
+test('many distinct malformed encoded runs finish in a bounded isolated process', () => {
+  const result = spawnSync(process.execPath, ['--input-type=module', '-e', `import query from 'query-string'; let input = ''; for (let i = 0; i < 32000; i++) input += '%' + Math.floor(i / 256).toString(16).padStart(2, '0') + '%' + (i % 256).toString(16).padStart(2, '0') + 'x'; input += '%zz'; const value = query.parse('value=' + input).value; if (typeof value !== 'string' || !value.endsWith('%zz')) process.exit(2);`], { timeout: 5000, encoding: 'utf8' });
   assert.equal(result.error, undefined);
   assert.equal(result.signal, null);
   assert.equal(result.status, 0, result.stderr);

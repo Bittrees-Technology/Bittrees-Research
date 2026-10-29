@@ -1,4 +1,3 @@
-import { ResearchSessionCard } from '@/components/ResearchSessionCard';
 import { Link } from "react-router";
 import { useMembershipStatus } from "@/hooks/membership/useMembershipStatus";
 import { RESEARCH_LINKS, ROUTES } from "@/lib/links";
@@ -34,8 +33,6 @@ export default function Home() {
           </Link>
         </div>
       </section>
-
-      <ResearchSessionCard />
 
       {/* Vision statement */}
       <section style={{ maxWidth: "720px", margin: "0 auto", width: "100%" }}>
