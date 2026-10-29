@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {setup} from '../app-recovery/membership-fixture';
-test('one wallet proof on Overview opens board and contributor records without another sign-in',async({browser,baseURL})=>{
+test('Overview has no verification panel; one proof in a protected view is reused across Research',async({browser,baseURL})=>{
  const f=await setup(browser,baseURL!,'valid'),p=f.page,wallet='0x'+'1'.repeat(40);let verified=false,finishes=0;
  const session=()=>verified?{wallet,csrf:'shared',expiresAt:Date.now()+86400000}:null;
  try{
@@ -23,7 +23,14 @@ test('one wallet proof on Overview opens board and contributor records without a
    return r.fulfill({json:{requests:[],wallet,capabilities:{member:true,researcher:false}}});
   });
   await p.getByRole('link',{name:'Overview',exact:true}).click();
-  await p.getByRole('button',{name:'Verify wallet for Research',exact:true}).click();
+  await expect(p.getByRole('region',{name:'Research sign-in',exact:true})).toHaveCount(0);
+  await expect(p.getByRole('button',{name:'Verify wallet for Research',exact:true})).toHaveCount(0);
+  expect(await p.evaluate(()=>(window as any).__researchSignatures)).toBe(0);
+  await p.getByRole('banner').getByRole('link',{name:'Contribute',exact:true}).click();
+  await p.getByRole('link',{name:'My contribution'}).click();
+  await p.getByRole('button',{name:'Verify wallet and continue',exact:true}).click();
+  await expect(p.getByRole('navigation',{name:'Contributor workspace'})).toBeVisible();
+  await p.getByRole('banner').getByRole('link',{name:'Overview',exact:true}).click();
   await expect(p.getByRole('region',{name:'Research sign-in',exact:true})).toHaveCount(0);
   await p.screenshot({path:'/tmp/research-shared-session-home.png',fullPage:true});
   await p.route('https://base.easscan.org/graphql',r=>r.fulfill({json:{data:{attestations:[]}}}));
