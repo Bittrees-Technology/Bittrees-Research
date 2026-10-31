@@ -1,11 +1,22 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import toolManifest from "./bittrees.tools.json";
 import tailwindcss from "@tailwindcss/vite";
 import { nodePolyfills } from "vite-plugin-node-polyfills";
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
+    {
+      name: "research-public-tool-manifest",
+      generateBundle() {
+        this.emitFile({
+          type: "asset",
+          fileName: ".well-known/bittrees-tools.json",
+          source: JSON.stringify(toolManifest, null, 2) + "\n",
+        });
+      },
+    },
     react(),
     tailwindcss(),
     // Push Chat (@pushprotocol/restapi) expects Node globals (Buffer/process).
