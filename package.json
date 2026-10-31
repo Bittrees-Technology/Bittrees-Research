@@ -83,11 +83,11 @@
     "**/@metamask/sdk-communication-layer/uuid": "11.1.1",
     "**/@metamask/utils/uuid": "11.1.1",
     "**/query-string/decode-uri-component": "0.5.1",
-    "**/joi": "17.13.8",
+    "**/joi": "17.13.9",
     "**/pbkdf2": "3.1.7",
     "**/source-map-js": "1.2.2",
     "**/qs": "6.17.0",
-    "**/follow-redirects": "1.16.1",
+    "**/follow-redirects": "1.16.2",
     "**/zod": "4.6.7",
     "**/hono": "4.13.11"
   }
