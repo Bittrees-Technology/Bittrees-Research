@@ -1,0 +1,1294 @@
+{
+  "description": "Captured before the reviewed v11 upgrade from the actual installed Research lint callers.",
+  "cases": [
+    {
+      "pattern": "**/*.{ts,tsx}",
+      "path": "src/Home.tsx"
+    },
+    {
+      "pattern": "**/*.{ts,tsx}",
+      "path": "src/pages/Home.tsx"
+    },
+    {
+      "pattern": "**/*.{ts,tsx}",
+      "path": "src/components/Card.tsx"
+    },
+    {
+      "pattern": "**/*.{ts,tsx}",
+      "path": "src/lib/foo.ts"
+    },
+    {
+      "pattern": "**/*.{ts,tsx}",
+      "path": "src/lib/foo.test.ts"
+    },
+    {
+      "pattern": "**/*.{ts,tsx}",
+      "path": "src/.hidden.ts"
+    },
+    {
+      "pattern": "**/*.{ts,tsx}",
+      "path": "src/.cache/a.ts"
+    },
+    {
+      "pattern": "**/*.{ts,tsx}",
+      "path": "dist/index.js"
+    },
+    {
+      "pattern": "**/*.{ts,tsx}",
+      "path": "node_modules/example/index.ts"
+    },
+    {
+      "pattern": "**/*.{ts,tsx}",
+      "path": "Home.ts"
+    },
+    {
+      "pattern": "**/*.{ts,tsx}",
+      "path": "src/a*.ts"
+    },
+    {
+      "pattern": "**/*.{ts,tsx}",
+      "path": "src/PAGES/Home.tsx"
+    },
+    {
+      "pattern": "*.ts",
+      "path": "src/Home.tsx"
+    },
+    {
+      "pattern": "*.ts",
+      "path": "src/pages/Home.tsx"
+    },
+    {
+      "pattern": "*.ts",
+      "path": "src/components/Card.tsx"
+    },
+    {
+      "pattern": "*.ts",
+      "path": "src/lib/foo.ts"
+    },
+    {
+      "pattern": "*.ts",
+      "path": "src/lib/foo.test.ts"
+    },
+    {
+      "pattern": "*.ts",
+      "path": "src/.hidden.ts"
+    },
+    {
+      "pattern": "*.ts",
+      "path": "src/.cache/a.ts"
+    },
+    {
+      "pattern": "*.ts",
+      "path": "dist/index.js"
+    },
+    {
+      "pattern": "*.ts",
+      "path": "node_modules/example/index.ts"
+    },
+    {
+      "pattern": "*.ts",
+      "path": "Home.ts"
+    },
+    {
+      "pattern": "*.ts",
+      "path": "src/a*.ts"
+    },
+    {
+      "pattern": "*.ts",
+      "path": "src/PAGES/Home.tsx"
+    },
+    {
+      "pattern": "**/node_modules/**",
+      "path": "src/Home.tsx"
+    },
+    {
+      "pattern": "**/node_modules/**",
+      "path": "src/pages/Home.tsx"
+    },
+    {
+      "pattern": "**/node_modules/**",
+      "path": "src/components/Card.tsx"
+    },
+    {
+      "pattern": "**/node_modules/**",
+      "path": "src/lib/foo.ts"
+    },
+    {
+      "pattern": "**/node_modules/**",
+      "path": "src/lib/foo.test.ts"
+    },
+    {
+      "pattern": "**/node_modules/**",
+      "path": "src/.hidden.ts"
+    },
+    {
+      "pattern": "**/node_modules/**",
+      "path": "src/.cache/a.ts"
+    },
+    {
+      "pattern": "**/node_modules/**",
+      "path": "dist/index.js"
+    },
+    {
+      "pattern": "**/node_modules/**",
+      "path": "node_modules/example/index.ts"
+    },
+    {
+      "pattern": "**/node_modules/**",
+      "path": "Home.ts"
+    },
+    {
+      "pattern": "**/node_modules/**",
+      "path": "src/a*.ts"
+    },
+    {
+      "pattern": "**/node_modules/**",
+      "path": "src/PAGES/Home.tsx"
+    },
+    {
+      "pattern": "**/dist/**",
+      "path": "src/Home.tsx"
+    },
+    {
+      "pattern": "**/dist/**",
+      "path": "src/pages/Home.tsx"
+    },
+    {
+      "pattern": "**/dist/**",
+      "path": "src/components/Card.tsx"
+    },
+    {
+      "pattern": "**/dist/**",
+      "path": "src/lib/foo.ts"
+    },
+    {
+      "pattern": "**/dist/**",
+      "path": "src/lib/foo.test.ts"
+    },
+    {
+      "pattern": "**/dist/**",
+      "path": "src/.hidden.ts"
+    },
+    {
+      "pattern": "**/dist/**",
+      "path": "src/.cache/a.ts"
+    },
+    {
+      "pattern": "**/dist/**",
+      "path": "dist/index.js"
+    },
+    {
+      "pattern": "**/dist/**",
+      "path": "node_modules/example/index.ts"
+    },
+    {
+      "pattern": "**/dist/**",
+      "path": "Home.ts"
+    },
+    {
+      "pattern": "**/dist/**",
+      "path": "src/a*.ts"
+    },
+    {
+      "pattern": "**/dist/**",
+      "path": "src/PAGES/Home.tsx"
+    },
+    {
+      "pattern": "src/{pages,components}/**/*.{ts,tsx}",
+      "path": "src/Home.tsx"
+    },
+    {
+      "pattern": "src/{pages,components}/**/*.{ts,tsx}",
+      "path": "src/pages/Home.tsx"
+    },
+    {
+      "pattern": "src/{pages,components}/**/*.{ts,tsx}",
+      "path": "src/components/Card.tsx"
+    },
+    {
+      "pattern": "src/{pages,components}/**/*.{ts,tsx}",
+      "path": "src/lib/foo.ts"
+    },
+    {
+      "pattern": "src/{pages,components}/**/*.{ts,tsx}",
+      "path": "src/lib/foo.test.ts"
+    },
+    {
+      "pattern": "src/{pages,components}/**/*.{ts,tsx}",
+      "path": "src/.hidden.ts"
+    },
+    {
+      "pattern": "src/{pages,components}/**/*.{ts,tsx}",
+      "path": "src/.cache/a.ts"
+    },
+    {
+      "pattern": "src/{pages,components}/**/*.{ts,tsx}",
+      "path": "dist/index.js"
+    },
+    {
+      "pattern": "src/{pages,components}/**/*.{ts,tsx}",
+      "path": "node_modules/example/index.ts"
+    },
+    {
+      "pattern": "src/{pages,components}/**/*.{ts,tsx}",
+      "path": "Home.ts"
+    },
+    {
+      "pattern": "src/{pages,components}/**/*.{ts,tsx}",
+      "path": "src/a*.ts"
+    },
+    {
+      "pattern": "src/{pages,components}/**/*.{ts,tsx}",
+      "path": "src/PAGES/Home.tsx"
+    },
+    {
+      "pattern": "src/**/!(*.test).ts",
+      "path": "src/Home.tsx"
+    },
+    {
+      "pattern": "src/**/!(*.test).ts",
+      "path": "src/pages/Home.tsx"
+    },
+    {
+      "pattern": "src/**/!(*.test).ts",
+      "path": "src/components/Card.tsx"
+    },
+    {
+      "pattern": "src/**/!(*.test).ts",
+      "path": "src/lib/foo.ts"
+    },
+    {
+      "pattern": "src/**/!(*.test).ts",
+      "path": "src/lib/foo.test.ts"
+    },
+    {
+      "pattern": "src/**/!(*.test).ts",
+      "path": "src/.hidden.ts"
+    },
+    {
+      "pattern": "src/**/!(*.test).ts",
+      "path": "src/.cache/a.ts"
+    },
+    {
+      "pattern": "src/**/!(*.test).ts",
+      "path": "dist/index.js"
+    },
+    {
+      "pattern": "src/**/!(*.test).ts",
+      "path": "node_modules/example/index.ts"
+    },
+    {
+      "pattern": "src/**/!(*.test).ts",
+      "path": "Home.ts"
+    },
+    {
+      "pattern": "src/**/!(*.test).ts",
+      "path": "src/a*.ts"
+    },
+    {
+      "pattern": "src/**/!(*.test).ts",
+      "path": "src/PAGES/Home.tsx"
+    },
+    {
+      "pattern": "**/@(pages|components)/**",
+      "path": "src/Home.tsx"
+    },
+    {
+      "pattern": "**/@(pages|components)/**",
+      "path": "src/pages/Home.tsx"
+    },
+    {
+      "pattern": "**/@(pages|components)/**",
+      "path": "src/components/Card.tsx"
+    },
+    {
+      "pattern": "**/@(pages|components)/**",
+      "path": "src/lib/foo.ts"
+    },
+    {
+      "pattern": "**/@(pages|components)/**",
+      "path": "src/lib/foo.test.ts"
+    },
+    {
+      "pattern": "**/@(pages|components)/**",
+      "path": "src/.hidden.ts"
+    },
+    {
+      "pattern": "**/@(pages|components)/**",
+      "path": "src/.cache/a.ts"
+    },
+    {
+      "pattern": "**/@(pages|components)/**",
+      "path": "dist/index.js"
+    },
+    {
+      "pattern": "**/@(pages|components)/**",
+      "path": "node_modules/example/index.ts"
+    },
+    {
+      "pattern": "**/@(pages|components)/**",
+      "path": "Home.ts"
+    },
+    {
+      "pattern": "**/@(pages|components)/**",
+      "path": "src/a*.ts"
+    },
+    {
+      "pattern": "**/@(pages|components)/**",
+      "path": "src/PAGES/Home.tsx"
+    },
+    {
+      "pattern": "**/.*/**",
+      "path": "src/Home.tsx"
+    },
+    {
+      "pattern": "**/.*/**",
+      "path": "src/pages/Home.tsx"
+    },
+    {
+      "pattern": "**/.*/**",
+      "path": "src/components/Card.tsx"
+    },
+    {
+      "pattern": "**/.*/**",
+      "path": "src/lib/foo.ts"
+    },
+    {
+      "pattern": "**/.*/**",
+      "path": "src/lib/foo.test.ts"
+    },
+    {
+      "pattern": "**/.*/**",
+      "path": "src/.hidden.ts"
+    },
+    {
+      "pattern": "**/.*/**",
+      "path": "src/.cache/a.ts"
+    },
+    {
+      "pattern": "**/.*/**",
+      "path": "dist/index.js"
+    },
+    {
+      "pattern": "**/.*/**",
+      "path": "node_modules/example/index.ts"
+    },
+    {
+      "pattern": "**/.*/**",
+      "path": "Home.ts"
+    },
+    {
+      "pattern": "**/.*/**",
+      "path": "src/a*.ts"
+    },
+    {
+      "pattern": "**/.*/**",
+      "path": "src/PAGES/Home.tsx"
+    },
+    {
+      "pattern": "!**/dist/**",
+      "path": "src/Home.tsx"
+    },
+    {
+      "pattern": "!**/dist/**",
+      "path": "src/pages/Home.tsx"
+    },
+    {
+      "pattern": "!**/dist/**",
+      "path": "src/components/Card.tsx"
+    },
+    {
+      "pattern": "!**/dist/**",
+      "path": "src/lib/foo.ts"
+    },
+    {
+      "pattern": "!**/dist/**",
+      "path": "src/lib/foo.test.ts"
+    },
+    {
+      "pattern": "!**/dist/**",
+      "path": "src/.hidden.ts"
+    },
+    {
+      "pattern": "!**/dist/**",
+      "path": "src/.cache/a.ts"
+    },
+    {
+      "pattern": "!**/dist/**",
+      "path": "dist/index.js"
+    },
+    {
+      "pattern": "!**/dist/**",
+      "path": "node_modules/example/index.ts"
+    },
+    {
+      "pattern": "!**/dist/**",
+      "path": "Home.ts"
+    },
+    {
+      "pattern": "!**/dist/**",
+      "path": "src/a*.ts"
+    },
+    {
+      "pattern": "!**/dist/**",
+      "path": "src/PAGES/Home.tsx"
+    },
+    {
+      "pattern": "src/a\\*.ts",
+      "path": "src/Home.tsx"
+    },
+    {
+      "pattern": "src/a\\*.ts",
+      "path": "src/pages/Home.tsx"
+    },
+    {
+      "pattern": "src/a\\*.ts",
+      "path": "src/components/Card.tsx"
+    },
+    {
+      "pattern": "src/a\\*.ts",
+      "path": "src/lib/foo.ts"
+    },
+    {
+      "pattern": "src/a\\*.ts",
+      "path": "src/lib/foo.test.ts"
+    },
+    {
+      "pattern": "src/a\\*.ts",
+      "path": "src/.hidden.ts"
+    },
+    {
+      "pattern": "src/a\\*.ts",
+      "path": "src/.cache/a.ts"
+    },
+    {
+      "pattern": "src/a\\*.ts",
+      "path": "dist/index.js"
+    },
+    {
+      "pattern": "src/a\\*.ts",
+      "path": "node_modules/example/index.ts"
+    },
+    {
+      "pattern": "src/a\\*.ts",
+      "path": "Home.ts"
+    },
+    {
+      "pattern": "src/a\\*.ts",
+      "path": "src/a*.ts"
+    },
+    {
+      "pattern": "src/a\\*.ts",
+      "path": "src/PAGES/Home.tsx"
+    },
+    {
+      "pattern": "src/**/Home.tsx",
+      "path": "src/Home.tsx"
+    },
+    {
+      "pattern": "src/**/Home.tsx",
+      "path": "src/pages/Home.tsx"
+    },
+    {
+      "pattern": "src/**/Home.tsx",
+      "path": "src/components/Card.tsx"
+    },
+    {
+      "pattern": "src/**/Home.tsx",
+      "path": "src/lib/foo.ts"
+    },
+    {
+      "pattern": "src/**/Home.tsx",
+      "path": "src/lib/foo.test.ts"
+    },
+    {
+      "pattern": "src/**/Home.tsx",
+      "path": "src/.hidden.ts"
+    },
+    {
+      "pattern": "src/**/Home.tsx",
+      "path": "src/.cache/a.ts"
+    },
+    {
+      "pattern": "src/**/Home.tsx",
+      "path": "dist/index.js"
+    },
+    {
+      "pattern": "src/**/Home.tsx",
+      "path": "node_modules/example/index.ts"
+    },
+    {
+      "pattern": "src/**/Home.tsx",
+      "path": "Home.ts"
+    },
+    {
+      "pattern": "src/**/Home.tsx",
+      "path": "src/a*.ts"
+    },
+    {
+      "pattern": "src/**/Home.tsx",
+      "path": "src/PAGES/Home.tsx"
+    },
+    {
+      "pattern": "#comment",
+      "path": "src/Home.tsx"
+    },
+    {
+      "pattern": "#comment",
+      "path": "src/pages/Home.tsx"
+    },
+    {
+      "pattern": "#comment",
+      "path": "src/components/Card.tsx"
+    },
+    {
+      "pattern": "#comment",
+      "path": "src/lib/foo.ts"
+    },
+    {
+      "pattern": "#comment",
+      "path": "src/lib/foo.test.ts"
+    },
+    {
+      "pattern": "#comment",
+      "path": "src/.hidden.ts"
+    },
+    {
+      "pattern": "#comment",
+      "path": "src/.cache/a.ts"
+    },
+    {
+      "pattern": "#comment",
+      "path": "dist/index.js"
+    },
+    {
+      "pattern": "#comment",
+      "path": "node_modules/example/index.ts"
+    },
+    {
+      "pattern": "#comment",
+      "path": "Home.ts"
+    },
+    {
+      "pattern": "#comment",
+      "path": "src/a*.ts"
+    },
+    {
+      "pattern": "#comment",
+      "path": "src/PAGES/Home.tsx"
+    },
+    {
+      "pattern": "**/*.test.{ts,tsx}",
+      "path": "src/Home.tsx"
+    },
+    {
+      "pattern": "**/*.test.{ts,tsx}",
+      "path": "src/pages/Home.tsx"
+    },
+    {
+      "pattern": "**/*.test.{ts,tsx}",
+      "path": "src/components/Card.tsx"
+    },
+    {
+      "pattern": "**/*.test.{ts,tsx}",
+      "path": "src/lib/foo.ts"
+    },
+    {
+      "pattern": "**/*.test.{ts,tsx}",
+      "path": "src/lib/foo.test.ts"
+    },
+    {
+      "pattern": "**/*.test.{ts,tsx}",
+      "path": "src/.hidden.ts"
+    },
+    {
+      "pattern": "**/*.test.{ts,tsx}",
+      "path": "src/.cache/a.ts"
+    },
+    {
+      "pattern": "**/*.test.{ts,tsx}",
+      "path": "dist/index.js"
+    },
+    {
+      "pattern": "**/*.test.{ts,tsx}",
+      "path": "node_modules/example/index.ts"
+    },
+    {
+      "pattern": "**/*.test.{ts,tsx}",
+      "path": "Home.ts"
+    },
+    {
+      "pattern": "**/*.test.{ts,tsx}",
+      "path": "src/a*.ts"
+    },
+    {
+      "pattern": "**/*.test.{ts,tsx}",
+      "path": "src/PAGES/Home.tsx"
+    }
+  ],
+  "profiles": [
+    {
+      "caller": "eslint",
+      "version": "9.32.0",
+      "options": {
+        "dot": true,
+        "matchBase": true
+      },
+      "expected": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        false,
+        true,
+        true,
+        true,
+        true,
+        false,
+        false,
+        false,
+        true,
+        true,
+        true,
+        true,
+        false,
+        true,
+        true,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        true,
+        true,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        true,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        false,
+        true,
+        true,
+        true,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        true,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "caller": "@eslint/config-array",
+      "version": "0.21.0",
+      "options": {
+        "dot": true,
+        "allowWindowsEscape": true
+      },
+      "expected": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        false,
+        true,
+        true,
+        true,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        true,
+        true,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        true,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        false,
+        true,
+        true,
+        true,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        true,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "caller": "@eslint/eslintrc",
+      "version": "3.3.1",
+      "options": {
+        "dot": true,
+        "matchBase": true
+      },
+      "expected": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        false,
+        true,
+        true,
+        true,
+        true,
+        false,
+        false,
+        false,
+        true,
+        true,
+        true,
+        true,
+        false,
+        true,
+        true,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        true,
+        true,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        true,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        false,
+        true,
+        true,
+        true,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        true,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "caller": "@typescript-eslint/typescript-estree",
+      "version": "8.71.2",
+      "options": {
+        "dot": true
+      },
+      "expected": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        false,
+        true,
+        true,
+        true,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        true,
+        true,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        true,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        false,
+        true,
+        true,
+        true,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        true,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    }
+  ]
+}
