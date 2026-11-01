@@ -101,6 +101,7 @@ Active Executive credential holders can issue eligible credentials directly from
 - [Research applications and role credentials](docs/contributor-guided-flow.md)
 - [Session and access verification notes](docs/research-access-followup.md)
 - [MCP discovery and existing API boundaries](docs/mcp-integration.md)
+- [Reviewed minimatch compatibility](docs/minimatch-compatibility.md)
 - [Permission mappings](shared/research-permissions.mjs)
 
 ## Bittrees ecosystem

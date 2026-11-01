@@ -89,6 +89,10 @@
     "**/qs": "6.17.0",
     "**/follow-redirects": "1.16.2",
     "**/zod": "4.6.7",
-    "**/hono": "4.13.11"
+    "**/hono": "4.13.11",
+    "**/eslint/minimatch": "11.0.1",
+    "**/@eslint/config-array/minimatch": "11.0.1",
+    "**/@eslint/eslintrc/minimatch": "11.0.1",
+    "**/@typescript-eslint/typescript-estree/minimatch": "11.0.1"
   }
 }
