@@ -6,7 +6,10 @@ for(const role of ['Partner','Junior Partner','Associate','Research admin'])test
  await page.addLocatorHandler(page.getByRole('region',{name:'Analytics preferences'}),async()=>{await page.getByRole('button',{name:'Decline',exact:true}).click();});
 
  await page.route('**/api/authority-access?*',r=>r.fulfill({json:{configured:true,reviewer:true,permissions:[],roles:[{label:role}],expiresAt:Date.now()+30000}}));
- await page.route('**/api/community',r=>r.fulfill({json:{roles:{},flags:{},roledefs:[],enckeys:registered?{[wallet]:'a'.repeat(64)}:{},reviewerAuthority:{mode:'roles',ready:true,reviewers:registered?[wallet]:[],expiresAt:Date.now()+30000}}}));
+ await page.route('**/api/community',r=>{
+  expect(r.request().headers()['x-research-wallet']).toBe(wallet);
+  return r.fulfill({json:{roles:{},flags:{},roledefs:[],enckeys:registered?{[wallet]:'a'.repeat(64)}:{},reviewerAuthority:{mode:'roles',ready:true,reviewers:registered?[wallet]:[],expiresAt:Date.now()+30000}}});
+ });
  await page.route('**/graphql',r=>r.fulfill({json:{data:{attestations:[]}}}));
  await page.route('**/api/contributors',r=>r.fulfill({json:r.request().method()==='GET'?{session:{wallet,csrf:'test'}}:{applications:[],persona:{id:'staff',canReview:true}}}));
  await page.goto('/admin');await page.getByRole('button',{name:'Connect Wallet',exact:true}).first().click();await page.getByRole('button',{name:/^MetaMask(?:\s|$)/}).click();

@@ -2,6 +2,7 @@ import {useState} from 'react';
 import {useWalletClient} from 'wagmi';
 import {useQuery,useQueryClient} from '@tanstack/react-query';
 import {useAuthorityAccess} from '../lib/authorityAccess';
+import {fetchResearchRegistry} from '../lib/researchRegistryAccess';
 import {deriveEncKeypair,pubKeyHex} from '../lib/appcrypto';
 import {publishEncKey,currentReviewers,type CommunityData} from '../lib/community';
 
@@ -14,10 +15,9 @@ export default function ReviewerAccessSettings({address}:{address?:`0x${string}`
  const eligible=useReviewerSetupAccess(address),wallet=address?.toLowerCase();
  const {data:client}=useWalletClient(),qc=useQueryClient();
  const [busy,setBusy]=useState(false),[error,setError]=useState('');
- const registry=useQuery({queryKey:['reviewer-setup',wallet],enabled:!!wallet&&eligible,staleTime:0,refetchInterval:15000,queryFn:async()=>{
-  const response=await fetch('/api/community',{cache:'no-store'});
-  if(!response.ok)throw Error('Application access could not be checked.');
-  const data:CommunityData=await response.json();currentReviewers(data);return data;
+ const registry=useQuery({queryKey:['reviewer-setup',wallet],enabled:!!wallet&&eligible,gcTime:0,staleTime:0,refetchInterval:15000,queryFn:async({signal})=>{
+  const data:CommunityData=await fetchResearchRegistry('/api/community',wallet!,signal);
+  currentReviewers(data);return data;
  }});
  if(!eligible)return null;
  const registered=!!wallet&&/^[a-f0-9]{64}$/.test(registry.data?.enckeys?.[wallet]||'');
