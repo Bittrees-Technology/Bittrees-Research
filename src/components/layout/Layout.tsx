@@ -4,7 +4,6 @@ import { useAccount } from "wagmi";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { MembershipGate } from "@/components/MembershipGate";
-import {ResearchPrivateSession} from "../ResearchPrivateSession";
 import { BittreesMark } from "@/components/Brand";
 import { useMembershipStatus } from "@/hooks/membership/useMembershipStatus";
 
@@ -35,7 +34,7 @@ export default function Layout() {
   }
 
   // Member: the full app.
-  return <ResearchPrivateSession key={address?.toLowerCase()}><AppShell><Outlet /></AppShell></ResearchPrivateSession>;
+  return <AppShell key={address?.toLowerCase()}><Outlet /></AppShell>;
 }
 
 // Shared presentation; each entry retains its own authorization checks.

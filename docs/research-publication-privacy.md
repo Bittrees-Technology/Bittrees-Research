@@ -25,9 +25,10 @@ mutation even if the initial membership proof expires during the operation.
 Responses are private/no-store at browser and CDN layers. Clients bind GET and
 POST requests to the current wallet header and defer
 these reads until the existing server session matches the connected wallet and
-use wallet-scoped, uncached-after-unmount query data. The member Layout offers
-the existing wallet-verification protocol; no new identity or storage service
-is introduced.
+use wallet-scoped, uncached-after-unmount query data. The membership gate remains on the member layout. Forum, chat, and the
+registry-backed administration panels use the existing wallet-verification
+protocol before mounting. Contributor and research request views retain their
+own server session and authorization checks.
 
 The forum's existing publication function writes plaintext title/body data to a
 public Base EAS attestation. New discussions, proposals and replies are paused

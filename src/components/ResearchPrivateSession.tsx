@@ -4,7 +4,7 @@ import {useQueryClient} from '@tanstack/react-query';
 import {ensureResearchSignIn} from '../lib/researchSignIn';
 import {useResearchRegistrySession} from '../lib/researchRegistryAccess';
 
-/** The member app mounts only after matching the existing verified server session.
+/** Registry-backed views mount only after matching the existing verified server session.
  * Every private registry response also checks membership on the server. */
 export function ResearchPrivateSession({children}:{children:ReactNode}){
  const {address}=useAccount(),{signMessageAsync}=useSignMessage(),session=useResearchRegistrySession(),client=useQueryClient();
@@ -27,10 +27,10 @@ export function ResearchPrivateSession({children}:{children:ReactNode}){
   finally{setBusy(false);}
  }
  if(session.ready)return children;
- return <main style={{maxWidth:'640px',margin:'3rem auto',padding:'1.5rem'}}>
+ return <section style={{maxWidth:'640px',margin:'3rem auto',padding:'1.5rem'}}>
   <h1>Open your private Research workspace</h1>
   <p>Verify wallet ownership once for Research. Existing verified sessions are reused. Member data is checked on the server before it is returned.</p>
   {session.isPending?<p role="status">Checking your Research session…</p>:<button className="btn-primary" disabled={!address||busy} onClick={verify}>{busy?'Waiting for wallet…':'Verify wallet and continue'}</button>}
   {(error||session.error)&&<p role="alert">{error||session.error?.message}</p>}
- </main>;
+ </section>;
 }
