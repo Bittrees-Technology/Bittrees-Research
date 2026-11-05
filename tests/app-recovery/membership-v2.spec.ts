@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test';
-import {setup} from './membership-fixture';
+import {setupWithChatSession as setup} from './membership-fixture';
 test('current active membership grants access without legacy NFT indexer',async({browser,baseURL})=>{
  const app=await setup(browser,baseURL!,'v2-valid');try{
   await expect(app.page.getByRole('heading',{name:'Members Chat',exact:true})).toBeVisible();
