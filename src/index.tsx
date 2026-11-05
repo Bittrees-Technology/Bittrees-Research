@@ -11,6 +11,7 @@ import "./index.css";
 
 import { wagmiConfig } from "@/lib/wagmi.ts";
 import Layout, { AppShell } from "@/components/layout/Layout";
+import { ResearchPrivateSession } from "@/components/ResearchPrivateSession";
 import { LayoutProvider } from "@/hooks/useLayoutContext.tsx";
 import { ROUTES } from "@/lib/links";
 
@@ -47,9 +48,9 @@ const router = createBrowserRouter([
       { path: "research", element: <ResearchPage /> },
       { path: "research/requests", element: <ResearchRequests /> },
       { path: "research/:slug", element: <PostPage /> },
-      { path: "forum", element: <Forum /> },
-      { path: "forum/:id", element: <ForumThread /> },
-      { path: "chat", element: <Messenger /> },
+      { path: "forum", element: <ResearchPrivateSession><Forum /></ResearchPrivateSession> },
+      { path: "forum/:id", element: <ResearchPrivateSession><ForumThread /></ResearchPrivateSession> },
+      { path: "chat", element: <ResearchPrivateSession><Messenger /></ResearchPrivateSession> },
       { path: "bnote", element: <MintBNOTEPage /> },
       { path: "bit", element: <MintBITPage /> },
       { path: "structure", element: <StructurePage /> },

@@ -1,11 +1,13 @@
+import {withResearchRegistryPrivacy} from '../server/private-registry.mjs';
 import { getAddress } from "viem";
 import { withSignedRegistry, registryCommand, recoverMessageAddress, registryPolicyDecision } from "../server/signed-registry.mjs";
 
 /**
  * Community-room registry — built-in room chatIds AND admin-created custom rooms
  * (each with its own gate), so creating a room makes it live for everyone with no
- * redeploy. Backed by Vercel KV / Upstash Redis over its REST API (no SDK). Reads
- * are public; writes require a signature from a live research.bittrees.eth space admin.
+ * redeploy. Backed by Vercel KV / Upstash Redis over its REST API (no SDK). Reads and mutations
+ * require a verified Research wallet session and fresh active membership;
+ * writes retain their signed action authorization.
  *
  * Vercel KV / Upstash inject these when you connect a store:
  *   KV_REST_API_URL / KV_REST_API_TOKEN  (or UPSTASH_REDIS_REST_URL / _TOKEN)
@@ -130,7 +132,6 @@ async function verifyProposer(address, signature, message) {
 }
 
 export async function handler(req, res) {
-  res.setHeader("access-control-allow-origin", "*");
   res.setHeader("cache-control", "no-store");
 
   if (req.method === "GET") {
@@ -295,4 +296,5 @@ export async function handler(req, res) {
   res.status(405).json({ error: "method not allowed" });
 }
 
-export default withSignedRegistry(handler);
+export function createPrivateHandler(options={}){return withResearchRegistryPrivacy(withSignedRegistry(handler,options),options);}
+export default createPrivateHandler();

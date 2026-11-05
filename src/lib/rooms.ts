@@ -1,3 +1,4 @@
+import {useResearchRegistrySession,fetchResearchRegistry} from "./researchRegistryAccess";
 import { assertPushWalletCurrent } from "./pushSessionWallet";
 import { actionMessage } from "../../shared/signed-action.mjs";
 import { useQuery } from "@tanstack/react-query";
@@ -26,25 +27,15 @@ export interface RegistryData {
 }
 
 export function useRoomRegistry() {
-  return useQuery({
-    queryKey: ["room-registry"],
-    staleTime: 60_000,
-    queryFn: async (): Promise<RegistryData> => {
-      try {
-        const r = await fetch(ROOMS_URL);
-        if (!r.ok) return { chatIds: {}, custom: [], proposals: [], icons: {} };
-        const j = await r.json();
-        return {
-          chatIds: (j?.rooms ?? {}) as RoomRegistry,
-          custom: (j?.custom ?? []) as PushRoom[],
-          proposals: (j?.proposals ?? []) as RoomProposal[],
-          icons: (j?.icons ?? {}) as Record<string, string>,
-        };
-      } catch {
-        return { chatIds: {}, custom: [], proposals: [], icons: {} };
-      }
+  const session=useResearchRegistrySession();
+  const query=useQuery({
+    queryKey:["room-registry",session.wallet],enabled:session.ready,gcTime:0,staleTime:60000,retry:false,
+    queryFn:async({signal}):Promise<RegistryData>=>{
+      const j=await fetchResearchRegistry(ROOMS_URL,session.wallet!,signal);
+      return {chatIds:j?.rooms??{},custom:j?.custom??[],proposals:j?.proposals??[],icons:j?.icons??{}};
     },
   });
+  return {...query,data:session.ready&&!query.isError?query.data:undefined};
 }
 
 async function postSigned(
@@ -54,9 +45,7 @@ async function postSigned(
   payload: Record<string, unknown>
 ): Promise<void> {
   assertPushWalletCurrent(walletClient);
-  const snapshot = await fetch(ROOMS_URL, { cache: "no-store" });
-  if (!snapshot.ok) throw new Error("Registry unavailable. Try again later.");
-  const { revision } = await snapshot.json();
+  const {revision}=await fetchResearchRegistry(ROOMS_URL,account);
   const nonce = Array.from(crypto.getRandomValues(new Uint8Array(32)), b => b.toString(16).padStart(2, "0")).join("");
   // Serialize once to remove optional undefined fields before signing.
   const envelope = { version: 2, audience: window.location.origin, chainId: 1, endpoint: ROOMS_URL, address: account,
@@ -64,7 +53,7 @@ async function postSigned(
   void message; // Human-readable legacy summary; the complete envelope is now signed.
   const signature = await walletClient.signMessage({ account, message: actionMessage(envelope) });
   assertPushWalletCurrent(walletClient);
-  const r = await fetch(ROOMS_URL, {method: "POST", headers: {"content-type": "application/json"}, body: JSON.stringify({...envelope, signature})});
+  const r = await fetch(ROOMS_URL, {method: "POST", headers: {"content-type": "application/json", "x-research-wallet": account.toLowerCase()}, body: JSON.stringify({...envelope, signature})});
   if (!r.ok) {
     const j = await r.json().catch(() => ({}));
     throw new Error(j?.error || `Registry write failed (HTTP ${r.status})`);

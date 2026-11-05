@@ -1,3 +1,4 @@
+import {useResearchRegistrySession,fetchResearchRegistry} from "./researchRegistryAccess";
 import {useAuthorityAccess} from './authorityAccess';
 import { actionMessage } from "../../shared/signed-action.mjs";
 import { useQuery } from "@tanstack/react-query";
@@ -24,19 +25,15 @@ export type EncKeysMap = Record<string, string>; // addrLower -> x25519 pubkey h
 export interface CredentialDefinition {label:string;identifier:string;credentialType:`0x${string}`;metadataURI:string}
 export interface CommunityData {credentialdefs?:CredentialDefinition[]; reviewerAuthority?: {mode:string;ready:boolean;reviewers?:string[];expiresAt?:number}; authorizationMode?: "legacy" | "root-policy" | "controller-policy-on-activation"; roles: RolesMap; flags: FlagsMap; enckeys: EncKeysMap; roledefs: RoleDef[]; threshold: number }
 
-export async function fetchCommunity(): Promise<CommunityData> {
-  try {
-    const r = await fetch(URL,{cache:"no-store"});
-    if (!r.ok) return { roles: {}, flags: {}, enckeys: {}, roledefs: [], threshold: FLAG_HIDE_THRESHOLD };
-    const j = await r.json();
-    return { reviewerAuthority:j?.reviewerAuthority,roles: j?.roles ?? {}, flags: j?.flags ?? {}, enckeys: j?.enckeys ?? {}, roledefs: j?.roledefs ?? [], credentialdefs:j?.credentialdefs??[], threshold: j?.threshold ?? FLAG_HIDE_THRESHOLD };
-  } catch {
-    return { roles: {}, flags: {}, enckeys: {}, roledefs: [], threshold: FLAG_HIDE_THRESHOLD };
-  }
+export async function fetchCommunity(wallet:string,signal?:AbortSignal): Promise<CommunityData> {
+  const j=await fetchResearchRegistry(URL,wallet,signal);
+  return {reviewerAuthority:j?.reviewerAuthority,roles:j?.roles??{},flags:j?.flags??{},enckeys:j?.enckeys??{},roledefs:j?.roledefs??[],credentialdefs:j?.credentialdefs??[],threshold:j?.threshold??FLAG_HIDE_THRESHOLD};
 }
 
 export function useCommunity() {
-  return useQuery({ queryKey: ["community"], staleTime: 60_000, queryFn: fetchCommunity });
+  const session=useResearchRegistrySession();
+  const query=useQuery({queryKey:["community",session.wallet],enabled:session.ready,gcTime:0,staleTime:60000,retry:false,queryFn:({signal})=>fetchCommunity(session.wallet!,signal)});
+  return {...query,data:session.ready&&!query.isError?query.data:undefined};
 }
 
 /** Addresses (lowercase) who can review contributor applications — Executives. */
@@ -107,16 +104,14 @@ async function postSigned(
   message: string,
   payload: Record<string, unknown>
 ): Promise<void> {
-  const snapshot = await fetch(URL, { cache: "no-store" });
-  if (!snapshot.ok) throw new Error("Registry unavailable. Try again later.");
-  const { revision } = await snapshot.json();
+  const {revision}=await fetchResearchRegistry(URL,account);
   const nonce = Array.from(crypto.getRandomValues(new Uint8Array(32)), b => b.toString(16).padStart(2, "0")).join("");
   // Serialize once to remove optional undefined fields before signing.
   const envelope = { version: 2, audience: window.location.origin, chainId: 1, endpoint: URL, address: account,
     timestamp: Date.now(), nonce, expectedRevision: revision, payload: JSON.parse(JSON.stringify(payload)) };
   void message; // Human-readable legacy summary; the complete envelope is now signed.
   const signature = await walletClient.signMessage({ account, message: actionMessage(envelope) });
-  const r = await fetch(URL, {method: "POST", headers: {"content-type": "application/json"}, body: JSON.stringify({...envelope, signature})});
+  const r = await fetch(URL, {method: "POST", headers: {"content-type": "application/json", "x-research-wallet": account.toLowerCase()}, body: JSON.stringify({...envelope, signature})});
   if (!r.ok) {
     const j = await r.json().catch(() => ({}));
     throw new Error(j?.error || `Request failed (HTTP ${r.status})`);

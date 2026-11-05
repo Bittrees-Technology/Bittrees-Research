@@ -1,5 +1,5 @@
 import {test,expect,type Page} from '@playwright/test';
-import {setup} from './membership-fixture';
+import {setupWithChatSession as setup} from './membership-fixture';
 const member = (page: Page) => page.getByRole('heading', { name: 'Members Chat', exact: true });
 for (const mode of ['failed', 'missing', 'expired', 'zero', 'transferred', 'loop'] as const) {
   test(`membership denies ${mode} evidence`, async ({browser, baseURL}) => {

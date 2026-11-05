@@ -8,7 +8,7 @@ import { BittreesMark } from "@/components/Brand";
 import { useMembershipStatus } from "@/hooks/membership/useMembershipStatus";
 
 export default function Layout() {
-  const { isConnected, isConnecting } = useAccount();
+  const { address, isConnected, isConnecting } = useAccount();
   const { hasValidMembership, isLoading, pendingMint } = useMembershipStatus();
 
   // DEV-only preview bypass for screenshotting the members area without a
@@ -34,7 +34,7 @@ export default function Layout() {
   }
 
   // Member: the full app.
-  return <AppShell><Outlet /></AppShell>;
+  return <AppShell key={address?.toLowerCase()}><Outlet /></AppShell>;
 }
 
 // Shared presentation; each entry retains its own authorization checks.

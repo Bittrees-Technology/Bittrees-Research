@@ -10,7 +10,7 @@ const rpcUrl = new URL(rpcOrigin);
 if (rpcUrl.protocol !== 'https:' || rpcUrl.origin !== rpcOrigin) throw Error('Membership test RPC must be an explicit HTTPS origin without credentials or a path.');
 const abi = parseAbi(['function isActiveMember(address,uint256) view returns(bool)', 'function revokedMemberships(uint256) view returns(bool)', 'function bitPricePerDay() view returns(uint256)','function blockedWallets(address) view returns(bool)', 'function lastTokenId() view returns(uint256)', 'function balanceOf(address,uint256) view returns (uint256)', 'function isExpired(uint256) view returns (bool)', 'function expirationTimestamps(uint256) view returns (uint256)', 'function mintPrice() view returns (uint256)', 'function expirationTimeframe() view returns (uint256)', 'function mintMembership(address) payable returns (uint256)']);
 type Mode = 'legacy-only' | 'v2-valid' | 'v2-revoked' | 'v2-blocked' | 'valid' | 'failed' | 'missing' | 'expired' | 'zero' | 'transferred' | 'empty' | 'loop' | 'hang' | 'expiring' | 'renewed' | 'transient' | 'unavailable' | 'denied' | 'rpc-transient' | 'call-transient';
-export async function setup(browser: Browser, baseURL: string, initial: Mode, cached = false, clock = false, mint = false) {
+export async function setup(browser: Browser, baseURL: string, initial: Mode, cached = false, clock = false, mint = false, chatSession = false) {
   const context = await browser.newContext();
   const mintHash=`0x${'3'.repeat(64)}`;
   const mintData=encodeFunctionData({abi,functionName:'mintMembership',args:[owner as `0x${string}`]});
@@ -102,6 +102,17 @@ export async function setup(browser: Browser, baseURL: string, initial: Mode, ca
       };
       return route.fulfill({ json: Array.isArray(input) ? input.map(respond) : respond(input) });
     }
+    if (url.origin === baseURL && request.method() === 'GET') {
+      if (url.pathname === '/api/contributors') {
+        const session = chatSession ? {wallet: owner, expiresAt: Date.now() + 86_400_000} : null;
+        return route.fulfill({json: {configured: true, session}});
+      }
+      if (url.pathname === '/api/rooms' || url.pathname === '/api/community') {
+        expect(chatSession).toBe(true);
+        expect(request.headers()['x-research-wallet']).toBe(owner);
+        return route.fulfill({json: {}});
+      }
+    }
     if (url.origin === baseURL && ['GET','HEAD'].includes(request.method())) return route.continue();
     if (url.origin === baseURL) writes.push(url.pathname);
     return route.abort('blockedbyclient');
@@ -146,4 +157,10 @@ export async function setup(browser: Browser, baseURL: string, initial: Mode, ca
   await page.goto('/chat'); await connect();
   return { page, context, connect, mintHash, confirmTransaction:()=>{receiptReady=true;}, setMode: (value: Mode) => { mode = value; }, release,
     stats: () => ({ nftReads, checks, calls, writes, balances, receiptReads, rpcFailures }), close: async () => { release(); expect(writes).toEqual([]); await context.close(); } };
+}
+
+
+// These tests isolate membership recovery from the separate wallet-session gate.
+export function setupWithChatSession(browser: Browser, baseURL: string, initial: Mode, cached = false, clock = false, mint = false) {
+  return setup(browser, baseURL, initial, cached, clock, mint, true);
 }

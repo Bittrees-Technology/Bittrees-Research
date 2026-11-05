@@ -36,7 +36,19 @@ export const SCHEMA_STRING = "string community,string title,string body";
 export const RESOLVER: Address = "0x0000000000000000000000000000000000000000";
 export const REVOCABLE = true;
 export const FORUM_COMMUNITY = "bittrees-research";
+export const FORUM_PUBLICATION_ENABLED = false;
+export const FORUM_PRIVACY_MESSAGE = "New Research forum posts and replies are paused. This forum writes plaintext to a public blockchain; private Research work must not be published there. Public research is published through the approved Paragraph workflow.";
 export const CONTRIB_COMMUNITY = "bittrees-research-contributors";
+/** Preserve only the existing encrypted application channel during the forum
+ * hold. The community label alone must never allow plaintext publication. */
+export function assertResearchPostPublication(community:string,title:string,body:string){
+  if(FORUM_PUBLICATION_ENABLED)return;
+  if(community!==CONTRIB_COMMUNITY)throw new Error(FORUM_PRIVACY_MESSAGE);
+  let envelope;try{envelope=JSON.parse(body);}catch{throw new Error('Encrypted contributor application required.');}
+  const hex=(value:unknown,length?:number)=>typeof value==='string'&&/^[0-9a-f]+$/i.test(value)&&value.length%2===0&&(length===undefined||value.length===length);
+  const keys=(value:object,expected:string[])=>Object.keys(value).sort().join(',')===expected.sort().join(',');
+  if(title!=='Member role application'||!envelope||typeof envelope!=='object'||!keys(envelope,['v','alg','nonce','ciphertext','recipients'])||envelope.v!==1||envelope.alg!=='x25519-xchacha20poly1305'||!hex(envelope.nonce,48)||!hex(envelope.ciphertext)||envelope.ciphertext.length<32||!Array.isArray(envelope.recipients)||!envelope.recipients.length||!envelope.recipients.every((recipient:Record<string,unknown>)=>recipient&&typeof recipient==='object'&&keys(recipient,['addr','epk','n','k'])&&/^0x[a-f0-9]{40}$/i.test(String(recipient.addr))&&hex(recipient.epk,64)&&hex(recipient.n,48)&&hex(recipient.k,96)))throw new Error('Encrypted contributor application required.');
+}
 /** Member-submitted proposals (discussion ideas / research proposals). Any member
  *  may post here; Executives review and can promote one into a real discussion. */
 export const PROPOSAL_COMMUNITY = "bittrees-research-proposals";
@@ -171,6 +183,7 @@ export interface PublishArgs {
 /** Sign + submit a post (or reply) as an on-chain EAS attestation on Base. */
 export async function publishPost(args: PublishArgs): Promise<Hash> {
   const { walletClient, account, title, body, refUID = ZERO32, community = FORUM_COMMUNITY } = args;
+  assertResearchPostPublication(community,title,body);
   await ensureSchema(walletClient, account);
 
   const request = {

@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test';
-import {setup} from './membership-fixture';
+import {setupWithChatSession as setup} from './membership-fixture';
 
 test('built app preserves a confirmed synthetic mint through delayed discovery, failure and route changes',async({browser,baseURL},info)=>{
  const app=await setup(browser,baseURL!,'empty',false,false,true);

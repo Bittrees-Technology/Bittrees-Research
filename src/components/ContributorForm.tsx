@@ -123,7 +123,7 @@ export function ContributorForm() {
       const keypair = await deriveEncKeypair(wc, address);const publicKey=keypair.publicKey;
       let envelope: ReturnType<typeof encryptApplication>,contentKey:string;
       try {
-      const community = await fetchCommunity();
+      const community = await fetchCommunity(address);
       const reviewers = currentReviewers(community)
         .map((a) => ({ addr: a, hex: community.enckeys[a] }))
         .filter((r) => /^[0-9a-f]{64}$/.test(r.hex || ""))

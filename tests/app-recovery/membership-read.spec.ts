@@ -21,3 +21,11 @@ test('retired recovery URL has no tool or navigation link',async({browser,baseUR
   await expect(app.page.getByRole('region',{name:'Export local data to Chat'})).toHaveCount(0);
  }finally{await app.close();}
 });
+
+test('membership alone does not open private Chat or fetch its registry', async ({browser, baseURL}) => {
+  const app = await setup(browser, baseURL!, 'valid');
+  try {
+    await expect(app.page.getByRole('heading', {name: 'Open your private Research workspace'})).toBeVisible();
+    await expect(app.page.getByRole('heading', {name: 'Members Chat', exact: true})).toHaveCount(0);
+  } finally { await app.close(); }
+});

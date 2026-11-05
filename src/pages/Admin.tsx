@@ -1,3 +1,4 @@
+import { ResearchPrivateSession } from "@/components/ResearchPrivateSession";
 import { ResearchCredentialRoles } from "@/components/ResearchCredentialRoles";
 import { useSearchParams } from "react-router";
 import ReviewerAccessSettings, {useReviewerSetupAccess} from '../components/ReviewerAccessSettings';
@@ -68,10 +69,10 @@ export default function Admin() {
       </div>
 
       {active === "reviewer-settings" && <ReviewerAccessSettings address={address} />}
-      {active === "roles" && <ResearchCredentialRoles canDefine={canDefine} canAssign={canAssign} canManage={canManage} />}
+      {active === "roles" && <ResearchPrivateSession><ResearchCredentialRoles canDefine={canDefine} canAssign={canAssign} canManage={canManage} /></ResearchPrivateSession>}
       {active === "roles" && level==="full" && <section className="card"><h2>Shared roles</h2><p>Project staff and partner permissions are managed in Roles.</p><a href="https://roles.bittrees.org/role-management?project=research">Manage roles</a></section>}
       {active === "applications" && <Contributors embedded />}
-      {active === "moderation" && <ModerationTab />}
+      {active === "moderation" && <ResearchPrivateSession><ModerationTab /></ResearchPrivateSession>}
     </div>
   );
 }
