@@ -17,7 +17,7 @@ export default function Forum() {
       <PageHeader
         label="Community"
         title="Forum"
-        intro="A members' forum. Every post is signed by your wallet and recorded on-chain as an EAS attestation on Base — permanent, verifiable, and yours."
+        intro="A members' forum archive. New plaintext blockchain publication is paused while private Research discussions are protected. Existing blockchain records, if any, remain public."
       />
 
       {/* Starting a discussion is Executive-only; any member can propose one. */}

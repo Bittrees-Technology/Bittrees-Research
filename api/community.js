@@ -1,3 +1,4 @@
+import {withResearchRegistryPrivacy} from '../server/private-registry.mjs';
 import {BUILTIN_ROLE_CREDENTIALS} from '../shared/research-role-credentials.mjs';
 import {applicationReviewers} from '../server/application-reviewers.mjs';
 import { getAddress, keccak256, toBytes } from "viem";
@@ -5,7 +6,7 @@ import { withSignedRegistry, registryCommand, recoverMessageAddress, registryPol
 
 /**
  * Community registry — admin-assigned custom roles/tags AND community moderation
- * flags. Backed by Vercel KV / Upstash over its REST API. Reads are public.
+ * flags. Backed by Vercel KV / Upstash over its REST API. Reads and mutations require a verified Research wallet session and fresh active membership.
  * Writes are signed:
  *   - roles (assign/unassign): a live research.bittrees.eth space ADMIN
  *   - flag/unflag: any BGOV holder (shareholder), verified server-side
@@ -104,7 +105,6 @@ function isFullAdmin(signer, admins, rolesMap) {
 }
 
 export async function handler(req, res) {
-  res.setHeader("access-control-allow-origin", "*");
   res.setHeader("cache-control", "no-store");
 
   if (req.method === "GET") {
@@ -298,4 +298,5 @@ export async function handler(req, res) {
   }
 }
 
-export default withSignedRegistry(handler);
+export function createPrivateHandler(options={}){return withResearchRegistryPrivacy(withSignedRegistry(handler,options),options);}
+export default createPrivateHandler();

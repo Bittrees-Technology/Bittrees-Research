@@ -4,11 +4,12 @@ import { useAccount } from "wagmi";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { MembershipGate } from "@/components/MembershipGate";
+import {ResearchPrivateSession} from "../ResearchPrivateSession";
 import { BittreesMark } from "@/components/Brand";
 import { useMembershipStatus } from "@/hooks/membership/useMembershipStatus";
 
 export default function Layout() {
-  const { isConnected, isConnecting } = useAccount();
+  const { address, isConnected, isConnecting } = useAccount();
   const { hasValidMembership, isLoading, pendingMint } = useMembershipStatus();
 
   // DEV-only preview bypass for screenshotting the members area without a
@@ -34,7 +35,7 @@ export default function Layout() {
   }
 
   // Member: the full app.
-  return <AppShell><Outlet /></AppShell>;
+  return <ResearchPrivateSession key={address?.toLowerCase()}><AppShell><Outlet /></AppShell></ResearchPrivateSession>;
 }
 
 // Shared presentation; each entry retains its own authorization checks.

@@ -4,9 +4,12 @@ import process from "node:process";
 import { pathToFileURL } from "node:url";
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+const PRIVATE_REGISTRY_PATHS = new Set(["/api/community", "/api/rooms"]);
 const SNAPSHOT_HEADERS = [
   "content-type",
   "cache-control",
+  "cdn-cache-control",
+  "vercel-cdn-cache-control",
   "last-modified",
   "etag",
   "x-robots-tag",
@@ -90,50 +93,34 @@ export const SITE_CONFIG = {
     },
     {
       id: "api-community",
-      label: "Community registry",
+      label: "Private community registry anonymous denial",
       path: "/api/community",
       kind: "api",
       expect: {
-        status: 200,
+        status: 401,
         contentTypeIncludes: "application/json",
-        json: [
-          { path: "roles", type: "object" },
-          { path: "roledefs", type: "array" },
-          { path: "flags", type: "object" },
-          { path: "enckeys", type: "object" },
-          { path: "threshold", type: "number" },
-        ],
+        headerIncludes: {"cache-control": ["private", "no-store"], "x-robots-tag": ["noindex"]},
       },
       signature: [
-        { type: "header", key: "content-type" },
-        { type: "json-type", path: "roles" },
-        { type: "json-type", path: "roledefs" },
-        { type: "json-type", path: "flags" },
-        { type: "json-type", path: "enckeys" },
-        { type: "json-type", path: "threshold" },
+        {type: "header", key: "content-type"},
+        {type: "header", key: "cache-control"},
+        {type: "header", key: "x-robots-tag"},
       ],
     },
     {
       id: "api-rooms",
-      label: "Room registry",
+      label: "Private rooms registry anonymous denial",
       path: "/api/rooms",
       kind: "api",
       expect: {
-        status: 200,
+        status: 401,
         contentTypeIncludes: "application/json",
-        json: [
-          { path: "rooms", type: "object" },
-          { path: "custom", type: "array" },
-          { path: "proposals", type: "array" },
-          { path: "icons", type: "object" },
-        ],
+        headerIncludes: {"cache-control": ["private", "no-store"], "x-robots-tag": ["noindex"]},
       },
       signature: [
-        { type: "header", key: "content-type" },
-        { type: "json-type", path: "rooms" },
-        { type: "json-type", path: "custom" },
-        { type: "json-type", path: "proposals" },
-        { type: "json-type", path: "icons" },
+        {type: "header", key: "content-type"},
+        {type: "header", key: "cache-control"},
+        {type: "header", key: "x-robots-tag"},
       ],
     },
     {
@@ -272,6 +259,20 @@ function truncate(value, maxLength = 400) {
   return value.length > maxLength ? `${value.slice(0, maxLength)}...` : value;
 }
 
+// Registry probe artifacts contain only normalized status/header evidence.
+// Never retain raw registry response bodies, ETags or arbitrary header values.
+function privateRegistryHeaders(responseHeaders) {
+  const headers = {};
+  const mediaType = (responseHeaders.get("content-type") || "").split(";", 1)[0].trim().toLowerCase();
+  headers["content-type"] = mediaType === "application/json" ? mediaType : "(unexpected or missing)";
+  const known = new Set(["private", "no-store", "no-cache", "public", "must-revalidate", "immutable", "max-age", "s-maxage", "noindex", "nofollow", "index", "follow", "none", "all", "noarchive", "nosnippet"]);
+  for (const name of ["cache-control", "cdn-cache-control", "vercel-cdn-cache-control", "x-robots-tag"]) {
+    const raw = responseHeaders.get(name);
+    if (raw) headers[name] = [...new Set(raw.toLowerCase().split(",").map(part => part.trim().split("=", 1)[0]).filter(part => known.has(part)))].sort().join(", ") || "(unrecognized)";
+  }
+  return headers;
+}
+
 function buildAssertions(check, payload) {
   const assertions = [];
   const expect = check.expect ?? {};
@@ -294,6 +295,12 @@ function buildAssertions(check, payload) {
       actual: payload.contentType || "(missing)",
       message: `content-type ${payload.contentType || "(missing)"}`,
     });
+  }
+
+  for (const [key, values] of Object.entries(expect.headerIncludes ?? {})) {
+    const actual = payload.headers[key] || "";
+    const tokens = actual.split(",").map(part => part.trim());
+    for (const value of values) assertions.push({kind: "header-token", pass: tokens.includes(value), expected: value, actual, message: `${key} includes ${value}`});
   }
 
   for (const jsonAssertion of expect.json ?? []) {
@@ -344,22 +351,28 @@ async function fetchCheck(baseUrl, check, timeoutMs) {
   const startedAt = Date.now();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  const privateProbe = PRIVATE_REGISTRY_PATHS.has(check.path.split("?", 1)[0]);
 
   try {
     const response = await fetch(targetUrl, {
       headers: { accept: "application/json,text/html;q=0.9,*/*;q=0.8" },
       signal: controller.signal,
     });
-    const bodyText = await response.text();
-    const headers = Object.fromEntries(
+    const headers = privateProbe ? privateRegistryHeaders(response.headers) : Object.fromEntries(
       SNAPSHOT_HEADERS.map((key) => [key, response.headers.get(key) || ""]).filter(
         ([, value]) => value,
       ),
     );
-    const contentType = response.headers.get("content-type") || "";
+    const contentType = privateProbe ? headers["content-type"] : response.headers.get("content-type") || "";
+    let bodyText = "";
+    if (privateProbe) {
+      // Even an unexpected HTTP 200 might contain private records. Cancel the
+      // stream without consuming it, including on the expected HTTP 401 path.
+      try { await response.body?.cancel(); } catch { /* No response data enters evidence. */ }
+    } else bodyText = await response.text();
     let json = null;
 
-    if (contentType.includes("application/json")) {
+    if (!privateProbe && contentType.includes("application/json")) {
       try {
         json = JSON.parse(bodyText);
       } catch {
@@ -377,8 +390,7 @@ async function fetchCheck(baseUrl, check, timeoutMs) {
       contentType,
       headers,
       durationMs: Date.now() - startedAt,
-      bodyPreview: truncate(bodyText),
-      json,
+      ...(privateProbe ? {bodyOmitted: true} : {bodyPreview: truncate(bodyText), json}),
     };
     const assertions = buildAssertions(check, payload);
     return {
@@ -386,6 +398,7 @@ async function fetchCheck(baseUrl, check, timeoutMs) {
       assertions,
       pass: assertions.every((assertion) => assertion.pass),
       signature: buildSignature(check, payload),
+      ...(privateProbe && response.status >= 200 && response.status < 300 ? {stopAfterUnexpectedSuccess: true} : {}),
     };
   } catch (error) {
     return {
@@ -398,15 +411,14 @@ async function fetchCheck(baseUrl, check, timeoutMs) {
       contentType: "",
       headers: {},
       durationMs: Date.now() - startedAt,
-      bodyPreview: "",
-      json: null,
+      ...(privateProbe ? {bodyOmitted: true} : {bodyPreview: "", json: null}),
       assertions: [
         {
           kind: "fetch",
           pass: false,
           expected: "successful response",
-          actual: error instanceof Error ? error.message : String(error),
-          message: error instanceof Error ? error.message : String(error),
+          actual: privateProbe ? "Private registry probe unavailable" : error instanceof Error ? error.message : String(error),
+          message: privateProbe ? "Private registry probe unavailable" : error instanceof Error ? error.message : String(error),
         },
       ],
       pass: false,
@@ -484,6 +496,7 @@ function renderReport(run) {
   if (run.baselineFile) {
     lines.push(`- Baseline artifact: \`${run.baselineFile}\``);
   }
+  if (run.stoppedEarly) lines.push("- Stopped: an anonymous private-registry probe returned a successful response. Its body was not consumed.");
 
   lines.push("");
   lines.push("| Check | Status | Pass | Signature |");
@@ -552,8 +565,11 @@ export async function runReleaseGate(options = {}) {
       : options.baseUrl ?? SITE_CONFIG.productionBaseUrl;
 
   const results = [];
+  let stoppedEarly = false;
   for (const check of SITE_CONFIG.checks) {
-    results.push(await fetchCheck(targetUrl, check, options.timeoutMs ?? 15000));
+    const result = await fetchCheck(targetUrl, check, options.timeoutMs ?? 15000);
+    results.push(result);
+    if (result.stopAfterUnexpectedSuccess) { stoppedEarly = true; break; }
   }
 
   const run = {
@@ -563,6 +579,7 @@ export async function runReleaseGate(options = {}) {
     targetUrl: normaliseBaseUrl(targetUrl),
     baselineFile: options.baselineFile ?? null,
     results,
+    stoppedEarly,
     pass: results.every((result) => result.pass),
   };
 

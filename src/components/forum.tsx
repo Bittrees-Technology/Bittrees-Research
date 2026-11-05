@@ -6,7 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { base } from "viem/chains";
 import { wagmiConfig } from "../lib/wagmi";
 import { getWalletClient } from "@wagmi/core";
-import { publishPost, useSchemaRegistered, EASSCAN_VIEW, type ForumPost } from "../lib/forum";
+import { publishPost, useSchemaRegistered, EASSCAN_VIEW, FORUM_PUBLICATION_ENABLED, FORUM_PRIVACY_MESSAGE, type ForumPost } from "../lib/forum";
 import { relativeTime, ROUTES } from "../lib/links";
 import { UserBadges } from "./badges";
 import { AddressName } from "./AddressName";
@@ -84,7 +84,11 @@ type ProposalKind = (typeof PROPOSAL_KINDS)[number];
  * the title). Otherwise it's a new top-level discussion (Executive-gated by the
  * caller). BGOV holders get the shareholder chip.
  */
-export function Composer({
+export function Composer(props:Parameters<typeof ActiveComposer>[0]) {
+  return FORUM_PUBLICATION_ENABLED ? <ActiveComposer {...props}/> : <div className="card" role="status"><p>{FORUM_PRIVACY_MESSAGE}</p><p>Existing blockchain records, if any, remain publicly readable outside this app.</p></div>;
+}
+
+function ActiveComposer({
   refUID,
   community,
   proposal,
