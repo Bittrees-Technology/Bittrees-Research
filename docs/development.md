@@ -62,11 +62,17 @@ scripts/ and tests/         Server, integration and browser verification
 Vercel rewrites only the application routes declared in `src/index.tsx`, including
 legacy bookmarks and the single-segment Research and Forum detail routes. Keep
 that route list and `vercel.json` in sync when adding an application route. Static
-files and API handlers retain their normal filesystem routing. Unrecognized
-paths, including `/sitemap.xml`, intentionally return Vercel's 404 instead of the
-private application shell. No sitemap is published while the app is entirely
-`noindex`; an approved public surface needs a separate indexing decision. These
-routing rules do not replace membership, session, or API authorization checks.
+files and API handlers retain their normal filesystem routing. The approved
+standalone public overview is `/about`, rewritten only to `public/about.html`;
+`/about.html` and `/about/` permanently redirect to its canonical path. Its small
+stylesheet and existing logo assets require no runtime JavaScript or tracking.
+The XML sitemap contains only that public overview and is advertised in the
+existing crawl-open robots file. All application routes remain `noindex`, and
+unrecognized paths such as `/about-other` and `/about/private` return Vercel's
+404 instead of the private application shell. The noindex header exception is
+an exact pathname match; it does not expose nested paths or APIs and does not
+override preview-deployment noindex. These routing rules do not replace
+membership, session, or API authorization checks.
 
 The existing Vercel project serves `research.bittrees.org` from GitHub `main`. Review the exact change, pass the required checks, and verify the production domain's deployed source after release. A successful homepage response alone does not prove membership, sessions, permissions or transaction behavior. A documentation-only update does not change contract deployment or grants.
 
@@ -79,3 +85,12 @@ yarn release:gate --mode rollback-check --baseline output/release-gates/<baselin
 ```
 
 It writes `run.json` and `report.md` under `output/release-gates/`; these route/API checks supplement, rather than replace, authenticated and negative-authority tests. Retain private evidence outside public commits. Do not infer free hosting, new spending authorization, or migration readiness from a build succeeding.
+
+The gate checks the complete public overview HTML and one-URL sitemap, inspects
+alias redirects without following them, and rejects missing-route soft404s.
+Existing private-registry probes still discard response bodies and stop on an
+unexpected successful response. Canary checks on a non-production origin allow
+the platform's automatic noindex header; production checks require the public
+overview to be indexable. Older baseline artifacts do not contain the new public
+checks, so their expected contract differences must be reviewed and retained with
+the release evidence rather than described as a passing unchanged baseline.

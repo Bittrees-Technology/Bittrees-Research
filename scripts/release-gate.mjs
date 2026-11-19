@@ -5,6 +5,7 @@ import { pathToFileURL } from "node:url";
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 const PRIVATE_REGISTRY_PATHS = new Set(["/api/community", "/api/rooms"]);
+const PUBLIC_SITEMAP_DOCUMENT = await readFile(new URL("../public/sitemap.xml", import.meta.url), "utf8");
 const SNAPSHOT_HEADERS = [
   "content-type",
   "cache-control",
@@ -13,18 +14,59 @@ const SNAPSHOT_HEADERS = [
   "last-modified",
   "etag",
   "x-robots-tag",
+  "location",
 ];
 
 export const SITE_CONFIG = {
   site: "research",
   productionBaseUrl: "https://research.bittrees.org",
   checks: [
+    ...["/about", "/about?from=seo"].map((path, index) => ({
+      id: index ? "public-about-query" : "public-about",
+      label: index ? "Public overview query variant" : "Public Research overview",
+      path,
+      kind: "public-page",
+      expect: {
+        status: 200,
+        contentTypeIncludes: "text/html",
+        indexable: true,
+        canonical: "https://research.bittrees.org/about",
+        bodyIncludes: ["<title>About Bittrees Research | Publications and Membership</title>", '<meta name="description" content="Explore Bittrees Research publications and learn how its member workspace supports research requests, collaboration and membership-linked credentials."', "Research, collaboration and credentials.", "How member research works", 'href="https://paragraph.com/@bresearch"'],
+        bodyExcludes: ["<script", 'id="root"'],
+      },
+      signature: [{type: "header", key: "content-type"}],
+    })),
+    ...["/about.html", "/about/", "/about.html?from=seo", "/about/?from=seo"].map((path, index) => ({
+      id: `public-about-alias-${index}`,
+      label: `Public overview alias ${path}`,
+      path,
+      kind: "redirect",
+      redirect: "manual",
+      expect: {status: 308, location: path.includes("?") ? "/about?from=seo" : "/about"},
+      signature: [{type: "header", key: "location"}],
+    })),
+    {
+      id: "public-sitemap",
+      label: "Public overview-only XML sitemap",
+      path: "/sitemap.xml",
+      kind: "public-sitemap",
+      expect: {status: 200, contentTypeIncludes: "xml", sitemapUrls: ["https://research.bittrees.org/about"], sitemapDocument: PUBLIC_SITEMAP_DOCUMENT},
+      signature: [{type: "header", key: "content-type"}],
+    },
+    ...["/about-other", "/about/private", "/missing-research-seo-check"].map((path, index) => ({
+      id: `missing-public-route-${index}`,
+      label: `Missing route ${path}`,
+      path,
+      kind: "route",
+      expect: {status: 404, headerIncludes: {"x-robots-tag": ["noindex", "nofollow"]}},
+      signature: [{type: "header", key: "x-robots-tag"}],
+    })),
     {
       id: "route-root",
       label: "Root route",
       path: "/",
       kind: "route",
-      expect: { status: 200, contentTypeIncludes: "text/html" },
+      expect: { status: 200, contentTypeIncludes: "text/html", headerIncludes: {"x-robots-tag": ["noindex", "nofollow"]} },
       signature: [{ type: "header", key: "content-type" }],
     },
     {
@@ -32,7 +74,7 @@ export const SITE_CONFIG = {
       label: "Research route",
       path: "/research",
       kind: "route",
-      expect: { status: 200, contentTypeIncludes: "text/html" },
+      expect: { status: 200, contentTypeIncludes: "text/html", headerIncludes: {"x-robots-tag": ["noindex", "nofollow"]} },
       signature: [{ type: "header", key: "content-type" }],
     },
     {
@@ -40,7 +82,7 @@ export const SITE_CONFIG = {
       label: "Forum route",
       path: "/forum",
       kind: "route",
-      expect: { status: 200, contentTypeIncludes: "text/html" },
+      expect: { status: 200, contentTypeIncludes: "text/html", headerIncludes: {"x-robots-tag": ["noindex", "nofollow"]} },
       signature: [{ type: "header", key: "content-type" }],
     },
     {
@@ -48,7 +90,7 @@ export const SITE_CONFIG = {
       label: "Chat route",
       path: "/chat",
       kind: "route",
-      expect: { status: 200, contentTypeIncludes: "text/html" },
+      expect: { status: 200, contentTypeIncludes: "text/html", headerIncludes: {"x-robots-tag": ["noindex", "nofollow"]} },
       signature: [{ type: "header", key: "content-type" }],
     },
     {
@@ -56,7 +98,7 @@ export const SITE_CONFIG = {
       label: "Membership route",
       path: "/membership",
       kind: "route",
-      expect: { status: 200, contentTypeIncludes: "text/html" },
+      expect: { status: 200, contentTypeIncludes: "text/html", headerIncludes: {"x-robots-tag": ["noindex", "nofollow"]} },
       signature: [{ type: "header", key: "content-type" }],
     },
     {
@@ -64,7 +106,7 @@ export const SITE_CONFIG = {
       label: "BNOTE route",
       path: "/bnote",
       kind: "route",
-      expect: { status: 200, contentTypeIncludes: "text/html" },
+      expect: { status: 200, contentTypeIncludes: "text/html", headerIncludes: {"x-robots-tag": ["noindex", "nofollow"]} },
       signature: [{ type: "header", key: "content-type" }],
     },
     {
@@ -72,7 +114,7 @@ export const SITE_CONFIG = {
       label: "BIT route",
       path: "/bit",
       kind: "route",
-      expect: { status: 200, contentTypeIncludes: "text/html" },
+      expect: { status: 200, contentTypeIncludes: "text/html", headerIncludes: {"x-robots-tag": ["noindex", "nofollow"]} },
       signature: [{ type: "header", key: "content-type" }],
     },
     {
@@ -80,7 +122,7 @@ export const SITE_CONFIG = {
       label: "Contribute route",
       path: "/contribute",
       kind: "route",
-      expect: { status: 200, contentTypeIncludes: "text/html" },
+      expect: { status: 200, contentTypeIncludes: "text/html", headerIncludes: {"x-robots-tag": ["noindex", "nofollow"]} },
       signature: [{ type: "header", key: "content-type" }],
     },
     {
@@ -88,7 +130,7 @@ export const SITE_CONFIG = {
       label: "Admin route",
       path: "/admin",
       kind: "route",
-      expect: { status: 200, contentTypeIncludes: "text/html" },
+      expect: { status: 200, contentTypeIncludes: "text/html", headerIncludes: {"x-robots-tag": ["noindex", "nofollow"]} },
       signature: [{ type: "header", key: "content-type" }],
     },
     {
@@ -273,7 +315,12 @@ function privateRegistryHeaders(responseHeaders) {
   return headers;
 }
 
-function buildAssertions(check, payload) {
+function attribute(tag, name) {
+  const match = tag.match(new RegExp(`(?:^|\\s)${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)')`, "i"));
+  return match?.[1] ?? match?.[2] ?? "";
+}
+
+function buildAssertions(check, payload, bodyText = "", allowPreviewNoindex = false) {
   const assertions = [];
   const expect = check.expect ?? {};
 
@@ -301,6 +348,38 @@ function buildAssertions(check, payload) {
     const actual = payload.headers[key] || "";
     const tokens = actual.split(",").map(part => part.trim());
     for (const value of values) assertions.push({kind: "header-token", pass: tokens.includes(value), expected: value, actual, message: `${key} includes ${value}`});
+  }
+
+  if (expect.location) {
+    const actual = payload.headers.location || "";
+    let destination = "";
+    try { if (actual) destination = new URL(actual, payload.url).href; } catch { /* Invalid Location fails below. */ }
+    const expected = new URL(expect.location, payload.url).href;
+    assertions.push({kind: "location", pass: destination === expected, expected, actual: destination || "(missing or invalid)", message: "canonical alias destination and query"});
+  }
+
+  // These contracts apply only to the explicitly public page/sitemap. Registry
+  // probes still cancel their streams without reading any response body.
+  for (const value of expect.bodyIncludes ?? []) assertions.push({kind: "public-content", pass: bodyText.includes(value), expected: value, actual: bodyText.includes(value) ? "present" : "missing", message: "approved content in complete HTML"});
+  for (const value of expect.bodyExcludes ?? []) assertions.push({kind: "public-isolation", pass: !bodyText.toLowerCase().includes(value.toLowerCase()), expected: `absent: ${value}`, actual: bodyText.toLowerCase().includes(value.toLowerCase()) ? "present" : "absent", message: "standalone public HTML"});
+  if (expect.canonical || expect.indexable) {
+    const head = bodyText.match(/<head\b[^>]*>([\s\S]*?)<\/head>/i)?.[1] || "";
+    const canonicals = [...head.matchAll(/<link\b[^>]*>/gi)].map(([tag]) => tag).filter(tag => attribute(tag, "rel").toLowerCase() === "canonical").map(tag => attribute(tag, "href"));
+    if (expect.canonical) assertions.push({kind: "canonical", pass: canonicals.length === 1 && canonicals[0] === expect.canonical, expected: [expect.canonical], actual: canonicals, message: "one canonical public URL"});
+    if (expect.indexable) {
+      const robots = [...head.matchAll(/<meta\b[^>]*>/gi)].map(([tag]) => tag).filter(tag => ["robots", "googlebot"].includes(attribute(tag, "name").toLowerCase())).map(tag => attribute(tag, "content")).join(", ");
+      const blocked = value => /(?:^|[:,\s])(?:noindex|none)(?:$|[,\s])/i.test(value);
+      assertions.push({kind: "public-meta-indexing", pass: !blocked(robots), expected: "no page-level noindex", actual: robots || "(missing)", message: "public page indexing metadata"});
+      const actual = payload.headers["x-robots-tag"] || "";
+      assertions.push({kind: "public-header-indexing", pass: allowPreviewNoindex || !blocked(actual), expected: allowPreviewNoindex ? "preview noindex is preserved" : "production response has no noindex", actual: actual || "(absent)", message: allowPreviewNoindex ? "preview indexing policy; production still needs verification" : "production public indexing header"});
+    }
+  }
+  if (expect.sitemapUrls) {
+    const actual = [...bodyText.matchAll(/<loc>([^<]+)<\/loc>/g)].map(match => match[1]);
+    const isUrlset = /^\s*<\?xml\b/.test(bodyText) && /<urlset\s[^>]*xmlns=["']http:\/\/www\.sitemaps\.org\/schemas\/sitemap\/0\.9["']/.test(bodyText) && /<\/urlset>\s*$/.test(bodyText);
+    assertions.push({kind: "public-sitemap", pass: isUrlset && JSON.stringify(actual) === JSON.stringify(expect.sitemapUrls), expected: expect.sitemapUrls, actual, message: "only the approved public overview is listed"});
+    const artifactMatches = bodyText.trim() === expect.sitemapDocument.trim();
+    assertions.push({kind: "public-sitemap-artifact", pass: artifactMatches, expected: "reviewed public/sitemap.xml", actual: artifactMatches ? "matches" : "differs", message: "complete sitemap matches the reviewed static artifact"});
   }
 
   for (const jsonAssertion of expect.json ?? []) {
@@ -346,7 +425,7 @@ function buildSignature(check, payload) {
   });
 }
 
-async function fetchCheck(baseUrl, check, timeoutMs) {
+async function fetchCheck(baseUrl, check, timeoutMs, allowPreviewNoindex = false) {
   const targetUrl = urlFor(baseUrl, check.path);
   const startedAt = Date.now();
   const controller = new AbortController();
@@ -357,6 +436,7 @@ async function fetchCheck(baseUrl, check, timeoutMs) {
     const response = await fetch(targetUrl, {
       headers: { accept: "application/json,text/html;q=0.9,*/*;q=0.8" },
       signal: controller.signal,
+      ...(check.redirect ? {redirect: check.redirect} : {}),
     });
     const headers = privateProbe ? privateRegistryHeaders(response.headers) : Object.fromEntries(
       SNAPSHOT_HEADERS.map((key) => [key, response.headers.get(key) || ""]).filter(
@@ -392,7 +472,7 @@ async function fetchCheck(baseUrl, check, timeoutMs) {
       durationMs: Date.now() - startedAt,
       ...(privateProbe ? {bodyOmitted: true} : {bodyPreview: truncate(bodyText), json}),
     };
-    const assertions = buildAssertions(check, payload);
+    const assertions = buildAssertions(check, payload, bodyText, allowPreviewNoindex);
     return {
       ...payload,
       assertions,
@@ -565,9 +645,10 @@ export async function runReleaseGate(options = {}) {
       : options.baseUrl ?? SITE_CONFIG.productionBaseUrl;
 
   const results = [];
+  const allowPreviewNoindex = mode === "canary" && new URL(targetUrl).origin !== new URL(SITE_CONFIG.productionBaseUrl).origin;
   let stoppedEarly = false;
   for (const check of SITE_CONFIG.checks) {
-    const result = await fetchCheck(targetUrl, check, options.timeoutMs ?? 15000);
+    const result = await fetchCheck(targetUrl, check, options.timeoutMs ?? 15000, allowPreviewNoindex);
     results.push(result);
     if (result.stopAfterUnexpectedSuccess) { stoppedEarly = true; break; }
   }

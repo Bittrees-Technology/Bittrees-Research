@@ -4,7 +4,23 @@
   "installCommand": "yarn install --frozen-lockfile --ignore-scripts",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
+  "redirects": [
+    {
+      "source": "/about.html",
+      "destination": "/about",
+      "permanent": true
+    },
+    {
+      "source": "/about/",
+      "destination": "/about",
+      "permanent": true
+    }
+  ],
   "rewrites": [
+    {
+      "source": "/about",
+      "destination": "/about.html"
+    },
     {
       "source": "/admin/contributors",
       "destination": "/index.html"
@@ -112,7 +128,7 @@
   ],
   "headers": [
     {
-      "source": "/(.*)",
+      "source": "/((?!about$).*)",
       "headers": [
         {
           "key": "X-Robots-Tag",

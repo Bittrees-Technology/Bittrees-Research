@@ -5,12 +5,24 @@ administrator views, registry data, and API responses must not be submitted for
 search indexing. All app routes carry noindex directives. These directives are
 indexing controls; authorization protects member data separately.
 
+The explicitly approved public overview is `https://research.bittrees.org/about`.
+It describes Research using the existing public README and request-workflow
+documentation, with a normal link to the approved Paragraph publication. This
+standalone static page loads no application bundle, wallet/session provider,
+registry data, member records, draft or article content. It is the only URL in
+the sitemap. The root remains the private application; `/about.html` and
+`/about/` redirect to `/about`. Only that exact canonical pathname is exempt from
+the default noindex response header. Lookalikes, nested paths, application routes
+and APIs retain their existing indexing and authorization boundaries. Automatic
+preview-deployment noindex is not overridden with an index response header.
+
 Public research remains on the existing approved Paragraph publication,
 https://paragraph.com/@bresearch. The app reads that publication's public RSS
 feed. This repository contains no draft-to-Paragraph publishing or sync-status
 manifest. A feed entry is not permission to expose a local workspace or draft.
-Do not create a Research homepage sitemap, new public mirrors, or local public
-article routes from private records. A future public exception requires an
+Do not include the private Research homepage in the sitemap, create new public
+mirrors, or create local public article routes from private records. An article
+publication exception requires an
 explicit publication decision, successful Paragraph sync, and an authoritative
 public URL. Unknown or failed publication state remains private.
 
@@ -46,6 +58,6 @@ Release verification must exercise disconnected, wrong-wallet, expired-session,
 expired-membership, valid-member and backend-unavailable cases in the deployed
 app, including wallet switching, sign-out and signed registry mutations. Verify
 the noindex/cache headers on actual responses and confirm new forum actions
-open no wallet transaction. Only already approved Paragraph publications are
-eligible for public discovery. Paragraph-hosted URLs are outside the
+open no wallet transaction. The approved static overview and already approved
+Paragraph publications are eligible for public discovery. Paragraph-hosted URLs are outside the
 sc-domain:bittrees.org Search Console property unless served on its domain.
