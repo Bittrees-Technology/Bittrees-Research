@@ -18,8 +18,96 @@
       "destination": "/api/gate?p=$1"
     },
     {
-      "source": "/((?!api/).*)",
-      "destination": "/"
+      "source": "/contribute",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/research",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/research/requests",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/research/:slug",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/forum",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/forum/:id",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/chat",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/bnote",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/bit",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/structure",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/membership",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/admin",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/vision",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/ethics",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/mint",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/mint-membership",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/mint-bnote",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/mint-bit",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/mint-brgov",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/members",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/roadmap",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/codeofethics",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/visionstatement",
+      "destination": "/index.html"
     }
   ],
   "headers": [
