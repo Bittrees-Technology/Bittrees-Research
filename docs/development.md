@@ -59,6 +59,15 @@ scripts/ and tests/         Server, integration and browser verification
 
 ## Release and verification
 
+Vercel rewrites only the application routes declared in `src/index.tsx`, including
+legacy bookmarks and the single-segment Research and Forum detail routes. Keep
+that route list and `vercel.json` in sync when adding an application route. Static
+files and API handlers retain their normal filesystem routing. Unrecognized
+paths, including `/sitemap.xml`, intentionally return Vercel's 404 instead of the
+private application shell. No sitemap is published while the app is entirely
+`noindex`; an approved public surface needs a separate indexing decision. These
+routing rules do not replace membership, session, or API authorization checks.
+
 The existing Vercel project serves `research.bittrees.org` from GitHub `main`. Review the exact change, pass the required checks, and verify the production domain's deployed source after release. A successful homepage response alone does not prove membership, sessions, permissions or transaction behavior. A documentation-only update does not change contract deployment or grants.
 
 The optional read-only release gate captures a baseline and compares a preview or rollback surface:
