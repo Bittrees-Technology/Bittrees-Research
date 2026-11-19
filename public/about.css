@@ -1,0 +1,61 @@
+/* The existing Research palette and typography, isolated from the member app. */
+:root {
+  color-scheme: light;
+  --ink: #1a1a1a;
+  --muted: #5c5c5c;
+  --border: #d8d6d1;
+  --subtle: #f7f6f3;
+  --accent: #f7931a;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  color: var(--ink);
+  background: #fff;
+  font-synthesis: none;
+}
+* { box-sizing: border-box; }
+body { margin: 0; font-size: 1rem; line-height: 1.65; }
+a { color: inherit; text-underline-offset: .2em; }
+a:hover { text-decoration-thickness: 2px; }
+:focus-visible { outline: 2px solid var(--ink); outline-offset: 4px; }
+.page-width { width: min(100% - 3rem, 1140px); margin-inline: auto; }
+.skip-link { position: absolute; top: -6rem; left: 1rem; z-index: 10; padding: .75rem 1rem; background: #fff; border: 2px solid var(--ink); }
+.skip-link:focus { top: .5rem; }
+.site-header { border-bottom: 1px solid var(--border); }
+.header-row { min-height: 64px; display: flex; align-items: center; justify-content: space-between; gap: 1rem 2rem; padding-block: .6rem; flex-wrap: wrap; }
+.brand { display: inline-flex; align-items: center; gap: .6rem; min-height: 44px; text-decoration: none; font-family: "Georgia Pro", Georgia, serif; font-size: 1.1rem; font-weight: 700; }
+.brand img { display: block; flex: 0 0 30px; }
+.header-nav, .site-footer nav { display: flex; flex-wrap: wrap; align-items: center; gap: .2rem 1.4rem; }
+.header-nav a, .site-footer nav a { display: inline-flex; align-items: center; min-height: 44px; font-size: .9rem; }
+.header-nav a { color: var(--muted); }
+.introduction { padding-block: clamp(2.5rem, 5vw, 4rem) 2.5rem; }
+.eyebrow { margin: 0 0 .75rem; font-size: .75rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+h1 { margin: 0; font-family: "Times New Roman", Tinos, Times, serif; font-size: clamp(2.25rem, 5vw, 3.5rem); font-weight: 700; line-height: 1.15; letter-spacing: -.02em; }
+.subtitle { margin: .7rem 0 1.3rem; font-size: clamp(1.05rem, 2vw, 1.25rem); color: var(--muted); }
+.introduction-copy { max-width: 75ch; margin: 0; }
+h2 { margin: 0 0 .8rem; font-size: 1.2rem; line-height: 1.35; }
+p { margin: 0 0 1rem; }
+p:last-child { margin-bottom: 0; }
+.publication-panel { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem 2.5rem; padding: 1.7rem; background: var(--subtle); border: 1px solid var(--border); border-left: 4px solid var(--accent); }
+.publication-panel p { max-width: 60ch; color: var(--muted); }
+.primary-link { display: inline-flex; align-items: center; justify-content: center; gap: .6rem; flex-shrink: 0; min-height: 48px; padding: .75rem 1rem; color: var(--ink); background: var(--accent); border: 1px solid var(--ink); text-decoration: none; font-size: .9rem; font-weight: 600; text-align: center; }
+.primary-link:hover { background: #e07e00; text-decoration: underline; }
+.details-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2.5rem; padding-block: 2.5rem 3.5rem; }
+.detail-panel { min-width: 0; }
+.detail-panel p { max-width: 65ch; color: var(--muted); }
+.workspace-links { display: flex; align-items: flex-start; flex-direction: column; gap: .25rem; }
+.workspace-links a { display: inline-flex; align-items: center; min-height: 44px; }
+.site-footer { border-top: 1px solid var(--border); background: var(--subtle); }
+.footer-row { display: flex; align-items: center; justify-content: space-between; gap: .5rem 2rem; flex-wrap: wrap; padding-block: 1rem; }
+.footer-row p { margin: 0; font-family: "Georgia Pro", Georgia, serif; font-weight: 700; }
+@media (max-width: 900px) {
+  .publication-panel { align-items: flex-start; flex-direction: column; }
+  .details-grid { gap: 2rem; }
+}
+@media (max-width: 600px) {
+  .page-width { width: calc(100% - 2rem); }
+  .header-row { gap: 0; }
+  .header-nav { width: 100%; justify-content: space-between; gap: .2rem .8rem; }
+  .publication-panel { padding: 1.25rem; }
+  .primary-link { width: 100%; flex-shrink: 1; }
+  .details-grid { grid-template-columns: 1fr; padding-block: 2rem 2.5rem; }
+  .footer-row { align-items: flex-start; flex-direction: column; }
+}

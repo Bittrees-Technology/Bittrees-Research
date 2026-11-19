@@ -148,10 +148,26 @@ test('only the existing encryption envelope format passes the contributor except
  assert.throws(()=>assertResearchPostPublication(CONTRIB_COMMUNITY,'Secret draft title',JSON.stringify(encrypted)),/Encrypted contributor/);
 });
 
-test('app noindex covers every route while existing member and Paragraph readers remain unchanged',async()=>{
+test('only the exact public overview is exempt from app noindex; aliases and private routes retain their boundary',async()=>{
  const html=await readFile(new URL('../index.html',import.meta.url),'utf8');
  assert.match(html,/<meta name="robots" content="noindex, nofollow"/);
  const config=JSON.parse(await readFile(new URL('../vercel.json',import.meta.url),'utf8'));
- assert.ok(config.headers.some(rule=>rule.source==='/(.*)'&&rule.headers.some(h=>h.key==='X-Robots-Tag'&&h.value==='noindex, nofollow')));
+  const noindexRules=config.headers.filter(rule=>rule.headers.some(h=>h.key==='X-Robots-Tag'&&h.value==='noindex, nofollow'));
+  // This bounded matcher tests the actual regex guard and exact literal rules,
+  // not a general emulation of Vercel's routing engine.
+  const excluded=path=>noindexRules.some(rule=>new RegExp('^'+rule.source+'$').test(new URL(path,origin).pathname));
+  for(const path of ['/about','/about?from=seo'])assert.equal(excluded(path),false,path);
+  for(const path of ['/','/index.html','/research','/research/a-public-title','/research/requests','/membership','/admin','/admin/contributors','/contributors/apply','/members','/forum','/chat','/api/community','/api/rooms','/api/about','/about/','/about/?from=seo','/about.html','/about.html?from=seo','/about-other','/aboutness','/about/private','/about.html/','/ABOUT','/missing'])assert.equal(excluded(path),true,path);
+  assert.ok(!config.headers.some(rule=>rule.headers.some(h=>h.key==='X-Robots-Tag'&&/(?:^|[,\s])index(?:$|[,\s])/i.test(h.value))),'Do not override automatic preview noindex');
+  assert.deepEqual(config.rewrites.filter(rule=>rule.source==='/about'),[{source:'/about',destination:'/about.html'}]);
+  for(const path of ['/about.html','/about/'])assert.deepEqual(config.redirects.find(rule=>rule.source===path),{source:path,destination:'/about',permanent:true});
+  assert.ok(!config.redirects.some(rule=>rule.source==='/'||rule.source==='/about'));
+  const rewritesPath=path=>config.rewrites.some(rule=>new RegExp('^'+rule.source.replace(/:[a-zA-Z][a-zA-Z0-9_]*/g,'[^/]+')+'$').test(path));
+  for(const path of ['/about-other','/aboutness','/about/private','/about.html/','/ABOUT','/missing'])assert.equal(rewritesPath(path),false,path);
+  for(const path of ['/admin/contributors','/contributors/apply','/research/requests']){
+    const headers=config.headers.find(rule=>rule.source===path).headers;
+    assert.ok(headers.some(h=>h.key==='Cache-Control'&&h.value==='no-store'));
+    assert.ok(headers.some(h=>h.key==='Referrer-Policy'&&h.value==='no-referrer'));
+  }
  assert.ok(config.rewrites.some(rule=>rule.source==='/api/gate/(.*)'&&rule.destination==='/api/gate?p=$1'));
 });
