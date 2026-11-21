@@ -52,6 +52,33 @@ test('contract reverts do not retry against another provider', async () => {
   }).request({method: 'eth_call', params: [{to: wallet, data: '0x'}, 'latest']}));
   assert.deepEqual(calls, [primary]);
 });
+for (const error of [
+  {code: 3, message: 'Transaction failed'},
+  {code: -32000, message: 'Custom contract error', data: '0x08c379a0'},
+  {code: -32005, message: 'Transaction failed', data: '0x08c379a0'},
+  {code: -32000, message: 'Custom contract error', data: {data: '0x08c379a0'}},
+]) {
+  test(`generic RPC revert stays terminal ${JSON.stringify(error)}`, async () => {
+    const calls = [];
+    await assert.rejects(client(async (url, init) => {
+      calls.push(url);
+      return json({jsonrpc: '2.0', id: JSON.parse(init.body).id, error});
+    }).request({method: 'eth_call', params: [{to: wallet, data: '0x'}, 'latest']}));
+    assert.deepEqual(calls, [primary]);
+  });
+}
+test('a quota JSON-RPC envelope still recovers after HTTP status decoding', async () => {
+  const calls = [];
+  const reader = client(async (url, init) => {
+    calls.push(url);
+    const request = JSON.parse(init.body);
+    if (url === primary) return new Response(JSON.stringify({jsonrpc: '2.0', id: request.id, error: {code: -32000, message: 'Monthly capacity limit exceeded'}}), {status: 429, headers: {'content-type': 'application/json'}});
+    return json({jsonrpc: '2.0', id: request.id, result: '0x1'});
+  });
+  assert.equal(await reader.getChainId(), 1);
+  assert.equal(await reader.getChainId(), 1);
+  assert.deepEqual(calls, [primary, PUBLIC_MAINNET_RPC, PUBLIC_MAINNET_RPC]);
+});
 test('cancelled reads never contact either provider', async () => {
   const controller = new AbortController(); controller.abort();
   let calls = 0;

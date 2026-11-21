@@ -1,4 +1,4 @@
-import {BaseError, HttpRequestError, LimitExceededRpcError, TimeoutError, fallback, http} from 'viem';
+import {BaseError, ExecutionRevertedError, HttpRequestError, LimitExceededRpcError, TimeoutError, fallback, http} from 'viem';
 
 export const PUBLIC_MAINNET_RPC = 'https://ethereum-rpc.publicnode.com';
 
@@ -32,6 +32,18 @@ export function mainnetTransport(primary, options = {}) {
           try {
             return await configured.request(args, requestOptions);
           } catch (error) {
+            const reverted = error instanceof BaseError && error.walk(cause => {
+              const data = typeof cause?.data === 'string' ? cause.data : cause?.data?.data;
+              return cause?.code === 3 || typeof data === 'string' && /^0x[0-9a-fA-F]{8,}$/.test(data);
+            });
+            if (reverted) {
+              // Viem's default fallback matches revert wording. Supply the
+              // standard code and wording even for generic/custom RPC errors.
+              throw Object.assign(new ExecutionRevertedError({cause: error}), {
+                code: ExecutionRevertedError.code,
+                message: 'execution reverted',
+              });
+            }
             const unavailable = error instanceof BaseError && error.walk(cause =>
               cause instanceof HttpRequestError || cause instanceof TimeoutError || cause instanceof LimitExceededRpcError);
             if (unavailable instanceof HttpRequestError || unavailable instanceof TimeoutError || unavailable instanceof LimitExceededRpcError) {
