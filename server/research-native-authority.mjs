@@ -1,4 +1,5 @@
-import {createPublicClient,http,keccak256,toBytes,parseAbi} from 'viem';
+import {mainnetTransport} from '../shared/mainnet-rpc.mjs';
+import {createPublicClient,keccak256,toBytes,parseAbi} from 'viem';
 import {mainnet} from 'viem/chains';
 import deployment from '../src/lib/constants/research-deployment.json' with {type:'json'};
 import membershipAbi from '../src/lib/constants/membership.abi.json' with {type:'json'};
@@ -46,7 +47,7 @@ export async function readResearchCredentials(wallet,{client,env=process.env,now
  const base={wallet,chainId:1,registry:deployment.addresses.credentialProxy,membership:deployment.addresses.proxy,actions:[],credentials:[],checkedAt:now};
  if(!/^0x[a-f0-9]{40}$/i.test(wallet||''))return {...base,status:'wallet-required'};
  try{
-  if(!client){const url=env.RESEARCH_RPC_URL||env.MAINNET_RPC_URL||env.ETHEREUM_RPC_URL||'https://ethereum-rpc.publicnode.com';assert(url);client=createPublicClient({chain:mainnet,transport:http(url,{batch:true,timeout:5000,retryCount:0,fetchOptions:{signal:AbortSignal.timeout(15000)}})});}
+  if(!client)client=createPublicClient({chain:mainnet,transport:mainnetTransport(env.RESEARCH_RPC_URL||env.MAINNET_RPC_URL||env.ETHEREUM_RPC_URL,{fetchOptions:{signal:AbortSignal.timeout(15000)}})});
   const [finalized,block]=await Promise.all([client.getBlock({blockTag:'finalized'}),client.getBlock({blockTag:'latest'})]);
   assert(finalized.number>=BigInt(deployment.upgradeVerifiedBlock||deployment.deploymentBlock)&&finalized.number<=block.number);
   assert(Math.abs(now-Number(block.timestamp)*1000)<=60000);

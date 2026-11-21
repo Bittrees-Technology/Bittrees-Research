@@ -1,4 +1,5 @@
-import { BaseError, HttpRequestError, TimeoutError, createPublicClient, http, type Abi, type Address } from 'viem';
+import { mainnetTransport } from '../../shared/mainnet-rpc.mjs';
+import { BaseError, HttpRequestError, TimeoutError, createPublicClient, type Abi, type Address } from 'viem';
 import { mainnet } from 'viem/chains';
 import membershipAbi from '@/lib/constants/membership.abi.json';
 import type { MembershipToken } from './membershipVerification';
@@ -20,12 +21,15 @@ export function readMembership(owner: Address, contract: Address, signal: AbortS
   return boundedMembershipRead(async (checkDeadline, readSignal) => {
     const check = () => { checkDeadline(); checkSession(); };
     check();
-    const client = createPublicClient({ chain: mainnet, transport: http(import.meta.env.VITE_MAINNET_RPC_URL || undefined, { timeout: 8_000, retryCount: 0, fetchOptions: { signal: readSignal } }) });
+    const client = createPublicClient({ chain: mainnet, transport: mainnetTransport(import.meta.env.VITE_MAINNET_RPC_URL, { fetchOptions: { signal: readSignal } }) });
     const chainRead = async <T>(read: () => Promise<T>) => {
       try { const value = await read(); check(); return value; }
       catch (error) { check(); throw chainFailure(error); }
     };
-    const blockNumber = await chainRead(() => client.getBlockNumber());
+    if (await chainRead(() => client.getChainId()) !== 1) throw new MembershipReadError('Ethereum mainnet is required.');
+    const block = await chainRead(() => client.getBlock({ blockTag: 'latest' }));
+    if (Math.abs(Date.now() - Number(block.timestamp) * 1000) > 60_000) throw new MembershipReadError('Current membership evidence is unavailable.', true);
+    const blockNumber = block.number;
     const blocked = await chainRead(() => client.readContract({ address: contract, abi: membershipAbi as Abi, functionName: 'blockedWallets', args: [owner], blockNumber }));
     if (blocked !== false) throw new MembershipReadError('This wallet is blocked from Research membership.');
     const last = await chainRead(() => client.readContract({ address: contract, abi: membershipAbi as Abi, functionName: 'lastTokenId', blockNumber })) as bigint;
@@ -47,6 +51,8 @@ export function readMembership(owner: Address, contract: Address, signal: AbortS
         if (balance > 0n) currentTokens.push({ tokenId: batchIds[i].toString(), version: 'v2', expiresAt: Number(expiry), isExpired: expiry <= BigInt(Math.floor(Date.now()/1000)), active, revoked });
       }
     }
+    const canonical = await chainRead(() => client.getBlock({ blockNumber }));
+    if (canonical.hash !== block.hash || Math.abs(Date.now() - Number(block.timestamp) * 1000) > 60_000) throw new MembershipReadError('Membership evidence changed. Please try again.', true);
     return currentTokens;
   }, signal);
 }

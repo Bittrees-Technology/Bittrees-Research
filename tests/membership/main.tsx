@@ -1,4 +1,6 @@
 import {QueryClient,QueryClientProvider} from '@tanstack/react-query';
+// Scan the real reader at startup so lazy test imports cannot trigger a Vite reload.
+import '../../src/lib/membershipReader';
 import {ResearchCredentialRoles} from '../../src/components/ResearchCredentialRoles';
 import '../../src/index.css';
 import React from 'react';

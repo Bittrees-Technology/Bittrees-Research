@@ -1,5 +1,6 @@
+import {mainnetTransport} from '../../shared/mainnet-rpc.mjs';
 import {createHmac} from 'node:crypto';
-import {createPublicClient,http} from 'viem';
+import {createPublicClient} from 'viem';
 import {mainnet} from 'viem/chains';
 import {contributorStore} from './storage.mjs';
 import {contributorAuth} from './auth.mjs';
@@ -15,6 +16,6 @@ export function contributorWalletAuth({command,codec,project,origin,env,send,ver
    if(identities.length>1)throw Object.assign(Error('This wallet needs account reconciliation. Contact a Partner.'),{status:409});
    return identities[0]||'wallet:'+createHmac('sha256',env.CONTRIBUTOR_IDENTITY_SECRET).update(wallet).digest('hex');
   },
-  verifyWallet:verifyWallet||((args)=>createPublicClient({chain:mainnet,transport:http(env.ETHEREUM_RPC_URL||'https://ethereum-rpc.publicnode.com',{timeout:8000,retryCount:0})}).verifyMessage(args))
+  verifyWallet:verifyWallet||((args)=>createPublicClient({chain:mainnet,transport:mainnetTransport(env.ETHEREUM_RPC_URL,{fetchOptions:{signal:AbortSignal.timeout(15000)}})}).verifyMessage(args))
  });
 }

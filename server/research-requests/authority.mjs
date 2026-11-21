@@ -1,10 +1,11 @@
-import {createPublicClient,http} from 'viem';
+import {mainnetTransport} from '../../shared/mainnet-rpc.mjs';
+import {createPublicClient} from 'viem';
 import {mainnet} from 'viem/chains';
 import abi from '../../src/lib/constants/membership.abi.json' with {type:'json'};
 import {deployment,verifyResearchDeployment,readResearchCredentials,RESEARCHER_TYPE} from '../research-native-authority.mjs';
 export async function requestEligibility(wallet,{client,env=process.env,native=readResearchCredentials,manifest=deployment}={}){
  if(!/^0x[a-f0-9]{40}$/i.test(wallet||''))throw Error('Verified wallet required');
- client||=createPublicClient({chain:mainnet,transport:http(env.RESEARCH_RPC_URL||env.MAINNET_RPC_URL||env.ETHEREUM_RPC_URL||'https://ethereum-rpc.publicnode.com',{batch:true,timeout:5000,retryCount:0,fetchOptions:{signal:AbortSignal.timeout(15000)}})});
+ client||=createPublicClient({chain:mainnet,transport:mainnetTransport(env.RESEARCH_RPC_URL||env.MAINNET_RPC_URL||env.ETHEREUM_RPC_URL,{fetchOptions:{signal:AbortSignal.timeout(15000)}})});
  const block=await client.getBlock({blockTag:'latest'}),now=Date.now();if(Math.abs(now-Number(block.timestamp)*1000)>60000)throw Error('Stale membership evidence');
  await verifyResearchDeployment(client,block.number,manifest);
  const address=deployment.addresses.proxy,read=(functionName,args=[])=>client.readContract({address,abi,functionName,args,blockNumber:block.number});

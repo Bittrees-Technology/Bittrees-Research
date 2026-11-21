@@ -1,3 +1,4 @@
+import { mainnetTransport } from '../../shared/mainnet-rpc.mjs';
 import { http } from "wagmi";
 import type { Chain } from "viem";
 import { getDefaultConfig } from "@rainbow-me/rainbowkit";
@@ -19,7 +20,7 @@ const FALLBACK_PROJECT_ID = "8971e0de563ab27ccfff96c91ac1c3c3";
 const rawProjectId = (import.meta.env.VITE_WALLETCONNECT_PROJECT_ID as string | undefined)?.trim();
 const projectId = rawProjectId || FALLBACK_PROJECT_ID;
 
-// Optional dedicated mainnet RPC; falls back to the public default transport.
+// Dedicated mainnet RPC with bounded public failover for provider outages.
 const mainnetRpc = import.meta.env.VITE_MAINNET_RPC_URL as string | undefined;
 const httpConfig = { batch: true } as const;
 
@@ -39,7 +40,7 @@ export const wagmiConfig = getDefaultConfig({
   transports: Object.fromEntries(
     WALLET_CHAINS.map((c) => [
       c.id,
-      c.id === 1 && mainnetRpc ? http(mainnetRpc, httpConfig) : http(undefined, httpConfig),
+      c.id === 1 ? mainnetTransport(mainnetRpc) : http(undefined, httpConfig),
     ])
   ),
   ssr: false,

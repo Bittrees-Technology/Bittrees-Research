@@ -5,7 +5,7 @@ const contract = '0xcecd807193cf79b59e9c849b9cccba10dd6f8335';
 const legacy = '0xc8121e650bd797d8b9dad00227a9a77ef603a84a';
 // Production may use a dedicated RPC. Intercept its observed origin explicitly;
 // do not print keys/paths or allow any wallet/network write through this fixture.
-const rpcOrigin = process.env.RESEARCH_MEMBERSHIP_RPC_ORIGIN || 'https://eth.merkle.io';
+const rpcOrigin = process.env.RESEARCH_MEMBERSHIP_RPC_ORIGIN || 'https://ethereum-rpc.publicnode.com';
 const rpcUrl = new URL(rpcOrigin);
 if (rpcUrl.protocol !== 'https:' || rpcUrl.origin !== rpcOrigin) throw Error('Membership test RPC must be an explicit HTTPS origin without credentials or a path.');
 const abi = parseAbi(['function isActiveMember(address,uint256) view returns(bool)', 'function revokedMemberships(uint256) view returns(bool)', 'function bitPricePerDay() view returns(uint256)','function blockedWallets(address) view returns(bool)', 'function lastTokenId() view returns(uint256)', 'function balanceOf(address,uint256) view returns (uint256)', 'function isExpired(uint256) view returns (bool)', 'function expirationTimestamps(uint256) view returns (uint256)', 'function mintPrice() view returns (uint256)', 'function expirationTimeframe() view returns (uint256)', 'function mintMembership(address) payable returns (uint256)']);
@@ -33,16 +33,17 @@ export async function setup(browser: Browser, baseURL: string, initial: Mode, ca
       if (mode === 'hang') await held;
       return route.fulfill({ json: { ownedNfts: mode.startsWith('v2-') || mode === 'empty' || requestedOwner === other ? [] : (mode==='renewed'?['0x01','0x02']:['0x01']).map(tokenId=>({ contract:{address:legacy}, id:{tokenId,tokenMetadata:{tokenType:'ERC1155'}},title:'Synthetic membership',media:[],balance:'1'})), totalCount: 1, ...(mode === 'loop' ? { pageKey: 'repeated' } : {}) } });
     }
-    if (url.origin === rpcOrigin && request.method() === 'POST') {
+    if ([rpcOrigin, 'https://ethereum-rpc.publicnode.com'].includes(url.origin) && request.method() === 'POST') {
       const input = request.postDataJSON();
       const requests = Array.isArray(input) ? input : [input];
-      if(requests.some(rpc=>rpc.method==='eth_blockNumber')) {
+      const verificationBlock = requests.some(rpc=>rpc.method==='eth_blockNumber'||rpc.method==='eth_getBlockByNumber'&&rpc.params[0]==='latest');
+      if(verificationBlock) {
         checks++;
         if(mode==='unavailable' || (mode==='transient' && checks===1))return route.fulfill({status:503,body:'Temporary outage'});
         if(mode==='denied')return route.fulfill({status:403,body:'secret provider details must not be displayed'});
         if(mode==='hang')await held;
       }
-      const failBlock = mode === 'rpc-transient' && requests.some(rpc => rpc.method === 'eth_blockNumber');
+      const failBlock = mode === 'rpc-transient' && verificationBlock;
       const failCall = mode === 'call-transient' && requests.some(rpc => {
         try {
           const decoded = decodeFunctionData({ abi: multicall3Abi, data: rpc.params[0].data });
@@ -54,11 +55,13 @@ export async function setup(browser: Browser, baseURL: string, initial: Mode, ca
         rpcFailures++;
         return route.fulfill({ status: 503, body: 'Temporary outage' });
       }
+      const timestamp = Math.floor((clock ? await request.frame().evaluate(()=>Date.now()) : Date.now())/1000);
       const respond = (rpc: any) => {
         if (rpc.method === 'eth_blockNumber') return { jsonrpc: '2.0', id: rpc.id, result: block() };
         const success=(result:any)=>({jsonrpc:'2.0',id:rpc.id,result});
         const unavailable=()=>({jsonrpc:'2.0',id:rpc.id,error:{code:-32000,message:'Unrelated read unavailable'}});
-        if(mint && rpc.method==='eth_chainId') return success('0x1');
+        if(rpc.method==='eth_chainId') return success('0x1');
+        if(rpc.method==='eth_getBlockByNumber') return success({number:block(),hash:`0x${'4'.repeat(64)}`,timestamp:'0x'+timestamp.toString(16)});
         if(mint && rpc.method==='eth_getTransactionReceipt') {
           expect(rpc.params[0]).toBe(mintHash);receiptReads++;
           return success(receiptReady?{transactionHash:mintHash,transactionIndex:'0x0',blockHash:`0x${'4'.repeat(64)}`,blockNumber:block(),from:owner,to:contract,cumulativeGasUsed:'0x5208',gasUsed:'0x5208',effectiveGasPrice:'0x1',contractAddress:null,logs:[],logsBloom:`0x${'0'.repeat(512)}`,status:'0x1',type:'0x2'}:null);
