@@ -69,7 +69,7 @@ for (const scenario of ['active', 'primary timeout', 'blocked', 'revoked', 'expi
       catch (error) {return {unavailable: true, error: String(error)};}
     }, {source, owner, membership});
     expect(primaryCalls).toBe(1);
-    expect(publicCalls).toBeGreaterThan(0);
+    expect(publicCalls, JSON.stringify(result)).toBeGreaterThan(0);
     if (['blocked', 'wrong chain', 'stale', 'reorg', 'outage'].includes(scenario)) expect(result).toMatchObject({unavailable: true});
     else {
       expect(result, JSON.stringify(result)).toHaveProperty('tokens');
