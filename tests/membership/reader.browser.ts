@@ -7,12 +7,13 @@ const owner = '0x1111111111111111111111111111111111111111';
 const membership = '0xCecD807193Cf79B59e9C849b9CCCbA10DD6f8335';
 const source = '/@fs' + fileURLToPath(new URL('../../src/lib/membershipReader.ts', import.meta.url));
 
-for (const scenario of ['active', 'blocked', 'revoked', 'expired', 'wrong chain', 'stale', 'reorg', 'outage']) {
+for (const scenario of ['active', 'primary timeout', 'blocked', 'revoked', 'expired', 'wrong chain', 'stale', 'reorg', 'outage']) {
   test(`membership reader survives a primary quota limit with ${scenario} evidence`, async ({page}) => {
     let primaryCalls = 0, publicCalls = 0, blocks = 0;
     const now = Math.floor(Date.now() / 1000);
     await page.route('https://membership-primary.invalid/rpc', async route => {
       primaryCalls++;
+      if (scenario === 'primary timeout') return;
       await route.fulfill({status: 429, body: 'Quota exhausted'});
     });
     const value = (functionName: string) => {
@@ -73,7 +74,7 @@ for (const scenario of ['active', 'blocked', 'revoked', 'expired', 'wrong chain'
     else {
       expect(result, JSON.stringify(result)).toHaveProperty('tokens');
       expect(result.tokens).toHaveLength(1);
-      expect(result.tokens[0].active).toBe(scenario === 'active');
+      expect(result.tokens[0].active).toBe(['active', 'primary timeout'].includes(scenario));
       expect(result.tokens[0].revoked).toBe(scenario === 'revoked');
       expect(result.tokens[0].isExpired).toBe(scenario === 'expired');
     }

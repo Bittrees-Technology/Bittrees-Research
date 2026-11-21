@@ -58,6 +58,28 @@ test('cancelled reads never contact either provider', async () => {
   await assert.rejects(client(async () => {calls++; return json({result: '0x1'});}, {fetchOptions: {signal: controller.signal}}).getChainId());
   assert.equal(calls, 0);
 });
+test('a caller cancellation signal preserves the per-provider timeout and fallback budget', async () => {
+  const calls = [], controller = new AbortController();
+  const reader = client(async (url, init) => {
+    calls.push(url);
+    if (url === primary) return new Promise((_, reject) => init.signal.addEventListener('abort', () => reject(init.signal.reason), {once: true}));
+    return json({jsonrpc: '2.0', id: JSON.parse(init.body).id, result: '0x1'});
+  }, {timeout: 20, fetchOptions: {signal: controller.signal}});
+  assert.equal(await reader.getChainId(), 1);
+  assert.equal(controller.signal.aborted, false);
+  assert.deepEqual(calls, [primary, PUBLIC_MAINNET_RPC]);
+});
+test('cancellation during a stalled request prevents contacting the fallback', async () => {
+  const calls = [], controller = new AbortController();
+  const reader = client(async (url, init) => {
+    calls.push(url);
+    controller.abort();
+    assert.equal(init.signal.aborted, true);
+    throw init.signal.reason;
+  }, {fetchOptions: {signal: controller.signal}});
+  await assert.rejects(reader.getChainId());
+  assert.deepEqual(calls, [primary]);
+});
 test('public default is deduplicated and a healthy primary is retried after cooldown', async () => {
   const calls = [];
   const now = Date.now;
