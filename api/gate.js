@@ -1,6 +1,7 @@
+import {mainnetTransport} from '../shared/mainnet-rpc.mjs';
 import {MEMBERSHIP,LEGACY,researchMembershipBalance} from '../server/research-membership.mjs';
 import {ecosystemAccess} from '../server/ecosystem-client.mjs';
-import { createPublicClient, http, getAddress, parseUnits } from "viem";
+import { createPublicClient, getAddress, parseUnits } from "viem";
 import { mainnet } from "viem/chains";
 import { normalize } from "viem/ens";
 
@@ -76,7 +77,7 @@ function hasAssignedRole(roles, user, role) {
 const SAFE_ABI = [
   { name: "getOwners", type: "function", stateMutability: "view", inputs: [], outputs: [{ type: "address[]" }] },
 ];
-const client = createPublicClient({ chain: mainnet, transport: http(RPC) });
+const client = createPublicClient({ chain: mainnet, transport: mainnetTransport(RPC) });
 
 async function safeOwners(safe) {
   try {

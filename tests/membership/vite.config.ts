@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { fileURLToPath } from 'node:url';
 const path = (name: string) => fileURLToPath(new URL(name, import.meta.url));
-export default defineConfig({ root: path('.'), plugins: [react(), tailwindcss()], resolve: { alias: [
+export default defineConfig({ root: path('.'), plugins: [react(), tailwindcss()], define: {'import.meta.env.VITE_MAINNET_RPC_URL': JSON.stringify('https://membership-primary.invalid/rpc')}, resolve: { alias: [
   { find: '@/lib/community', replacement: path('./credential-catalog.ts') },
   { find: '@/lib/researchCredentialManagement', replacement: path('./credential-management.ts') },
   { find: /^wagmi$/, replacement: path('./state.tsx') },

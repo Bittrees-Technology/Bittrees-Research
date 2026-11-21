@@ -1,7 +1,8 @@
+import {mainnetTransport} from '../shared/mainnet-rpc.mjs';
 import {authorityDecision} from "./authority-client.mjs";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { createHash } from "node:crypto";
-import { createPublicClient, http } from "viem";
+import { createPublicClient } from "viem";
 import { mainnet } from "viem/chains";
 import { actionMessage } from "../shared/signed-action.mjs";
 const context = new AsyncLocalStorage();
@@ -173,11 +174,7 @@ export function withSignedRegistry(
           (async (args) =>
             createPublicClient({
               chain: mainnet,
-              transport: http(
-                process.env.MAINNET_RPC_URL ||
-                  "https://ethereum-rpc.publicnode.com",
-                { timeout: 10000 },
-              ),
+              transport: mainnetTransport(process.env.MAINNET_RPC_URL, {fetchOptions: {signal: AbortSignal.timeout(15000)}}),
             }).verifyMessage(args));
         if (
           !(await verifier({
