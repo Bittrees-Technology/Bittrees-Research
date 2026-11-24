@@ -21,7 +21,10 @@ test('the overview is standalone public HTML with one coherent search identity a
   for(const name of ['og:description','twitter:description'])assert.equal(meta(name),meta('description'));
   assert.ok(meta('description').includes('member workspace'));
   assert.match(meta('robots'),/^index, follow/);
-  assert.ok(!/<script\b|<iframe\b|\bon\w+\s*=|id="root"|data-insights|\/api\//i.test(html),'The public page must not mount the member app or tracking');
+  const consent='<script defer src="https://insights.bittrees.org/consent.js" data-insights-site="bittrees-research-about" data-google-analytics-only="true"></script>';
+  assert.equal(html.split(consent).length,2,'The overview loads one optional analytics consent control');
+  assert.doesNotMatch(html.replace(consent,''),/<script\b|<iframe\b|\bon\w+\s*=|id="root"|data-insights|\/api\//i,
+    'The public page must not mount the member app or load another tracker');
   assert.equal([...html.matchAll(/<h1\b/g)].length,1);
   assert.match(html,/<h1 id="page-title">Bittrees Research<\/h1>/);
   assert.ok(html.includes('href="#main-content"')&&html.includes('id="main-content"'));

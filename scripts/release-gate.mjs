@@ -33,6 +33,7 @@ export const SITE_CONFIG = {
         canonical: "https://research.bittrees.org/about",
         bodyIncludes: ["<title>About Bittrees Research | Publications and Membership</title>", '<meta name="description" content="Explore Bittrees Research publications and learn how its member workspace supports research requests, collaboration and membership-linked credentials."', "Research, collaboration and credentials.", "How member research works", 'href="https://paragraph.com/@bresearch"'],
         bodyExcludes: ["<script", 'id="root"'],
+        optionalScript: '<script defer src="https://insights.bittrees.org/consent.js" data-insights-site="bittrees-research-about" data-google-analytics-only="true"></script>',
       },
       signature: [{type: "header", key: "content-type"}],
     })),
@@ -361,7 +362,8 @@ function buildAssertions(check, payload, bodyText = "", allowPreviewNoindex = fa
   // These contracts apply only to the explicitly public page/sitemap. Registry
   // probes still cancel their streams without reading any response body.
   for (const value of expect.bodyIncludes ?? []) assertions.push({kind: "public-content", pass: bodyText.includes(value), expected: value, actual: bodyText.includes(value) ? "present" : "missing", message: "approved content in complete HTML"});
-  for (const value of expect.bodyExcludes ?? []) assertions.push({kind: "public-isolation", pass: !bodyText.toLowerCase().includes(value.toLowerCase()), expected: `absent: ${value}`, actual: bodyText.toLowerCase().includes(value.toLowerCase()) ? "present" : "absent", message: "standalone public HTML"});
+  const isolatedBody = (expect.optionalScript ? bodyText.replace(expect.optionalScript, "") : bodyText).toLowerCase();
+  for (const value of expect.bodyExcludes ?? []) assertions.push({kind: "public-isolation", pass: !isolatedBody.includes(value.toLowerCase()), expected: `absent: ${value}`, actual: isolatedBody.includes(value.toLowerCase()) ? "present" : "absent", message: "standalone public HTML"});
   if (expect.canonical || expect.indexable) {
     const head = bodyText.match(/<head\b[^>]*>([\s\S]*?)<\/head>/i)?.[1] || "";
     const canonicals = [...head.matchAll(/<link\b[^>]*>/gi)].map(([tag]) => tag).filter(tag => attribute(tag, "rel").toLowerCase() === "canonical").map(tag => attribute(tag, "href"));
